@@ -1,0 +1,30 @@
+<h3 class="mb-3">Dashboard</h3>
+  <div class="row g-3">
+    <div class="col-md-3" *ngFor="let c of cards">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="text-muted small">{{ c.label }}</div>
+          <div class="fs-3 fw-bold">{{ c.value }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+   <div class="card shadow-sm mt-4">
+    <div class="card-header">Today’s Bookings</div>
+    <div class="card-body p-0">
+      <div *ngIf="todayBookings.length === 0" class="p-3 text-muted">No bookings for today.</div>
+      <table *ngIf="todayBookings.length>0" class="table table-sm mb-0">
+        <thead class="table-light">
+          <tr><th>Customer</th><th>Vehicle</th><th>Status</th><th>Time</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let b of todayBookings">
+            <td>{{ b.customer?.name }}</td>
+            <td>{{ b.vehicle?.plate }}</td>
+            <td><span class="badge bg-secondary">{{ b.status }}</span></td>
+            <td>{{ b.assigned?.start?.toDate() | date:'shortTime' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>

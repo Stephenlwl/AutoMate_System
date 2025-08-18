@@ -1,0 +1,68 @@
+<div class="container py-4">
+  <h2 class="mb-3">Manage Payments (On-hold)</h2>
+  <p class="text-muted">Payments stay on-hold until car owner confirms. After {{7}} days without action, system auto-confirms.</p>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>Payment ID</th>
+          <th>Car Owner</th>
+          <th>Service Center</th>
+          <th>Amount (RM)</th>
+          <th>Proof</th>
+          <th>Created</th>
+          <th>Days Left</th>
+          <th class="text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let p of payments">
+          <td><small class="text-muted">{{ p.id }}</small></td>
+          <td>{{ p.carOwnerName }}</td>
+          <td>{{ p.serviceCenterName }}</td>
+          <td class="fw-semibold">RM {{ p.amount | number:'1.2-2' }}</td>
+          <td>
+            <button *ngIf="p.proofUrl" class="btn btn-sm btn-outline-primary" (click)="openPreview(p.proofUrl)">View</button>
+            <span *ngIf="!p.proofUrl" class="text-muted small">No proof</span>
+          </td>
+          <td>
+            <small class="text-muted">{{ p.createdAtDate | date:'mediumDate' }}</small>
+          </td>
+          <td>
+            <span *ngIf="(p.daysLeft ?? 0) > 0" class="badge bg-info text-dark">{{ p.daysLeft }} day(s)</span>
+            <span *ngIf="(p.daysLeft ?? 0) <= 0" class="badge bg-danger">Due</span>
+          </td>
+          <td class="text-end">
+            <div class="btn-group" role="group" aria-label="actions">
+              <button class="btn btn-sm btn-success" (click)="confirmPayment(p)">Confirm</button>
+              <button class="btn btn-sm btn-primary" (click)="releasePayment(p)">Release</button>
+              <button class="btn btn-sm btn-warning" (click)="extendHold(p, 3)">Extend +3d</button>
+              <button class="btn btn-sm btn-danger" (click)="rejectPayment(p)">Reject</button>
+            </div>
+          </td>
+        </tr>
+
+        <tr *ngIf="payments.length === 0">
+          <td colspan="8" class="text-center text-muted">No on-hold payments found.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Proof Preview Modal (Bootstrap) -->
+<div class="modal fade" id="proofPreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Proof Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img [src]="previewUrl" class="img-fluid rounded" alt="Proof" *ngIf="previewUrl">
+        <p *ngIf="!previewUrl" class="text-muted">No image to display.</p>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,338 @@
+<div class="container-fluid p-4 d-flex justify-content-center align-items-center min-vh-100 bg-light">
+    <div class="card shadow-lg p-5 w-100" style="max-width: 850px; border-radius: 18px;">
+        <div class="text-center mb-4">
+            <img src="../logo.png" alt="AutoMate Logo" height="120" />
+            <h2 class="fw-bold mt-2">Service Center Admin Registration</h2>
+            <p class="text-muted">Step {{ step }} of {{ maxSteps }}</p>
+            <div class="progress" style="height: 8px; border-radius: 5px;">
+                <div class="progress-bar bg-warning" role="progressbar" [style.width.%]="(step / maxSteps) * 100"></div>
+            </div>
+        </div>
+
+        <!-- nav to login -->
+        <div class="mt-1 text-end">
+            <span class="text-muted">Already have an Account?</span>
+            <button type="button" class="btn btn-link text-decoration-none fw-semibold ms-1" style="color: #FF6B00;"
+                [routerLink]="'/serviceCenter/login'">
+                Login Now!
+            </button>
+        </div>
+        <hr>
+
+        <form [formGroup]="form" (ngSubmit)="submit()">
+
+            <!-- Step 1: Admin Information -->
+            <div *ngIf="step === 1" class="p-3 bg-light rounded shadow-sm">
+                <h4 class="mb-3 text-primary fw-semibold">
+                    <i class="bi bi-person-badge me-2"></i> Admin Information
+                </h4>
+                <p class="text-muted small mb-4">
+                    Please enter your personal details as the service center administrator.
+                </p>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Full Name as Per IC *</label>
+                    <input formControlName="adminName" class="form-control" placeholder="Steven Lim"
+                        [ngClass]="{'is-invalid': form.get('adminName')?.invalid && form.get('adminName')?.touched, 'is-valid': form.get('adminName')?.valid && form.get('adminName')?.touched}"
+                        required>
+                    <div *ngIf="form.get('adminName')?.invalid && form.get('adminName')?.touched" class="text-error">
+                        Full name is required.
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Email *</label>
+                    <div class="input-group">
+                        <input formControlName="email" type="email" class="form-control" placeholder="steven@example.com" [readOnly]="otpCountdown > 0 || isEmailVerified"
+                            [ngClass]="{'is-invalid': form.get('email')?.invalid && form.get('email')?.touched, 'is-valid': form.get('email')?.valid && form.get('email')?.touched}">
+                        <button class="btn btn-outline-primary" type="button" (click)="sendOtp()"
+                            [disabled]="otpLoading || isEmailVerified || otpCountdown > 0">
+                            <span *ngIf="otpLoading" class="spinner-border spinner-border-sm me-1"></span>{{otpLoading ?
+                            "Sending..." : ""}}
+                            <span *ngIf="!otpLoading && otpCountdown === 0">Send OTP</span>
+                            <span *ngIf="otpCountdown > 0">{{ otpCountdown }}s</span>
+                        </button>
+                    </div>
+                    <div *ngIf="form.get('email')?.errors?.['required']" class="invalid-feedback">
+                        Email is required.
+                    </div>
+
+                </div>
+                <!-- OTP Input -->
+                <div class="input-group mb-2" *ngIf="otpSent && !isEmailVerified">
+                    <input formControlName="otp" type="text" maxlength="6" class="form-control" placeholder="Enter OTP">
+                    <button class="btn btn-success" type="button" (click)="verifyOtp()" [disabled]="verifyLoading">
+                        <span *ngIf="verifyLoading" class="spinner-border spinner-border-sm me-1"></span>
+                        {{ verifyLoading ? 'Verifying...' : 'Verify' }}
+                    </button>
+                </div>
+
+                <div *ngIf="isEmailVerified" class="text-success small mt-1">Email verified &#10004;</div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Phone *</label>
+                    <input formControlName="phone" class="form-control" placeholder="60XXXXXXXXX"
+                        [ngClass]="{'is-invalid': form.get('phone')?.invalid && form.get('phone')?.touched, 'is-valid': form.get('phone')?.valid && form.get('phone')?.touched}">
+                    <div class="invalid-feedback">Valid phone number is required.</div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Password *</label>
+                        <input formControlName="password" type="password" class="form-control" placeholder="********"
+                            [ngClass]="{'is-invalid': form.get('password')?.invalid && form.get('password')?.touched, 'is-valid': form.get('password')?.valid && form.get('password')?.touched}">
+                        <div *ngIf="form.get('password')?.errors?.['required']" class="invalid-feedback">
+                            Password is required.
+                        </div>
+                        <div *ngIf="form.get('password')?.errors?.['pattern']" class="invalid-feedback">
+                            Must be at least 8 characters, contain letters and numbers.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">Confirm Password *</label>
+                        <input formControlName="confirmPassword" type="password" class="form-control"
+                            placeholder="********"
+                            [ngClass]="{'is-invalid': form.get('confirmPassword')?.invalid && form.get('confirmPassword')?.touched, 'is-valid': form.get('confirmPassword')?.valid && form.get('confirmPassword')?.touched}">
+                        <div *ngIf="form.errors?.['passwordMismatch'] && form.get('confirmPassword')?.touched"
+                            class="invalid-feedback">
+                            Passwords do not match.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Workshop Details -->
+            <div *ngIf="step === 2" class="p-3 bg-light rounded shadow-sm">
+                <h4 class="mb-3 text-primary fw-semibold">
+                    <i class="bi bi-building-gear me-2"></i> Workshop Details
+                </h4>
+                <p class="text-muted small mb-4">
+                    Provide accurate information about your workshop for customer reference.
+                </p>
+
+                <!-- Workshop Name -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Workshop Name *</label>
+                    <input formControlName="workshopName" type="text" class="form-control" placeholder="ABC Auto Repair"
+                        [ngClass]="{'is-invalid': form.get('workshopName')?.invalid && form.get('workshopName')?.touched,
+                  'is-valid': form.get('workshopName')?.valid && form.get('workshopName')?.touched}">
+                    <div class="invalid-feedback">Workshop name is required.</div>
+                </div>
+
+                <!-- SSM Registration -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">SSM Registration No *</label>
+                    <input formControlName="registrationNumber" type="text" class="form-control" placeholder="1234567-A"
+                        [ngClass]="{'is-invalid': form.get('registrationNumber')?.invalid && form.get('registrationNumber')?.touched,
+                  'is-valid': form.get('registrationNumber')?.valid && form.get('registrationNumber')?.touched}">
+                    <div *ngIf="form.get('registrationNumber')?.errors?.['required']" class="invalid-feedback">
+                        SSM Registration Number is required.
+                    </div>
+                    <div *ngIf="form.get('registrationNumber')?.errors?.['pattern']" class="invalid-feedback">
+                        Must be 12 digits.
+                    </div>
+                </div>
+
+                <!-- Address Line 1 -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Address Line 1 *</label>
+                    <input formControlName="addressLine1" class="form-control" placeholder="Lot 123, Jalan Example"
+                        [ngClass]="{'is-invalid': form.get('addressLine1')?.invalid && form.get('addressLine1')?.touched,
+                  'is-valid': form.get('addressLine1')?.valid && form.get('addressLine1')?.touched}">
+                    <div class="invalid-feedback">Address Line 1 is required.</div>
+                </div>
+
+                <!-- Address Line 2 -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Address Line 2</label>
+                    <input formControlName="addressLine2" class="form-control" placeholder="Taman Example">
+                </div>
+
+                <!-- State -->
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">State *</label>
+                        <select formControlName="state" class="form-control" [ngClass]="{'is-invalid': form.get('state')?.invalid && form.get('state')?.touched,
+                    'is-valid': form.get('state')?.valid && form.get('state')?.touched}"
+                            (change)="onStateChange($event)">
+                            <option value="">Select State</option>
+                            <option *ngFor="let s of malaysiaStates" [value]="s">{{ s }}</option>
+                        </select>
+                        <div class="invalid-feedback">State is required.</div>
+                    </div>
+
+                    <!-- City -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">City *</label>
+                        <select formControlName="city" class="form-control" [ngClass]="{'is-invalid': form.get('city')?.invalid && form.get('city')?.touched,
+                    'is-valid': form.get('city')?.valid && form.get('city')?.touched}" (change)="onCityChange($event)">
+                            <option value="">Select City</option>
+                            <option *ngFor="let c of malaysiaCities" [value]="c">{{ c }}</option>
+                        </select>
+                        <div class="invalid-feedback">City is required.</div>
+                    </div>
+                </div>
+
+                <!-- Postal Code -->
+                <div class="mt-3">
+                    <label class="form-label fw-semibold">Postal Code *</label>
+                    <input formControlName="postalCode" type="text" class="form-control" placeholder="00000" [ngClass]="{'is-invalid': form.get('postalCode')?.invalid && form.get('postalCode')?.touched,
+                  'is-valid': form.get('postalCode')?.valid && form.get('postalCode')?.touched}">
+                    <div class="invalid-feedback">Postal code is required.</div>
+                </div>
+            </div>
+
+            <!-- Step 3: Services Offered -->
+            <!-- <div *ngIf="step === 3" class="p-3 bg-light rounded shadow-sm">
+                <h4 class="mb-3 text-primary fw-semibold">
+                    <i class="bi bi-tools me-2"></i> Services Offered
+                </h4>
+                <p class="text-muted small mb-4">
+                    Select the services your workshop provides. You can add custom services if they are not listed.
+                </p> -->
+
+                <!-- Service Buttons -->
+                <!-- <div class="mb-3">
+                    <div class="d-flex flex-wrap">
+                        <button *ngFor="let service of predefinedServices" type="button"
+                            class="btn btn-outline-primary m-1" [class.active]="servicesArray.value.includes(service)"
+                            (click)="toggleService(service)">
+                            {{ service }}
+                        </button>
+                    </div>
+                    <div *ngIf="form.get('services')?.invalid && form.get('services')?.touched"
+                        class="text-danger small mt-1">
+                        Please select at least one service.
+                    </div>
+                </div>
+            </div> -->
+
+            <!-- Step 3 -->
+            <div *ngIf="step === 3" [formGroup]="form" class="p-3 bg-light rounded shadow-sm">
+                <h4 class="mb-3 text-primary fw-semibold">
+                    <i class="bi bi-clock-history me-2"></i> Operating Hours
+                </h4>
+                <p class="text-muted small mb-4">
+                    Set the opening and closing times for each day. Mark as <strong>Closed</strong> if the workshop is
+                    not operating on that day.
+                </p>
+
+                <div formArrayName="operatingHours" class="border rounded p-3 bg-white">
+                    <div *ngFor="let day of operatingHoursArray.controls; let i = index" [formGroupName]="i"
+                        class="d-flex align-items-center mb-3 border-bottom pb-2">
+
+                        <!-- Day Label -->
+                        <div class="fw-semibold" style="width: 120px;">
+                            <i class="bi bi-calendar3 me-1 text-secondary"></i>
+                            {{ day.get('day')?.value }}
+                        </div>
+
+                        <!-- Closed Checkbox -->
+                        <div class="form-check me-3">
+                            <input type="checkbox" class="form-check-input" formControlName="isClosed"
+                                id="closed-{{i}}">
+                            <label class="form-check-label small text-muted" for="closed-{{i}}">Closed</label>
+                        </div>
+
+                        <!-- Time Pickers -->
+                        <div class="d-flex align-items-center flex-grow-1 gap-2">
+                            <input type="time" class="form-control" formControlName="open"
+                                [disabled]="day.get('isClosed')?.value" [ngClass]="{'is-invalid': day.get('open')?.invalid && day.get('open')?.touched,
+                      'is-valid': day.get('open')?.valid && day.get('open')?.touched}" style="max-width: 150px;">
+                            <span class="text-muted small">to</span>
+                            <input type="time" class="form-control" formControlName="close"
+                                [disabled]="day.get('isClosed')?.value" [ngClass]="{'is-invalid': day.get('close')?.invalid && day.get('close')?.touched,
+                      'is-valid': day.get('close')?.valid && day.get('close')?.touched}" style="max-width: 150px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div *ngIf="operatingHoursArray.invalid && (operatingHoursArray.touched || operatingHoursArray.dirty)"
+                    class="text-danger small mt-2">
+                    Please ensure all days have valid times unless marked closed.
+                </div>
+
+                <br>
+                <div class="text-muted small mt-2">
+                    <i class="bi bi-info-circle-fill me-1"></i>
+                    Please ensure the operating hours are accurate to avoid customer confusion.
+                </div>
+                <div class="text-muted small mt-2">
+                    <i class="bi bi-info-circle-fill me-1"></i>
+                    You can edit these details later in your service center profile.
+                </div>
+            </div>
+
+            <!-- Step 4: Documents & Extras -->
+            <div *ngIf="step === 4" class="p-3 bg-light rounded shadow-sm">
+                <h4 class="mb-3 text-primary fw-semibold">
+                    <i class="bi bi-file-earmark-text me-2"></i> Documents & Extras
+                </h4>
+                <p class="text-muted small mb-4">
+                    Please upload all required documents. Supported formats: <strong>JPG, PNG, PDF</strong>.
+                </p>
+
+                <!-- Document Uploads -->
+                <div *ngFor="let doc of documentFields" class="mb-4">
+                    <label class="form-label fw-semibold">{{ doc.label }}</label>
+                    <input type="file" [accept]="doc.accept" multiple (change)="handleFileBase64($event, doc.name)"
+                        class="form-control"
+                        [ngClass]="{'is-invalid': form.get(doc.name)?.invalid && form.get(doc.name)?.touched, 'is-valid': form.get(doc.name)?.valid && form.get(doc.name)?.touched}">
+                    <div class="invalid-feedback">{{ doc.label }} is required.</div>
+                    <!-- Success message -->
+                    <div *ngIf="form.value[doc.name]" class="text-success small mt-1">Uploaded &#10004;</div>
+
+                    <!-- Preview for Images -->
+                    <div *ngIf="form.value[doc.name]?.startsWith('data:image/')">
+                        <img [src]="form.value[doc.name]" [alt]="doc.label" class="img-thumbnail mt-2"
+                            style="max-width: 120px; max-height: 120px;">
+                    </div>
+                </div>
+
+                <!-- <div class="mb-3">
+                    <p class="fw-semibold">Do you offer towing services?</p>
+                    <div class="btn-group" role="group" aria-label="Towing Offer Choice">
+                        <button type="button" class="btn" [class.btn-primary]="form.value.offersTowing"
+                            [class.btn-outline-primary]="!form.value.offersTowing" (click)="offerTowingService(true)">
+                            Yes
+                        </button>
+                        <button type="button" class="btn" [class.btn-danger]="form.value.offersTowing === false"
+                            [class.btn-outline-danger]="form.value.offersTowing === true"
+                            (click)="offerTowingService(false)">
+                            No
+                        </button>
+                    </div>
+                </div> -->
+
+                <!-- Towing Services -->
+                <!-- <div *ngIf="form.value.offersTowing">
+                    <p class="fw-semibold">Select towing services you provide:</p>
+                    <div class="row g-3">
+                        <div class="col-6 col-md-4" *ngFor="let service of towingServiceOptions">
+                            <button type="button" class="btn btn-outline-secondary w-100 p-3"
+                                [class.active]="towingServicesArray.value.includes(service.name)"
+                                (click)="toggleTowingService(service.name)">
+                                <strong>{{ service.name }}</strong>
+                            </button>
+                        </div>
+                    </div>
+                    <div *ngIf="towingServicesArray.invalid && towingServicesArray.touched"
+                        class="text-danger small mt-2">
+                        Please select at least one towing service.
+                    </div>
+                </div> -->
+
+            </div>
+
+            <div *ngIf="errorMessage" class="alert alert-danger mt-3">{{ errorMessage }}</div>
+
+            <div class="mt-3 d-flex justify-content-between">
+                <button type="button" class="btn btn-secondary" (click)="prevStep()"
+                    [disabled]="step === 1">Previous</button>
+                <button *ngIf="step < maxSteps" type="button" class="btn btn-primary" (click)="nextStep()">Next</button>
+                <button *ngIf="step === maxSteps" type="submit" class="btn btn-success" [disabled]="loading">
+                    {{ loading ? 'Submitting...' : 'Submit Application' }}
+                </button>
+            </div>
+        </form>
+    </div>

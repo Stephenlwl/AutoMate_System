@@ -1,0 +1,48 @@
+<nav class="sidebar bg-light shadow-sm p-3">
+  <div class="d-flex justify-content-center">
+    <img src="../logo.png" alt="AutoMate Logo" height="120" />
+  </div>
+  <hr>
+  <ul class="nav flex-column">
+    <ng-container *ngFor="let item of navItems">
+
+      <li class="nav-item" *ngIf="!item.children">
+        <a [routerLink]="item.route" routerLinkActive="active" class="nav-link d-flex align-items-center gap-2">
+          <i [class]="item.icon"></i> {{ item.label }}
+        </a>
+      </li>
+
+      <!-- Dropdown menu of the Account Validation -->
+      <li class="nav-item" *ngIf="item.children">
+        <div class="nav-link d-flex justify-content-between align-items-center" (click)="toggleExpand(item.label)"
+          style="cursor: pointer;">
+          <span><i [class]="item.icon"></i> {{ item.label }}</span>
+          <i class="bi" [ngClass]="expanded[item.label] ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+        </div>
+
+        <!-- Children list -->
+        <ul class="nav flex-column ms-3" *ngIf="expanded[item.label]">
+          <ng-container *ngFor="let child of item.children">
+            <li *ngIf="!child.children" class="nav-item small">
+              <a [routerLink]="child.route" routerLinkActive="active" class="nav-link ps-4">
+                {{ child.label }}
+              </a>
+            </li>
+
+            <!-- Nested subgroup -->
+            <li *ngIf="child.children">
+              <span class="text-muted"><i [class]="child.icon"></i> {{ child.label }}</span>
+              <ul class="nav flex-column ms-3">
+                <li class="nav-item text-muted small" *ngFor="let sub of child.children">
+                  <a [routerLink]="sub.route" routerLinkActive="active" class="nav-link ps-3">
+                    {{ sub.label }}
+                  </a>
+                </li>
+              </ul>
+            </li>
+          </ng-container>
+        </ul>
+      </li>
+    </ng-container>
+  </ul>
+</nav>

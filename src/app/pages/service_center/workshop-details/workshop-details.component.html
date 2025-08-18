@@ -1,0 +1,11 @@
+<h3>Workshop Details</h3>
+  <form [formGroup]="form" class="row g-3" (ngSubmit)="save()">
+    <div class="col-md-6"><label class="form-label">Name</label><input class="form-control" formControlName="name"></div>
+    <div class="col-md-6"><label class="form-label">Registration No</label><input class="form-control" formControlName="registrationNumber"></div>
+    <div class="col-md-12"><label class="form-label">Address Line 1</label><input class="form-control" formControlName="addressLine1"></div>
+    <div class="col-md-12"><label class="form-label">Address Line 2</label><input class="form-control" formControlName="addressLine2"></div>
+    <div class="col-md-4"><label class="form-label">City</label><input class="form-control" formControlName="city"></div>
+    <div class="col-md-4"><label class="form-label">State</label><input class="form-control" formControlName="state"></div>
+    <div class="col-md-4"><label class="form-label">Postal Code</label><input class="form-control" formControlName="postalCode"></div>
+    <div class="col-12"><button class="btn btn-primary">Save</button></div>
+  </form>

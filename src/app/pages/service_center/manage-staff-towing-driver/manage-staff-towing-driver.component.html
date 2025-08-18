@@ -1,0 +1,44 @@
+  <h3>Staff & Drivers</h3>
+
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link" [class.active]="tab==='staff'" (click)="tab='staff'">Staff</a></li>
+    <li class="nav-item"><a class="nav-link" [class.active]="tab==='driver'" (click)="tab='driver'">Towing Drivers</a></li>
+  </ul>
+
+  <div *ngIf="tab==='staff'">
+    <form [formGroup]="staffForm" class="row g-2 mb-3" (ngSubmit)="createStaff()">
+      <div class="col-md-3"><input class="form-control" placeholder="Name" formControlName="name"></div>
+      <div class="col-md-3"><input class="form-control" placeholder="Email" formControlName="email"></div>
+      <div class="col-md-2"><input class="form-control" placeholder="Phone" formControlName="phone"></div>
+      <div class="col-md-2">
+        <select class="form-select" formControlName="role">
+          <option value="technician">Technician</option>
+          <option value="reception">Reception</option>
+          <option value="manager">Manager</option>
+        </select>
+      </div>
+      <div class="col-md-2"><input type="password" class="form-control" placeholder="Password" formControlName="password"></div>
+      <div class="col-12"><button class="btn btn-primary" [disabled]="staffForm.invalid">Add Staff</button></div>
+    </form>
+
+    <table class="table table-hover">
+      <thead class="table-light"><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th></tr></thead>
+      <tbody><tr *ngFor="let s of staff"><td>{{ s.name }}</td><td>{{ s.email }}</td><td>{{ s.phone }}</td><td>{{ s.role }}</td></tr></tbody>
+    </table>
+  </div>
+
+  <div *ngIf="tab==='driver'">
+    <form [formGroup]="driverForm" class="row g-2 mb-3" (ngSubmit)="createDriver()">
+      <div class="col-md-3"><input class="form-control" placeholder="Name" formControlName="name"></div>
+      <div class="col-md-3"><input class="form-control" placeholder="Email" formControlName="email"></div>
+      <div class="col-md-2"><input class="form-control" placeholder="Phone" formControlName="phone"></div>
+      <div class="col-md-2"><input class="form-control" placeholder="License No" formControlName="licenseNo"></div>
+      <div class="col-md-2"><input type="password" class="form-control" placeholder="Password" formControlName="password"></div>
+      <div class="col-12"><button class="btn btn-primary" [disabled]="driverForm.invalid">Add Driver</button></div>
+    </form>
+
+    <table class="table table-hover">
+      <thead class="table-light"><tr><th>Name</th><th>Email</th><th>Phone</th><th>License</th></tr></thead>
+      <tbody><tr *ngFor="let d of drivers"><td>{{ d.name }}</td><td>{{ d.email }}</td><td>{{ d.phone }}</td><td>{{ d.licenseNo }}</td></tr></tbody>
+    </table>
+  </div>

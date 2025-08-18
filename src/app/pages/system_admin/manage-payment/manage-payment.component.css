@@ -1,0 +1,18 @@
+.table td,
+.table th {
+    vertical-align: middle;
+}
+
+.badge.bg-info {
+    background-color: #17a2b8;
+    color: #fff;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.container h2 {
+    color: #1F2A44;
+}

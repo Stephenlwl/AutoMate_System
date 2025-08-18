@@ -1,0 +1,25 @@
+<div class="container py-4">
+  <h2>Manage Reviews</h2>
+  <table class="table table-bordered table-hover mt-3">
+    <thead class="table-dark">
+      <tr>
+        <th>Car Owner</th>
+        <th>Service Center</th>
+        <th>Review</th>
+        <th>Rating</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let review of reviews$ | async">
+        <td>{{ review['carOwnerName'] }}</td>
+        <td>{{ review['serviceCenterName'] }}</td>
+        <td>{{ review['comment'] }}</td>
+        <td>{{ review['rating'] }}</td>
+        <td>
+          <button class="btn btn-danger btn-sm" (click)="remove(review.id)">Remove</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,58 @@
+<div class="container py-3">
+  <h3 class="mb-3">Service Center — Configure Services per Car Variant</h3>
+
+  <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+  <div *ngIf="loading" class="alert alert-info">Saving...</div>
+
+  <!-- Car variant -->
+  <form [formGroup]="form" class="row g-2 mb-3">
+    <div class="col-md-3">
+      <input class="form-control" formControlName="brand" placeholder="Brand (e.g., Toyota)" />
+    </div>
+    <div class="col-md-3">
+      <input class="form-control" formControlName="model" placeholder="Model (e.g., Vios)" />
+    </div>
+    <div class="col-md-2">
+      <input type="number" class="form-control" formControlName="year" placeholder="Year (e.g., 2020)" />
+    </div>
+    <div class="col-md-4 d-grid">
+      <button type="button" class="btn btn-secondary" (click)="loadAndBuildForm()">Load / Refresh Services</button>
+    </div>
+  </form>
+
+  <!-- Grouped services by category -->
+  <div formArrayName="groups" *ngIf="groupsArray.controls.length > 0">
+    <div *ngFor="let g of groupsArray.controls; let gi = index" [formGroupName]="gi">
+      <h5>{{ g.get('categoryName')?.value }}</h5>
+
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>Service</th>
+            <th>Offer?</th>
+            <th>Price</th>
+            <th>Duration (mins)</th>
+          </tr>
+        </thead>
+        <tbody formArrayName="services">
+          <tr *ngFor="let s of getServicesArray(g).controls; let si = index" [formGroupName]="si">
+            <td>{{ s.get('nameSnapshot')?.value }}</td>
+            <td>
+              <input type="checkbox" formControlName="offer" (change)="onToggleOffer(gi, si)">
+            </td>
+            <td>
+              <input type="number" class="form-control" formControlName="price" placeholder="Price" />
+            </td>
+            <td>
+              <input type="number" class="form-control" formControlName="duration" placeholder="Minutes" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <button class="btn btn-success" (click)="save()" [disabled]="groupsArray.length === 0 || form.invalid">
+    Save Services for This Variant
+  </button>
+</div>

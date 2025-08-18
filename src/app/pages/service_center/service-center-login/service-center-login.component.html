@@ -1,0 +1,97 @@
+<div class="container-fluid min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="card shadow w-100" style="max-width: 800px; border-radius: 16px;">
+        <div class="row g-0">
+            <!-- Left Info Section -->
+            <div
+                class="col-md-6 d-none d-md-flex flex-column align-items-center justify-content-center bg-white p-4 border-end">
+                <img src="logo.png" alt="Logo" width="150" class="mb-3" />
+                <h4 class="fw-bold mb-2" style="color: #FF6B00">"Your Garage, Your Control"</h4>
+                <p class="text-muted text-center px-2">
+                    Access the <strong>Service Center Admin Portal</strong> to manage your workshop profile, respond to
+                    bookings, and more.
+                </p>
+            </div>
+
+            <!-- Right Login Form Section -->
+            <div class="col-md-6 p-5">
+                <div class="text-center mb-4">
+                    <h1 class="fw-bold mb-1" style="color: #FF6B00;">AUTOMATE SYSTEM</h1>
+                    <h6 class="text-muted">Service Center Admin Login</h6>
+                </div>
+
+                <form [formGroup]="form" (ngSubmit)="login()">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" formControlName="email"
+                            placeholder="admin@example.com" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" formControlName="password"
+                            placeholder="Enter your password" />
+                    </div>
+
+                    <div class="text-danger mb-3 text-center" *ngIf="errorMessage">
+                        {{ errorMessage }}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 fw-semibold" [disabled]="loading">
+                        {{ loading ? 'Logging in...' : 'Login' }}
+                    </button>
+                </form>
+
+                <hr>
+
+                <!-- Navigation to Signup -->
+                <div class="mt-4 text-center">
+                    <span class="text-muted">Don't have an account?</span>
+                    <button type="button" class="btn btn-link text-decoration-none fw-semibold ms-1"
+                        style="color: #FF6B00;" [routerLink]="'/serviceCenter/signup'">
+                        Sign up
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Modal -->
+<div class="modal fade" tabindex="-1" [class.show]="showPendingModal"
+    [style.display]="showPendingModal ? 'block' : 'none'" style="background: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-warning rounded-4">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title"><i class="bi bi-hourglass-split me-2"></i> Application Pending</h5>
+                <button type="button" class="btn-close" (click)="closePendingModal()"></button>
+            </div>
+            <div class="modal-body">
+                <p>Your application for <strong>{{ pendingEmail }}</strong> is under review.</p>
+                <p>Please wait for the system admin’s decision. You will be notified by email.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" (click)="closePendingModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rejected Modal -->
+<div class="modal fade" tabindex="-1" [class.show]="showRejectedModal"
+    [style.display]="showRejectedModal ? 'block' : 'none'" style="background: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-danger rounded-4">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-x-circle me-2"></i> Application Rejected</h5>
+                <button type="button" class="btn-close" (click)="closeRejectedModal()"></button>
+            </div>
+            <div class="modal-body">
+                <p>Your application for <strong>{{ form.value.email }}</strong> has been rejected.</p>
+                <p class="text-muted small">Reason: {{ rejectedReason }}</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" (click)="closeRejectedModal()">Close</button>
+                <button class="btn btn-warning" (click)="reapply()">Reapply</button>
+            </div>
+        </div>
+    </div>
+</div>

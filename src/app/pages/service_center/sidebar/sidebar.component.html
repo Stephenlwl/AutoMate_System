@@ -1,0 +1,18 @@
+<nav class="sidebar bg-light shadow-sm p-3">
+    <div class="text-center mb-4">
+        <img src="../logo.png" alt="AutoMate Logo" height="100" class="mb-2" />
+        <h5 class="fw-bold mb-0" style="color: #FF6B00;">{{ workshopName }}</h5>
+    </div>
+    <hr>
+    <ul class="nav flex-column">
+        <ng-container *ngFor="let item of navItems">
+
+            <li class="nav-item">
+                <a [routerLink]="item.route" routerLinkActive="active" class="nav-link d-flex align-items-center gap-2">
+                    <i [class]="item.icon"></i> {{ item.label }}
+                </a>
+            </li>
+
+        </ng-container>
+    </ul>
+</nav>

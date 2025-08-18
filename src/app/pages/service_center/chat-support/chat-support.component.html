@@ -1,0 +1,27 @@
+ <h3>Chat</h3>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="list-group">
+        <a class="list-group-item list-group-item-action" *ngFor="let t of threads; let i=index" (click)="open(i)">
+          {{ t.customerId }}<br><small class="text-muted">{{ t.lastMessage }}</small>
+        </a>
+      </div>
+    </div>
+    <div class="col-md-8" *ngIf="activeThread">
+      <div class="border rounded p-2 mb-2" style="height:300px; overflow:auto;">
+        <div *ngFor="let m of messages" class="mb-2">
+          <div [class.text-end]="m.sender==='workshop'">
+            <span class="badge" [class.bg-secondary]="m.sender!=='workshop'" [class.bg-primary]="m.sender==='workshop'">{{ m.sender }}</span>
+            <div>{{ m.text }}</div>
+            <small class="text-muted">{{ m.createdAt?.toDate() | date:'short' }}</small>
+          </div>
+        </div>
+      </div>
+      <form [formGroup]="form" (ngSubmit)="send()">
+        <div class="input-group">
+          <input class="form-control" formControlName="text" placeholder="Type message">
+          <button class="btn btn-primary">Send</button>
+        </div>
+      </form>
+    </div>
+  </div>

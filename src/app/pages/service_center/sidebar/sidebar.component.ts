@@ -1,0 +1,40 @@
+import { Component, inject } from '@angular/core';
+import { RouterModule } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { AuthService } from '../auth/service-center-auth';
+
+@Component({
+  selector: 'app-sidebar',
+  standalone: true,
+  imports: [RouterModule, CommonModule],
+  templateUrl: './sidebar.component.html',
+  styleUrls: ['./sidebar.component.css']
+})
+export class ServiceCenterSidebarComponent {
+  private auth = inject(AuthService);
+
+  expanded: { [key: string]: boolean } = {};
+  workshopName: string | null = null;
+
+  ngOnInit() {
+    this.workshopName = this.auth.getWorkshopName();
+  }
+
+  navItems = [
+    { label: 'Dashboard', route: 'dashboard', icon: 'bi bi-speedometer2' },
+    { label: 'Manage Bookings', route: 'manage-bookings', icon: 'bi bi-calendar-check' },
+    { label: 'Manage Bays', route: 'manage-bays', icon: 'bi bi-grid-3x3-gap' },
+    { label: 'Manage Services', route: 'manage-services', icon: 'bi bi-tools' },
+    { label: 'Manage Towing Service', route: 'manage-towing-services', icon: 'bi bi-truck' },
+    { label: 'Manage Payments', route: 'manage-payments', icon: 'bi bi-cash-coin' },
+    { label: 'Chat Support', route: 'chat-support', icon: 'bi bi-chat-dots' },
+    { label: 'Workshop Details', route: 'workshop-details', icon: 'bi bi-building' },
+    { label: 'Profile', route: 'profile', icon: 'bi bi-person-circle' },
+    { label: 'Manage Stuff & Towing Driver', route: 'manage-staff-towing-driver', icon: 'bi bi-person-plus' },
+    { label: 'Logout', route: 'login', icon: 'bi bi-box-arrow-right' }
+  ];
+
+  toggleExpand(item: string) {
+    this.expanded[item] = !this.expanded[item];
+  }
+}

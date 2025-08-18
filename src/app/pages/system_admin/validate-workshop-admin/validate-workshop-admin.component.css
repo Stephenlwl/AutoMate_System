@@ -1,0 +1,12 @@
+.table thead th {
+  vertical-align: middle;
+}
+
+.badge {
+  font-size: 0.85rem;
+  padding: 6px 10px;
+}
+
+.modal-body textarea {
+  resize: none;
+}

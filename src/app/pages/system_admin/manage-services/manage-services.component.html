@@ -1,0 +1,229 @@
+<div class="container py-3">
+    <h3 class="mb-4 fw-bold text-primary">
+        <i class="bi bi-gear-fill me-2"></i> Manage Services & Categories
+    </h3>
+    <hr>
+
+    <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+    <h5 class="mb-3 text-muted">Services Overview</h5>
+    <div class="row mb-3 g-3 align-items-end">
+        <!-- Search Input -->
+        <div class="col-md-4">
+            <label for="serviceSearch" class="form-label text-muted small">Search Services</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="serviceSearch" class="form-control" placeholder="Enter service name..."
+                    [formControl]="searchControl">
+            </div>
+        </div>
+
+        <!-- Category Filter -->
+        <div class="col-md-3">
+            <label for="categoryFilter" class="form-label text-muted small">Filter by Category</label>
+            <select id="categoryFilter" class="form-select" [formControl]="categoryFilterControl">
+                <option value="allCategories">All Categories</option>
+                <option *ngFor="let c of (categories$ | async)" [value]="c.id">
+                    {{ c.name }}
+                </option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label for="activeFilter" class="form-label text-muted small">Filter by Status</label>
+            <select class="form-select" [formControl]="activeFilterControl">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </div>
+
+        <table class="table table-hover shadow-sm" *ngIf="!loading">
+            <thead class="table-primary">
+                <tr>
+                    <th>Service Name</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody *ngIf="filteredServices$ | async as services">
+                <tr
+                    *ngFor="let s of services | paginate: { itemsPerPage: pageSize, currentPage: currentPage, id: 'serviceOverview' }">
+                    <td class="fw-semibold">{{ s.name }}</td>
+                    <td>{{ s.categoryName }}</td>
+                    <td>
+                        <span class="badge" [class.bg-success]="s.active" [class.bg-secondary]="!s.active">
+                            {{ s.active ? 'Active' : 'Inactive' }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-secondary me-2" (click)="toggleServiceActive(s)">
+                            {{ s.active ? 'Disable' : 'Enable' }}
+                        </button>
+                        <button class="btn btn-sm btn-warning me-2" (click)="editService(s)">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" (click)="deleteService(s.id!)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                <tr *ngIf="services.length === 0">
+                    <td colspan="4" class="text-center text-muted">No services available.</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <pagination-controls id="serviceOverview" (pageChange)="currentPage = $event"
+            class="d-flex justify-content-center mt-3">
+        </pagination-controls>
+
+        <div class="text-center" *ngIf="loading">
+            <div class="spinner-border text-primary"></div>
+            <p class="mt-2">Loading services...</p>
+        </div>
+
+        <div class="row g-3 mt-2">
+            <hr>
+            <h5 class="mb-3 text-muted">Add New Service and Category</h5>
+            <!-- Categories -->
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">Categories</div>
+                    <div class="card-body">
+                        <form [formGroup]="categoryForm" (ngSubmit)="saveCategory()" class="mb-3">
+                            <input type="hidden" formControlName="id" />
+                            <div class="mb-2">
+                                <label class="form-label">Name</label>
+                                <input class="form-control" formControlName="name"
+                                    placeholder="e.g., Routine Maintenance" />
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" rows="2" formControlName="description"></textarea>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" formControlName="active" id="catActive">
+                                <label class="form-check-label" for="catActive">Active</label>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-primary" type="submit">{{ editingCategory ? 'Update' : 'Add' }}
+                                    Category</button>
+                                <button class="btn btn-secondary" type="button"
+                                    (click)="resetCategoryForm()">Reset</button>
+                            </div>
+                        </form>
+
+                        <div *ngIf="categories$ | async as categories" class="list-group">
+                            <button *ngFor="let c of categories"
+                                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+                                [class.active]="selectedCategoryId===c.id" (click)="pickCategory(c.id!)">
+                                <div>
+                                    <div class="fw-semibold">{{ c.name }}</div>
+                                    <small class="text-muted">{{ c.description }}</small>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge" [class.bg-success]="c.active" [class.bg-secondary]="!c.active">
+                                        {{ c.active ? 'Active' : 'Inactive' }}
+                                    </span>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        (click)="$event.stopPropagation(); toggleCategoryActive(c)">
+                                        {{ c.active ? 'Disable' : 'Enable' }}
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-warning"
+                                        (click)="$event.stopPropagation(); editCategory(c)"><i
+                                            class="bi bi-pencil"></i></button>
+                                    <button type="button" class="btn btn-sm btn-danger"
+                                        (click)="$event.stopPropagation(); deleteCategory(c.id!)"><i
+                                            class="bi bi-trash"></i></button>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Services -->
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header bg-secondary text-white">Services</div>
+                    <div class="card-body">
+                        <form [formGroup]="serviceForm" (ngSubmit)="saveService()" class="mb-3">
+                            <input type="hidden" formControlName="id" />
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label">Category</label>
+                                    <select class="form-select" formControlName="categoryId">
+                                        <option value="">Select Category</option>
+                                        <option *ngFor="let c of (categories$ | async)" [value]="c.id">{{ c.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Service Name</label>
+                                    <input class="form-control" formControlName="name" placeholder="e.g., Oil Change">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Active</label>
+                                    <div>
+                                        <input type="checkbox" class="form-check-input me-2" formControlName="active"
+                                            id="svcActive">
+                                        <label class="form-check-label" for="svcActive">Enabled</label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-control" formControlName="description" rows="2"></textarea>
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2 mt-2">
+                                <button class="btn btn-success" type="submit">{{ editingService ? 'Update' : 'Add' }}
+                                    Service</button>
+                                <button class="btn btn-secondary" type="button"
+                                    (click)="resetServiceForm()">Reset</button>
+                            </div>
+                        </form>
+
+                        <div *ngIf="services$ | async as services">
+                            <div *ngIf="!serviceForm.get('categoryId')?.value" class="alert alert-info">Select a category to see its
+                                services.
+                            </div>
+                            <table class="table table-hover" *ngIf="serviceForm.get('categoryId')?.value">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let s of filterServicesByCategory(services)">
+                                        <td class="fw-semibold">{{ s.name }}</td>
+                                        <td>{{ s.description }}</td>
+                                        <td>
+                                            <span class="badge" [class.bg-success]="s.active"
+                                                [class.bg-secondary]="!s.active">
+                                                {{ s.active ? 'Active' : 'Inactive' }}
+                                            </span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-secondary me-2"
+                                                (click)="toggleServiceActive(s)">{{ s.active ? 'Disable' : 'Enable'
+                                                }}</button>
+                                            <button class="btn btn-sm btn-warning me-2" (click)="editService(s)"><i
+                                                    class="bi bi-pencil"></i></button>
+                                            <button class="btn btn-sm btn-danger" (click)="deleteService(s.id!)"><i
+                                                    class="bi bi-trash"></i></button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>

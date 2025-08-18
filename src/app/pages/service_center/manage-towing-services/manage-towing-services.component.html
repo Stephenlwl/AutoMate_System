@@ -1,0 +1,19 @@
+ <h3>Towing Service</h3>
+  <div *ngIf="loaded" class="card p-3 shadow-sm">
+    <div class="form-check form-switch mb-3">
+      <input class="form-check-input" type="checkbox" [checked]="form.value.offers" (change)="toggle($event)">
+      <label class="form-check-label">Offers Towing</label>
+    </div>
+
+    <div *ngIf="form.value.offers">
+      <label class="form-label">Coverage (KM)</label>
+      <input type="number" class="form-control w-auto mb-2" formControlName="coverageKm">
+      <label class="form-label">Towing Services</label>
+      <div class="d-flex flex-wrap gap-2">
+        <label class="btn btn-outline-secondary btn-sm" *ngFor="let t of opts">
+          <input type="checkbox" class="form-check-input me-1" [checked]="(form.value.towingServices || []).includes(t)" (change)="toggleSrv(t)"> {{ t }}
+        </label>
+      </div>
+      <button class="btn btn-primary mt-3" (click)="save()">Save</button>
+    </div>
+  </div>

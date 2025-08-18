@@ -1,0 +1,39 @@
+.service-btn {
+  border-radius: 12px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #e6e6e6;
+  transition: transform .08s ease, box-shadow .12s ease;
+}
+.service-btn { height: 44px; width: auto; }
+
+.service-btn.active {
+  background: #fff3e0; /* soft highlight */
+  border-color: #ff6b00;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  transform: translateY(-2px);
+}
+.service-btn:focus { outline: 3px solid rgba(255,107,0,0.14); }
+
+.progress {
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 4px;
+  margin-top: 5px;
+}
+
+.progress-bar {
+  height: 6px;
+  background-color: #FF6B00;
+  border-radius: 4px;
+}
+
+.is-invalid {
+  border: 1px solid #dc3545 !important;
+  background-color: #fff8f8;
+}
+
+.text-error {
+  color: #dc3545;
+  font-size: 0.85rem;
+}
