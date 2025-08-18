@@ -78,7 +78,6 @@ export class ServiceCenterSignupComponent {
 
   constructor() {
     this.form = this.fb.group({
-      // Step 1: Admin info
       adminName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
       otp: [{ value: '', disabled: true }, [Validators.required]],
@@ -86,7 +85,6 @@ export class ServiceCenterSignupComponent {
       password: ['', [Validators.required, Validators.pattern(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/)]],
       confirmPassword: ['', Validators.required],
 
-      // Step 2: Workshop info
       workshopName: ['', Validators.required],
       registrationNumber: ['', [Validators.required, Validators.pattern(/^[0-9]{12}$/)]],
       state: ['', Validators.required],
@@ -95,10 +93,9 @@ export class ServiceCenterSignupComponent {
       addressLine1: ['', Validators.required],
       addressLine2: ['', Validators.required],
 
-      // Step 3: Services offered
+      // Services offered
       // services: this.fb.array([], Validators.required),
 
-      // Step 4: Operating hours
       operatingHours: this.fb.array(
         this.daysOfWeek.map(day =>
           this.fb.group({
@@ -110,7 +107,6 @@ export class ServiceCenterSignupComponent {
         )
       ),
 
-      // Step 5: Documents
       ssm: ['', Validators.required],
       workshopPhoto: ['', Validators.required],
       businessLicense: ['', Validators.required],
@@ -130,7 +126,7 @@ export class ServiceCenterSignupComponent {
     if (!passwordControl || !confirmPasswordControl) return null;
 
     if (confirmPasswordControl.errors && !confirmPasswordControl.errors['passwordMismatch']) {
-      return null; // Other validators still active
+      return null; 
     }
 
     if (passwordControl.value !== confirmPasswordControl.value) {
@@ -152,7 +148,7 @@ export class ServiceCenterSignupComponent {
     this.otpLoading = true;
 
     try {
-      // 1. Check existing application
+      // check existing application
       const q = query(
         collection(this.firestore, 'repair_service_centers'),
         where('adminInfo.email', '==', adminEmail.toLowerCase())
