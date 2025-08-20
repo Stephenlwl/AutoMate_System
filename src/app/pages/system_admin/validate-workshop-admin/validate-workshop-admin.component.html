@@ -18,8 +18,7 @@
     <i class="bi bi-info-circle me-2"></i> No pending workshop applications found.
   </div>
 
-  <!-- Data Table -->
-  <div class="table-responsive" *ngIf="pendingWorkshops.length > 0">
+  <div class="table-responsive" *ngIf="pendingWorkshops.length > 0 && !loading">
     <table class="table table-hover align-middle shadow-sm">
       <thead class="table-primary">
         <tr>
@@ -80,8 +79,7 @@
     <i class="bi bi-info-circle me-2"></i> No responded workshop accounts found.
   </div>
 
-  <!-- Data Table -->
-  <div class="table-responsive" *ngIf="respondedWorkshops.length > 0">
+  <div class="table-responsive" *ngIf="respondedWorkshops.length > 0 && !loading">
     <table class="table table-hover align-middle shadow-sm">
       <thead class="table-primary">
         <tr>
@@ -93,7 +91,7 @@
           <th>Phone</th>
           <th>Status</th>
           <th>Status Reason</th>
-          <th style="width: 220px;">Actions</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -105,7 +103,10 @@
           <td>{{ rw.adminInfo?.email }}</td>
           <td>{{ rw.adminInfo?.phone }}</td>
           <td>
-            <span class="badge bg-warning text-dark">
+            <span *ngIf="rw.verification?.status == 'rejected'" class="badge bg-danger text-white">
+              {{ rw.verification?.status | titlecase }}
+            </span>
+            <span *ngIf="rw.verification?.status == 'approved'" class="badge bg-success text-white">
               {{ rw.verification?.status | titlecase }}
             </span>
           </td>

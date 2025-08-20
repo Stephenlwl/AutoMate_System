@@ -96,7 +96,7 @@ export class ValidateWorkshopAdminComponent implements OnInit {
       });
       alert('The workshop has been approved and an email notification sent.');
       this.loadWorkshops();
-      this.loadRespondedWorkshops
+      this.loadRespondedWorkshops();
     } catch (error) {
       console.error('Error approving application:', error);
     }

@@ -29,6 +29,7 @@ export class ServiceCenterSignupComponent {
   maxSteps = 4;
   loading = false;
   errorMessage = '';
+  infoMessage = '';
 
   otpSent = false;
   generatedOtp = '';
@@ -190,7 +191,8 @@ export class ServiceCenterSignupComponent {
       this.otpCountdown = 60;
       this.startOtpCountdown();
       this.otpSent = true;
-      alert('OTP sent to your email. Please check your inbox.');
+      this.infoMessage = 'OTP sent to your email. Please check your inbox.';
+      this.errorMessage = '';
     } catch (error) {
       console.error(error);
       this.errorMessage = 'Failed to send OTP. Please try again.';
@@ -215,6 +217,7 @@ export class ServiceCenterSignupComponent {
 
   verifyOtp() {
     this.verifyLoading = true;
+    this.infoMessage = '';
 
     if (!this.otpExpiryTime || Date.now() > this.otpExpiryTime) {
       this.errorMessage = 'OTP has expired. Please request a new OTP.';
@@ -454,9 +457,10 @@ export class ServiceCenterSignupComponent {
       this.form.reset();
       this.isEmailVerified = false;
       this.errorMessage = '';
+      this.infoMessage = '';
       this.step = 1;
     } catch (err: any) {
-      this.errorMessage = err.message;
+      this.errorMessage = err.message + ' ' + 'Sum of file sizes is too large. Please upload files under 900 KB.';
     } finally {
       this.loading = false;
     }

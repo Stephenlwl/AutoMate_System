@@ -25,6 +25,7 @@ export interface Service {
   selector: 'app-manage-services',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, NgxPaginationModule],
+  styleUrls: ['./manage-services.component.css'],
   templateUrl: './manage-services.component.html'
 })
 export class ManageServicesComponent implements OnInit {
