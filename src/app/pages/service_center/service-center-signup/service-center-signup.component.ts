@@ -32,11 +32,12 @@ export class ServiceCenterSignupComponent {
   infoMessage = '';
 
   otpSent = false;
-  generatedOtp = '';
   enteredOtp = '';
   otpTimer: any;
   otpExpiryTime = 0;
   otpCountdown = 0;
+  otpExpired = false;
+  otpUnmatched = false;
 
   isEmailVerified = false;
   otpLoading = false;
@@ -45,34 +46,14 @@ export class ServiceCenterSignupComponent {
 
   malaysiaStates: string[] = [];
   malaysiaCities: string[] = [];
-  // selectedTowingServices: string[] = [];
 
   form: FormGroup;
 
-  // predefinedServices = [
-  //   'Oil Change',
-  //   'Engine Repair',
-  //   'Brake Service',
-  //   'Air Conditioning',
-  //   'Tyre Replacement',
-  //   'Battery Replacement',
-  //   'Wheel Alignment'
-  // ];
-
   daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-  // towingServiceOptions = [
-  //   { name: 'Vehicle Breakdown' },
-  //   { name: 'Flat Tire / Tire Burst' },
-  //   { name: 'Battery Dead' },
-  //   { name: 'Locked Out / Lost Key' },
-  //   { name: 'Accident / Collision' },
-  //   { name: 'Engine Overheating / Engine Failure' }
-  // ];
 
   documentFields = [
     { name: 'ssm', label: 'SSM Document (Image / PDF) *', accept: '.jpg,.jpeg,.png,.pdf' },
-    { name: 'workshopPhoto', label: 'Workshop Photo (Image only) *', accept: '.jpg,.jpeg,.png' },
+    { name: 'serviceCenterPhoto', label: 'Service Center Photo (Image only) *', accept: '.jpg,.jpeg,.png' },
     { name: 'businessLicense', label: 'Business License (Image / PDF) *', accept: '.jpg,.jpeg,.png,.pdf' },
     { name: 'adminIC', label: 'Admin IC (Front & Back, Image / PDF) *', accept: '.jpg,.jpeg,.png,.pdf' }
   ];
@@ -82,18 +63,17 @@ export class ServiceCenterSignupComponent {
       adminName: ['', Validators.required],
       email: ['', [Validators.required, Validators.email]],
       otp: [{ value: '', disabled: true }, [Validators.required]],
-      phone: ['', [Validators.required, Validators.pattern(/^(6?0)[0-9]{9,10}$/)]],
-      password: ['', [Validators.required, Validators.pattern(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*?&]{8,}$/)]],
+      serviceCenterPhoneNo: ['', [Validators.required, Validators.pattern(/^(6?0)[0-9]{8,10}$/)]],
+      password: ['', [Validators.required, Validators.pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)]],
       confirmPassword: ['', Validators.required],
 
-      workshopName: ['', Validators.required],
+      serviceCenterName: ['', Validators.required],
       registrationNumber: ['', [Validators.required, Validators.pattern(/^[0-9]{12}$/)]],
       state: ['', Validators.required],
       city: ['', Validators.required],
       postalCode: ['', Validators.required],
       addressLine1: ['', Validators.required],
-      addressLine2: ['', Validators.required],
-
+      addressLine2: [''],
       // Services offered
       // services: this.fb.array([], Validators.required),
 
@@ -109,7 +89,7 @@ export class ServiceCenterSignupComponent {
       ),
 
       ssm: ['', Validators.required],
-      workshopPhoto: ['', Validators.required],
+      serviceCenterPhoto: ['', Validators.required],
       businessLicense: ['', Validators.required],
       adminIC: ['', Validators.required],
 
@@ -127,7 +107,7 @@ export class ServiceCenterSignupComponent {
     if (!passwordControl || !confirmPasswordControl) return null;
 
     if (confirmPasswordControl.errors && !confirmPasswordControl.errors['passwordMismatch']) {
-      return null; 
+      return null;
     }
 
     if (passwordControl.value !== confirmPasswordControl.value) {
@@ -176,23 +156,32 @@ export class ServiceCenterSignupComponent {
           alert("Your previous application was rejected. Please refer to the rejected reason send via email.");
         }
       }
-      this.generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      await fetch('http://localhost:3000/sendOtpEmail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toEmail: adminEmail,
-          otpCode: this.generatedOtp
-        })
-      });
 
-      this.form.get('otp')?.enable();
-      this.otpExpiryTime = Date.now() + 60 * 1000;
-      this.otpCountdown = 60;
-      this.startOtpCountdown();
-      this.otpSent = true;
-      this.infoMessage = 'OTP sent to your email. Please check your inbox.';
-      this.errorMessage = '';
+      try {
+        const response = await fetch('http://localhost:3000/sendOtpEmail/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            toEmail: adminEmail
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to send OTP");
+        } else {
+          this.form.get('otp')?.enable();
+          this.otpExpiryTime = Date.now() + 60 * 1000;
+          this.otpCountdown = 60;
+          this.startOtpCountdown();
+          this.otpSent = true;
+          this.infoMessage = 'OTP sent to your email. Please check your inbox.';
+          this.errorMessage = '';
+        }
+      } catch (error) {
+        this.errorMessage = 'Failed to send OTP. Please try again.';
+        console.error("Error sending OTP:", error);
+      }
     } catch (error) {
       console.error(error);
       this.errorMessage = 'Failed to send OTP. Please try again.';
@@ -203,59 +192,67 @@ export class ServiceCenterSignupComponent {
   }
 
   startOtpCountdown() {
+    this.otpExpired = false;
     clearInterval(this.otpTimer);
     this.otpTimer = setInterval(() => {
       if (this.otpCountdown > 0) {
         this.otpCountdown--;
       } else {
+        this.otpExpired = true;
         clearInterval(this.otpTimer);
-        if (!this.isEmailVerified) {
+        if (!this.isEmailVerified && this.otpUnmatched) {
+          this.otpUnmatched = false;
+        } else {
+          this.infoMessage = '';
+          this.errorMessage = 'OTP expired. Please request a new one.';
+          this.form.get('otp')?.disable();
+          this.otpSent = false;
         }
       }
     }, 1000);
   }
 
-  verifyOtp() {
+  async verifyOtp() {
     this.verifyLoading = true;
+    this.errorMessage = '';
     this.infoMessage = '';
 
-    if (!this.otpExpiryTime || Date.now() > this.otpExpiryTime) {
-      this.errorMessage = 'OTP has expired. Please request a new OTP.';
-      this.generatedOtp = '';
-      this.otpSent = false;
-      this.verifyLoading = false;
-      this.form.get('otp')?.disable();
-      return;
-    }
+    const otpValue = this.form.get('otp')?.value;
+    const email = this.form.get('email')?.value;
 
-    if (this.form.get('otp')?.value === this.generatedOtp) {
-      this.isEmailVerified = true;
-      this.errorMessage = '';
+    try {
+      const res = await fetch('http://localhost:3000/sendOtpEmail/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toEmail: email, otpInput: otpValue })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        this.isEmailVerified = true;
+        this.form.get('otp')?.disable();
+        this.infoMessage = data.message;
+      } else {
+        alert(data.message);
+        this.form.get('otp')?.setValue('');
+        this.form.get('otp')?.disable();
+        this.errorMessage = data.message;
+        this.otpUnmatched = true;
+        this.otpCountdown = 0;
+        this.otpSent = false;
+      }
+    } catch (err) {
+      this.errorMessage = 'Verification failed. Please try again.';
+    } finally {
       this.verifyLoading = false;
-      this.form.get('otp')?.disable();
-    } else {
-      this.generatedOtp = '';
-      this.errorMessage = 'Invalid OTP. Please Request a New OTP to verify your email.';
-      this.verifyLoading = false;
-      this.otpSent = false;
-      clearInterval(this.otpTimer);
-      this.otpCountdown = 0;
-      this.form.get('otp')?.disable();
-      return;
     }
   }
 
-  // get servicesArray() {
-  //   return this.form.get('services') as FormArray;
-  // }
 
   get operatingHoursArray() {
     return this.form.get('operatingHours') as FormArray;
   }
-
-  // get towingServicesArray() {
-  //   return this.form.get('towingServices') as FormArray;
-  // }
 
   setupOperatingHoursWatcher() {
     this.operatingHoursArray.controls.forEach(control => {
@@ -306,38 +303,6 @@ export class ServiceCenterSignupComponent {
     }
   }
 
-  // toggleService(service: string) {
-  //   const index = this.servicesArray.value.indexOf(service);
-  //   if (index === -1) {
-  //     this.servicesArray.push(this.fb.control(service));
-  //   } else {
-  //     this.servicesArray.removeAt(index);
-  //   }
-  //   this.servicesArray.markAsTouched();
-  // }
-
-  // toggleTowingService(serviceName: string) {
-  //   const index = this.towingServicesArray.value.indexOf(serviceName);
-  //   if (index === -1) {
-  //     this.towingServicesArray.push(this.fb.control(serviceName));
-  //   } else {
-  //     this.towingServicesArray.removeAt(index);
-  //   }
-  //   this.towingServicesArray.markAsTouched();
-  // }
-
-
-  // offerTowingService(value: boolean) {
-  //   this.form.patchValue({ offersTowing: value });
-  //   if (!value) {
-  //     this.towingServicesArray.clear();
-  //     this.towingServicesArray.clearValidators();
-  //   } else {
-  //     this.towingServicesArray.setValidators(Validators.required);
-  //   }
-  //   this.towingServicesArray.updateValueAndValidity();
-  // }
-
   handleFileBase64(event: any, controlName: string) {
     const file = event.target.files[0];
     if (!file) return;
@@ -361,10 +326,10 @@ export class ServiceCenterSignupComponent {
     let controlsToCheck: string[] = [];
 
     if (this.step === 1) {
-      controlsToCheck = ['adminName', 'email', 'phone', 'password', 'confirmPassword'];
+      controlsToCheck = ['adminName', 'email', 'serviceCenterPhoneNo', 'password', 'confirmPassword'];
     } else if (this.step === 2) {
-      controlsToCheck = ['workshopName', 'registrationNumber', 'addressLine1', 'state', 'city', 'postalCode'];
-    } 
+      controlsToCheck = ['serviceCenterName', 'registrationNumber', 'addressLine1', 'state', 'city', 'postalCode'];
+    }
     // else if (this.step === 3) {
     //   this.servicesArray.markAsTouched();
     //   if (this.servicesArray.invalid) {
@@ -374,7 +339,7 @@ export class ServiceCenterSignupComponent {
     //   controlsToCheck = ['services'];
     // } 
     else if (this.step === 5) {
-      controlsToCheck = ['ssm', 'workshopPhoto', 'businessLicense', 'adminIC'];
+      controlsToCheck = ['ssm', 'serviceCenterPhoto', 'businessLicense', 'adminIC'];
 
       // if (this.form.value.offersTowing) {
       //   this.towingServicesArray.markAsTouched();
@@ -423,12 +388,12 @@ export class ServiceCenterSignupComponent {
         adminInfo: {
           name: this.form.value.adminName,
           email: this.form.value.email,
-          phone: this.form.value.phone,
           password: hashedPassword
         },
-        workshopInfo: {
-          name: this.form.value.workshopName,
+        serviceCenterInfo: {
+          name: this.form.value.serviceCenterName,
           registrationNumber: this.form.value.registrationNumber,
+          serviceCenterPhoneNo: this.form.value.serviceCenterPhoneNo,
           address: {
             addressLine1: this.form.value.addressLine1,
             addressLine2: this.form.value.addressLine2 || '',
@@ -437,23 +402,18 @@ export class ServiceCenterSignupComponent {
             state: this.form.value.state
           },
         },
-        // services: this.form.value.services,
         operatingHours: this.form.value.operatingHours,
         documents: {
           ssm: this.form.value.ssm || '',
-          workshopPhoto: this.form.value.workshopPhoto || '',
+          serviceCenterPhoto: this.form.value.serviceCenterPhoto || '',
           businessLicense: this.form.value.businessLicense || '',
           adminIC: this.form.value.adminIC || ''
         },
-        // towing: {
-        //   offers: this.form.value.offersTowing,
-        //   towingServices: [...(this.form.value.towingServices || [])]
-        // },
         verification: { status: 'pending', rejectionReason: '' },
         createdAt: new Date()
       };
       await addDoc(collection(this.firestore, 'repair_service_centers'), payload);
-      alert('Your application has been submitted for approval. * Please note that the admin will takes 1-2 working days to review.');
+      alert('Your application has been submitted for approval. (*Please note that the admin will takes 1-2 working days to review.)');
       this.form.reset();
       this.isEmailVerified = false;
       this.errorMessage = '';
@@ -469,35 +429,18 @@ export class ServiceCenterSignupComponent {
   fillFormWithRejectedData(data: any) {
     // Admin Info
     this.form.patchValue({
-      adminName: data.adminInfo?.name || '',
       email: data.adminInfo?.email || '',
-      phone: data.adminInfo?.phone || ''
     });
 
-    // Workshop Info
+    // Service Center Info
     this.form.patchValue({
-      workshopName: data.workshopInfo?.name || '',
-      addressLine1: data.workshopInfo?.address?.addressLine1 || '',
-      addressLine2: data.workshopInfo?.address?.addressLine2 || ''
+      serviceCenterName: data.serviceCenterInfo?.name || '',
+      addressLine1: data.serviceCenterInfo?.address?.addressLine1 || '',
+      addressLine2: data.serviceCenterInfo?.address?.addressLine2 || ''
     });
-
-    // Services
-    // this.servicesArray.clear();
-    // (data.services || []).forEach((srv: string) => {
-    //   this.servicesArray.push(this.fb.control(srv));
-    // });
 
     // Operating Hours
     this.operatingHoursArray.patchValue(data.operatingHours || []);
-
-    // Towing
-    // this.form.patchValue({
-    //   offersTowing: data.towing?.offers || false
-    // });
-    // this.towingServicesArray.clear();
-    // (data.towing?.towingServices || []).forEach((srv: string) => {
-    //   this.towingServicesArray.push(this.fb.control(srv));
-    // });
 
     this.errorMessage = 'Please refer to the email to re-submmit your application';
   }

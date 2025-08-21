@@ -1,272 +1,535 @@
 <div class="container py-4">
   <h3 class="mb-4">
     <i class="bi bi-gear-fill me-2 text-primary"></i>
-    Service Center — Tier Setup
+    Service & Tier Setup
   </h3>
 
-  <!-- Alerts -->
-  <div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center me-2">
-    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-    {{ errorMessage }}
-  </div>
-  <div *ngIf="infoMessage" class="alert alert-success d-flex align-items-center">
-    <i class="bi bi-check-circle-fill me-2"></i>
-    {{ infoMessage }}
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link" [class.active]="tab==='service'" (click)="tab='service'">Service</a></li>
+    <li class="nav-item"><a class="nav-link" [class.active]="tab==='tier'" (click)="tab='tier'">Tier</a></li>
+  </ul>
+
+  <!-- Service Management Tab -->
+  <div *ngIf="tab==='service'">
+    <h5 class="mb-3">Service Management</h5>
+
+    <!-- alerts -->
+    <div *ngIf="svcError" class="alert alert-danger">{{ svcError }}</div>
+    <div *ngIf="svcInfo" class="alert alert-success">{{ svcInfo }}</div>
+
+    <!-- Pick Category → Service (from Firestore) -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Category</label>
+          <select class="form-select" [(ngModel)]="pick.categoryId" (change)="onPickCategory()">
+            <option value="">Select Category</option>
+            <ng-container *ngFor="let c of categories">
+              <option [value]="c['id']">{{ c['name'] }}</option>
+            </ng-container>
+          </select>
+        </div>
+
+        <div class="col-md-5">
+          <label class="form-label">Service</label>
+          <select class="form-select" [(ngModel)]="pick.serviceId">
+            <option value="">Select Service</option>
+            <ng-container *ngFor="let s of servicesByCategory[pick.categoryId]">
+              <option [value]="s['id']">{{ s['name'] }}</option>
+            </ng-container>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Select Tier (optional)</label>
+          <select class="form-select" [(ngModel)]="pick.tierId" (change)="applyTierToPricing()">
+            <option value="">None</option>
+            <ng-container *ngFor="let t of serviceTiers">
+              <option [value]="t.id">{{ t.tierName }}</option>
+            </ng-container>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fitments (Brand → Model → Attrs) -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold">Car Fitments</div>
+      <div class="card-body">
+
+        <!-- Make picker -->
+        <div class="mb-2">
+          <label class="form-label small text-muted">Select Makes</label>
+          <div class="d-flex flex-wrap gap-3">
+            <label class="form-check" *ngFor="let m of makes; trackBy: trackByMake">
+              <input type="checkbox" class="form-check-input" [checked]="selectedMakesSvc.includes(m)"
+                (change)="onMakeSvcToggle(m, $event)">
+              <span class="form-check-label">{{ m }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Search and Filtering -->
+        <div *ngFor="let make of selectedMakesSvc; trackBy: trackByMake" class="border rounded p-2 mb-3">
+          <div class="d-flex align-items-center mb-2">
+            <h6 class="m-0 me-3">{{ make }}</h6>
+            <label class="form-label small text-muted">Search models</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" [(ngModel)]="modelSearchSvc[make]"
+                placeholder="e.g. Civic" />
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
+            <span class="small text-muted">Years:</span>
+            <button class="btn btn-sm btn-outline-secondary" (click)="applyYearPresetToMakeSvc(make,'latest5')">Latest
+              5</button>
+            <button class="btn btn-sm btn-outline-secondary" (click)="applyYearPresetToMakeSvc(make,'all')">All</button>
+            <button class="btn btn-sm btn-outline-secondary"
+              (click)="applyYearPresetToMakeSvc(make,'even')">Even</button>
+            <button class="btn btn-sm btn-outline-secondary" (click)="applyYearPresetToMakeSvc(make,'odd')">Odd</button>
+
+            <!-- Fuel Types -->
+            <div class="col-12 col-md-6">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-semibold small text-muted">Fuel Types:</span>
+                <div *ngIf="getFilteredFuelTypesSvc(make).length === 0" class="text-muted small">No Fuel Types
+                  Available</div>
+                <ng-container *ngFor="let fuel of getFilteredFuelTypesSvc(make)">
+                  <button class="btn btn-sm btn-outline-primary" (click)="applyFuelTypeToMakeSvc(make, fuel)">
+                    {{ fuel }}
+                  </button>
+                </ng-container>
+              </div>
+            </div>
+
+            <!-- Displacement -->
+            <div class="col-12 col-md-6">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-semibold small text-muted">Displacement Volume:</span>
+                <div *ngIf="getFilteredDisplacementsSvc(make).length === 0" class="text-muted small">No Displacement
+                  Available</div>
+                <ng-container *ngFor="let disp of getFilteredDisplacementsSvc(make)">
+                  <button class="btn btn-sm btn-outline-success" (click)="applyDisplacementToMakeSvc(make, disp)">
+                    {{ disp }} L
+                  </button>
+                </ng-container>
+              </div>
+            </div>
+
+            <!-- Size Class -->
+            <div class="col-12 col-md-6">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-semibold small text-muted">Size Class:</span>
+                <div *ngIf="getFilteredSizeClassesSvc(make).length === 0" class="text-muted small">No Size Classes
+                  Available</div>
+                <ng-container *ngFor="let size of getFilteredSizeClassesSvc(make)">
+                  <button class="btn btn-sm btn-outline-warning" (click)="applySizeClassToMakeSvc(make, size)">
+                    {{ size }}
+                  </button>
+                </ng-container>
+              </div>
+            </div>
+          </div>
+
+          <!-- Models -->
+          <div class="d-flex flex-wrap gap-3">
+            <label class="form-check" *ngFor="let model of getFilteredModelsSvc(make); trackBy: trackByModel">
+              <input type="checkbox" class="form-check-input" [checked]="isSvcModelSelected(make, model)"
+                (change)="toggleSvcModel(make, model)">
+              <span class="form-check-label">{{ model }}</span>
+            </label>
+          </div>
+
+          <!-- Selected models -->
+          <div *ngFor="let model of selectedModelsSvc[make]" class="mt-2 p-2 bg-light rounded">
+            <div class="small fw-semibold mb-1">{{ model }}</div>
+            <div class="row g-2">
+              <div class="col-md-3" *ngIf="yearsByModel[model]?.length">
+                <div class="small text-muted mb-1">Years</div>
+                <div class="scroll-box" style="max-height: 150px; overflow:auto;">
+                  <label class="form-check small" *ngFor="let y of yearsByModel[model]; trackBy: trackByYear">
+                    <input type="checkbox" class="form-check-input"
+                      [checked]="(selectedYearsSvc[model]||[]).includes(y)"
+                      (change)="toggleYearSvc(model, y, $event)" />
+                    <span class="form-check-label">{{ y }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="col-md-3" *ngIf="fuelTypesByModel[model]?.length">
+                <div class="small text-muted mb-1">Fuel</div>
+                <label class="form-check small" *ngFor="let f of fuelTypesByModel[model]">
+                  <input type="checkbox" class="form-check-input"
+                    [checked]="(selectedFuelTypesSvc[model]||[]).includes(f)"
+                    (change)="toggleFuelSvc(model, f, $event)" />
+                  <span class="form-check-label">{{ f }}</span>
+                </label>
+              </div>
+
+              <div class="col-md-3" *ngIf="displacementsByModel[model]?.length">
+                <div class="small text-muted mb-1">Disp.</div>
+                <label class="form-check small" *ngFor="let d of displacementsByModel[model]">
+                  <input type="checkbox" class="form-check-input"
+                    [checked]="(selectedDisplacementsSvc[model]||[]).includes(d)"
+                    (change)="toggleDispSvc(model, d, $event)" />
+                  <span class="form-check-label">{{ d }}</span>
+                </label>
+              </div>
+
+              <div class="col-md-3" *ngIf="sizeClassesByModel[model]?.length">
+                <div class="small text-muted mb-1">Size</div>
+                <label class="form-check small" *ngFor="let s of sizeClassesByModel[model]">
+                  <input type="checkbox" class="form-check-input"
+                    [checked]="(selectedSizeClassesSvc[model]||[]).includes(s)"
+                    (change)="toggleSizeSvc(model, s, $event)" />
+                  <span class="form-check-label">{{ s }}</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- summary of selected fitmens-->
+        <div *ngIf="selectedMakesSvc.length" class="mt-2">
+          <div class="small text-muted mb-1">Selected scope:</div>
+          <div class="d-flex flex-wrap gap-2">
+            <span class="badge bg-secondary" *ngFor="let mk of selectedMakesSvc">{{ mk }}</span>
+            <span class="badge bg-info" *ngFor="let pair of svcSelectedPairs()">
+              {{ pair.make }} — {{ pair.model }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pricing & Save -->
+    <div class="card shadow-sm">
+      <div class="card-body row g-3 align-items-end">
+
+        <div class="col-md-3">
+          <label class="form-label">Pricing Type</label>
+          <select class="form-select" [(ngModel)]="pricing.type" (change)="onPricingTypeChange()">
+            <option value="fixed">Fixed</option>
+            <option value="range">Range</option>
+          </select>
+        </div>
+
+        <div class="col-md-3" *ngIf="pricing.type==='fixed'">
+          <label class="form-label">Price (RM)</label>
+          <input type="number" class="form-control" [(ngModel)]="pricing.price" />
+        </div>
+
+        <div class="col-md-3" *ngIf="pricing.type==='range'">
+          <label class="form-label">Price Range (RM)</label>
+          <div class="input-group">
+            <input type="number" class="form-control" placeholder="Min" [(ngModel)]="pricing.priceMin" />
+            <span class="input-group-text">—</span>
+            <input type="number" class="form-control" placeholder="Max" [(ngModel)]="pricing.priceMax" />
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Duration (mins)</label>
+          <input type="number" class="form-control" [(ngModel)]="pricing.duration" />
+        </div>
+
+        <div class="col-md-3 d-grid">
+          <button class="btn btn-primary" (click)="saveOffer()">Save Offer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- List of offered services by category -->
+    <div class="mt-4" *ngFor="let cat of viewCategories">
+      <h6 class="fw-semibold">{{ cat['name'] }}</h6>
+      <ul class="list-group mb-3">
+        <li *ngFor="let svc of cat.services" class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{{ svc['name'] }}</strong>
+            <ng-container *ngIf="svc['price']"> — RM {{ svc['price'] }}</ng-container>
+            <ng-container *ngIf="!svc['price'] && (svc['priceMin'] || svc['priceMax'])">
+              — RM {{ svc['priceMin'] }} – {{ svc['priceMax'] }}
+            </ng-container>
+            <span *ngIf="svc['duration']"> ({{ svc['duration'] }} mins)</span>
+          </div>
+          <button class="btn btn-sm btn-outline-danger" (click)="deleteService(svc['id'])">Delete</button>
+        </li>
+      </ul>
+    </div>
   </div>
 
-  <!-- Tier Name -->
-  <form [formGroup]="tierForm" class="card p-3 mb-4 shadow-sm">
-    <div class="row g-3 align-items-center">
-      <div class="col-md-6">
-        <label class="form-label fw-semibold">
-          <i class="bi bi-tags-fill me-2 text-primary"></i>Tier Name
-        </label>
-        <input type="text" class="form-control" formControlName="tierName" placeholder="e.g. Sedan Tier A" />
+  <!-- Tier Management Tab -->
+  <div *ngIf="tab==='tier'">
+    <h5 class="mb-3">Tier Management</h5>
+
+    <!-- Alerts -->
+    <div *ngIf="errorMessage" class="alert alert-danger d-flex align-items-center me-2">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+      {{ errorMessage }}
+    </div>
+    <div *ngIf="infoMessage" class="alert alert-success d-flex align-items-center">
+      <i class="bi bi-check-circle-fill me-2"></i>
+      {{ infoMessage }}
+    </div>
+
+    <!-- Tier Name -->
+    <form [formGroup]="tierForm" class="card p-3 mb-4 shadow-sm">
+      <div class="row g-3 align-items-center">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-tags-fill me-2 text-primary"></i>Tier Name
+          </label>
+          <input type="text" class="form-control" formControlName="tierName" placeholder="e.g. Sedan Tier A" />
+        </div>
+        <div class="col-md-3 d-grid">
+          <button type="button" class="btn btn-success" (click)="saveTier()">
+            <i class="bi bi-save me-2"></i> Save Tier
+          </button>
+        </div>
       </div>
-      <div class="col-md-3 d-grid">
-        <button type="button" class="btn btn-success" (click)="saveTier()">
-          <i class="bi bi-save me-2"></i> Save Tier
+    </form>
+
+    <!-- Car Makes -->
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-car-front-fill me-2 text-primary"></i> Select Car Makes</span>
+        <div class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary" (click)="selectAllMakes()">Select All</button>
+          <button class="btn btn-sm btn-outline-secondary" (click)="clearAllMakes()">Clear</button>
+        </div>
+      </div>
+      <div class="card-body d-flex flex-wrap gap-3">
+        <div *ngFor="let m of makes; trackBy: trackByMake" class="form-check">
+          <input type="checkbox" class="form-check-input" [value]="m" [checked]="(selectedMakes || []).includes(m)"
+            (change)="onMakeToggle(m, $event)" />
+          <label class="form-check-label">{{ m }}</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Models & Filters per Car Make -->
+    <div *ngFor="let make of selectedMakes; trackBy: trackByMake" class="card mb-3 shadow-sm">
+      <div class="card-header fw-bold d-flex justify-content-between align-items-center">
+        <span>
+          <i class="bi bi-grid-3x3-gap-fill me-2 text-info"></i> {{ make }}
+        </span>
+        <button class="btn btn-sm btn-link" (click)="toggleMakePanel(make)">
+          <span *ngIf="!expandMake[make]"><i class="bi bi-caret-right-fill"></i> Expand</span>
+          <span *ngIf="expandMake[make]"><i class="bi bi-caret-down-fill"></i> Collapse</span>
         </button>
       </div>
-    </div>
-  </form>
 
-  <!-- Car Makes -->
-  <div class="card mb-3 shadow-sm">
-    <div class="card-header fw-bold d-flex justify-content-between align-items-center">
-      <span><i class="bi bi-car-front-fill me-2 text-primary"></i> Select Car Makes</span>
-      <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-primary" (click)="selectAllMakes()">Select All</button>
-        <button class="btn btn-sm btn-outline-secondary" (click)="clearAllMakes()">Clear</button>
-      </div>
-    </div>
-    <div class="card-body d-flex flex-wrap gap-3">
-      <div *ngFor="let m of makes; trackBy: trackByMake" class="form-check">
-        <input type="checkbox" class="form-check-input" [value]="m" [checked]="(selectedMakes || []).includes(m)"
-          (change)="onMakeToggle(m, $event)" />
-        <label class="form-check-label">{{ m }}</label>
-      </div>
-    </div>
-  </div>
-
-  <!-- Models & Filters per Car Make -->
-  <div *ngFor="let make of selectedMakes; trackBy: trackByMake" class="card mb-3 shadow-sm">
-    <div class="card-header fw-bold d-flex justify-content-between align-items-center">
-      <span>
-        <i class="bi bi-grid-3x3-gap-fill me-2 text-info"></i> {{ make }}
-      </span>
-      <button class="btn btn-sm btn-link" (click)="toggleMakePanel(make)">
-        <span *ngIf="!expandMake[make]"><i class="bi bi-caret-right-fill"></i> Expand</span>
-        <span *ngIf="expandMake[make]"><i class="bi bi-caret-down-fill"></i> Collapse</span>
-      </button>
-    </div>
-
-    <div class="card-body" *ngIf="expandMake[make]">
-      <!-- Models toolbar -->
-      <div class="row g-2 align-items-end mb-2">
-        <div class="col-md-6">
-          <label class="form-label small text-muted">Search models</label>
-          <div class="input-group">
-            <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input type="text" class="form-control" [(ngModel)]="modelSearch[make]" placeholder="e.g. Civic" />
-          </div>
-        </div>
-        <div class="col-md-6 d-flex flex-wrap gap-2 justify-content-md-end">
-          <button class="btn btn-sm btn-outline-primary" (click)="selectFilteredModels(make)">
-            Select Filtered
-          </button>
-          <button class="btn btn-sm btn-outline-secondary" (click)="clearFilteredModels(make)">
-            Clear Filtered
-          </button>
-          <button class="btn btn-sm btn-outline-primary" (click)="selectAllModels(make)">
-            Select All Models
-          </button>
-          <button class="btn btn-sm btn-outline-secondary" (click)="clearAllModels(make)">
-            Clear Models
-          </button>
-        </div>
-      </div>
-
-      <!-- Brand-wide presets section buttons-->
-      <div class="card p-3 shadow-sm rounded-3 mb-3">
-        <div class="row g-3 align-items-center">
-
-          <!-- Years -->
-          <div class="col-12 col-md-6">
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <span class="fw-semibold small text-muted">Years:</span>
-              <button class="btn btn-sm btn-outline-dark" (click)="applyYearPresetToMake(make, 'latest5')">Latest
-                5</button>
-              <button class="btn btn-sm btn-outline-dark" (click)="applyYearPresetToMake(make, 'all')">All</button>
-              <button class="btn btn-sm btn-outline-dark" (click)="applyYearPresetToMake(make, 'even')">Even</button>
-              <button class="btn btn-sm btn-outline-dark" (click)="applyYearPresetToMake(make, 'odd')">Odd</button>
+      <div class="card-body" *ngIf="expandMake[make]">
+        <!-- Models toolbar -->
+        <div class="row g-2 align-items-end mb-2">
+          <div class="col-md-6">
+            <label class="form-label small text-muted">Search models</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" [(ngModel)]="modelSearch[make]" placeholder="e.g. Civic" />
             </div>
           </div>
-
-          <!-- Fuel Types -->
-          <div class="col-12 col-md-6">
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <span class="fw-semibold small text-muted">Fuel Types:</span>
-              <div *ngIf="getFilteredFuelTypes(make).length === 0" class="text-muted small">No Fuel Types
-                Available</div>
-              <ng-container *ngFor="let fuel of getFilteredFuelTypes(make)">
-                <button class="btn btn-sm btn-outline-primary" (click)="applyFuelTypeToMake(make, fuel)">
-                  {{ fuel }}
-                </button>
-              </ng-container>
-            </div>
+          <div class="col-md-6 d-flex flex-wrap gap-2 justify-content-md-end">
+            <button class="btn btn-sm btn-outline-primary" (click)="selectFilteredModels(make)">
+              Select Filtered
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" (click)="clearFilteredModels(make)">
+              Clear Filtered
+            </button>
+            <button class="btn btn-sm btn-outline-primary" (click)="selectAllModels(make)">
+              Select All Models
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" (click)="clearAllModels(make)">
+              Clear Models
+            </button>
           </div>
-
-          <!-- Displacement -->
-          <div class="col-12 col-md-6">
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <span class="fw-semibold small text-muted">Displacement Volume:</span>
-              <div *ngIf="getFilteredDisplacements(make).length === 0" class="text-muted small">No Displacement
-                Available</div>
-              <ng-container *ngFor="let disp of getFilteredDisplacements(make)">
-                <button class="btn btn-sm btn-outline-success" (click)="applyDisplacementToMake(make, disp)">
-                  {{ disp }} L
-                </button>
-              </ng-container>
-            </div>
-          </div>
-
-          <!-- Size Class -->
-          <div class="col-12 col-md-6">
-            <div class="d-flex flex-wrap align-items-center gap-2">
-              <span class="fw-semibold small text-muted">Size Class:</span>
-              <div *ngIf="getFilteredSizeClasses(make).length === 0" class="text-muted small">No Size Classes
-                Available</div>
-              <ng-container *ngFor="let size of getFilteredSizeClasses(make)">
-                <button class="btn btn-sm btn-outline-warning" (click)="applySizeClassToMake(make, size)">
-                  {{ size }}
-                </button>
-              </ng-container>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-
-      <!-- Models list -->
-      <div class="d-flex flex-wrap gap-3 mb-3">
-        <div *ngFor="let model of getFilteredModels(make); trackBy: trackByModel" class="form-check">
-          <input type="checkbox" class="form-check-input" [checked]="isModelSelected(make, model)"
-            (change)="toggleModel(make, model)">
-          <label class="form-check-label">{{ model }}</label>
-        </div>
-      </div>
-
-      <!-- Filters per Model -->
-      <div *ngFor="let model of selectedModels[make]; trackBy: trackByModel" class="border rounded p-2 mb-2 bg-light">
-        <div class="d-flex justify-content-between align-items-center">
-          <h6 class="m-0">
-            <i class="bi bi-sliders me-2 text-secondary"></i> {{ model }}
-          </h6>
-          <button class="btn btn-sm btn-link" (click)="toggleModelPanel(model)">
-            <span *ngIf="!expandModel[model]"><i class="bi bi-caret-right-fill"></i> Show Filters</span>
-            <span *ngIf="expandModel[model]"><i class="bi bi-caret-down-fill"></i> Hide Filters</span>
-          </button>
         </div>
 
-        <div *ngIf="expandModel[model]" class="mt-2">
-          <div class="row">
+        <!-- Brand-wide presets section buttons-->
+        <div class="card p-3 shadow-sm rounded-3 mb-3">
+          <div class="row g-3 align-items-center">
+
             <!-- Years -->
-            <div class="col-md-3" *ngIf="yearsByModel[model]">
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <strong><i class="bi bi-calendar3 me-1"></i> Years</strong>
-              </div>
-
-              <div class="d-flex flex-wrap gap-2 mb-2">
-                <button class="btn btn-sm btn-outline-primary" (click)="applyYearPreset(model, 'latest5')">Latest
+            <div class="col-12 col-md-6">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-semibold small text-muted">Years:</span>
+                <button class="btn btn-sm btn-outline-dark" (click)="applyYearPresetToMake(make, 'latest5')">Latest
                   5</button>
-                <button class="btn btn-sm btn-outline-primary" (click)="applyYearPreset(model, 'all')">All</button>
-                <button class="btn btn-sm btn-outline-primary" (click)="applyYearPreset(model, 'even')">Even</button>
-                <button class="btn btn-sm btn-outline-primary" (click)="applyYearPreset(model, 'odd')">Odd</button>
-                <button class="btn btn-sm btn-outline-secondary" (click)="clearYears(model)">Clear</button>
+                <button class="btn btn-sm btn-outline-dark" (click)="applyYearPresetToMake(make, 'all')">All</button>
+                <button class="btn btn-sm btn-outline-dark" (click)="applyYearPresetToMake(make, 'even')">Even</button>
+                <button class="btn btn-sm btn-outline-dark" (click)="applyYearPresetToMake(make, 'odd')">Odd</button>
+              </div>
+            </div>
+
+            <!-- Fuel Types -->
+            <div class="col-12 col-md-6">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-semibold small text-muted">Fuel Types:</span>
+                <div *ngIf="getFilteredFuelTypes(make).length === 0" class="text-muted small">No Fuel Types
+                  Available</div>
+                <ng-container *ngFor="let fuel of getFilteredFuelTypes(make)">
+                  <button class="btn btn-sm btn-outline-primary" (click)="applyFuelTypeToMake(make, fuel)">
+                    {{ fuel }}
+                  </button>
+                </ng-container>
+              </div>
+            </div>
+
+            <!-- Displacement -->
+            <div class="col-12 col-md-6">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-semibold small text-muted">Displacement Volume:</span>
+                <div *ngIf="getFilteredDisplacements(make).length === 0" class="text-muted small">No Displacement
+                  Available</div>
+                <ng-container *ngFor="let disp of getFilteredDisplacements(make)">
+                  <button class="btn btn-sm btn-outline-success" (click)="applyDisplacementToMake(make, disp)">
+                    {{ disp }} L
+                  </button>
+                </ng-container>
+              </div>
+            </div>
+
+            <!-- Size Class -->
+            <div class="col-12 col-md-6">
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="fw-semibold small text-muted">Size Class:</span>
+                <div *ngIf="getFilteredSizeClasses(make).length === 0" class="text-muted small">No Size Classes
+                  Available</div>
+                <ng-container *ngFor="let size of getFilteredSizeClasses(make)">
+                  <button class="btn btn-sm btn-outline-warning" (click)="applySizeClassToMake(make, size)">
+                    {{ size }}
+                  </button>
+                </ng-container>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+
+        <!-- Models list -->
+        <div class="d-flex flex-wrap gap-3 mb-3">
+          <div *ngFor="let model of getFilteredModels(make); trackBy: trackByModel" class="form-check">
+            <input type="checkbox" class="form-check-input" [checked]="isModelSelected(make, model)"
+              (change)="toggleModel(make, model)">
+            <label class="form-check-label">{{ model }}</label>
+          </div>
+        </div>
+
+        <!-- Filters per Model -->
+        <div *ngFor="let model of selectedModels[make]; trackBy: trackByModel" class="border rounded p-2 mb-2 bg-light">
+          <div class="d-flex justify-content-between align-items-center">
+            <h6 class="m-0">
+              <i class="bi bi-sliders me-2 text-secondary"></i> {{ model }}
+            </h6>
+            <button class="btn btn-sm btn-link" (click)="toggleModelPanel(model)">
+              <span *ngIf="!expandModel[model]"><i class="bi bi-caret-right-fill"></i> Show Filters</span>
+              <span *ngIf="expandModel[model]"><i class="bi bi-caret-down-fill"></i> Hide Filters</span>
+            </button>
+          </div>
+
+          <div *ngIf="expandModel[model]" class="mt-2">
+            <div class="row">
+              <!-- Years -->
+              <div class="col-md-3" *ngIf="yearsByModel[model]">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <strong><i class="bi bi-calendar3 me-1"></i> Years</strong>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                  <button class="btn btn-sm btn-outline-primary" (click)="applyYearPreset(model, 'latest5')">Latest
+                    5</button>
+                  <button class="btn btn-sm btn-outline-primary" (click)="applyYearPreset(model, 'all')">All</button>
+                  <button class="btn btn-sm btn-outline-primary" (click)="applyYearPreset(model, 'even')">Even</button>
+                  <button class="btn btn-sm btn-outline-primary" (click)="applyYearPreset(model, 'odd')">Odd</button>
+                  <button class="btn btn-sm btn-outline-secondary" (click)="clearYears(model)">Clear</button>
+                </div>
+
+                <div class="scroll-box" style="max-height: 160px; overflow:auto;">
+                  <div *ngFor="let y of yearsByModel[model]; trackBy: trackByYear" class="form-check">
+                    <input type="checkbox" class="form-check-input" [checked]="(selectedYears[model] || []).includes(y)"
+                      (change)="toggleYear(model, y, $event)" />
+                    <label class="form-check-label">{{ y }}</label>
+                  </div>
+                </div>
               </div>
 
-              <div class="scroll-box" style="max-height: 160px; overflow:auto;">
-                <div *ngFor="let y of yearsByModel[model]; trackBy: trackByYear" class="form-check">
-                  <input type="checkbox" class="form-check-input" [checked]="(selectedYears[model] || []).includes(y)"
-                    (change)="toggleYear(model, y, $event)" />
-                  <label class="form-check-label">{{ y }}</label>
+              <!-- Fuel -->
+              <div class="col-md-3" *ngIf="fuelTypesByModel[model]">
+                <strong><i class="bi bi-fuel-pump me-1"></i> Fuel</strong>
+                <div *ngFor="let f of fuelTypesByModel[model]" class="form-check">
+                  <input type="checkbox" class="form-check-input"
+                    [checked]="(selectedFuelTypes[model] || []).includes(f)" [value]="f"
+                    (change)="toggleFuel(model, f, $event)" />
+                  <label class="form-check-label">{{ f }}</label>
+                </div>
+              </div>
+
+              <!-- Displacements -->
+              <div class="col-md-3" *ngIf="displacementsByModel[model]">
+                <strong><i class="bi bi-speedometer2 me-1"></i> Displacement</strong>
+                <div *ngFor="let d of displacementsByModel[model]" class="form-check">
+                  <input type="checkbox" class="form-check-input"
+                    [checked]="(selectedDisplacements[model] || []).includes(d)" [value]="d"
+                    (change)="toggleDisplacement(model, d, $event)" />
+                  <label class="form-check-label">{{ d }}</label>
+                </div>
+              </div>
+
+              <!-- Sizes -->
+              <div class="col-md-3" *ngIf="sizeClassesByModel[model]">
+                <strong><i class="bi bi-arrows-fullscreen me-1"></i> Size</strong>
+                <div *ngFor="let s of sizeClassesByModel[model]" class="form-check">
+                  <input type="checkbox" class="form-check-input"
+                    [checked]="(selectedSizeClasses[model] || []).includes(s)" [value]="s"
+                    (change)="toggleSize(model, s, $event)" />
+                  <label class="form-check-label">{{ s }}</label>
                 </div>
               </div>
             </div>
-
-            <!-- Fuel -->
-            <div class="col-md-3" *ngIf="fuelTypesByModel[model]">
-              <strong><i class="bi bi-fuel-pump me-1"></i> Fuel</strong>
-              <div *ngFor="let f of fuelTypesByModel[model]" class="form-check">
-                <input type="checkbox" class="form-check-input" [checked]="(selectedFuelTypes[model] || []).includes(f)"
-                  [value]="f" (change)="toggleFuel(model, f, $event)" />
-                <label class="form-check-label">{{ f }}</label>
-              </div>
-            </div>
-
-            <!-- Displacements -->
-            <div class="col-md-3" *ngIf="displacementsByModel[model]">
-              <strong><i class="bi bi-speedometer2 me-1"></i> Displacement</strong>
-              <div *ngFor="let d of displacementsByModel[model]" class="form-check">
-                <input type="checkbox" class="form-check-input"
-                  [checked]="(selectedDisplacements[model] || []).includes(d)" [value]="d"
-                  (change)="toggleDisplacement(model, d, $event)" />
-                <label class="form-check-label">{{ d }}</label>
-              </div>
-            </div>
-
-            <!-- Sizes -->
-            <div class="col-md-3" *ngIf="sizeClassesByModel[model]">
-              <strong><i class="bi bi-arrows-fullscreen me-1"></i> Size</strong>
-              <div *ngFor="let s of sizeClassesByModel[model]" class="form-check">
-                <input type="checkbox" class="form-check-input"
-                  [checked]="(selectedSizeClasses[model] || []).includes(s)" [value]="s"
-                  (change)="toggleSize(model, s, $event)" />
-                <label class="form-check-label">{{ s }}</label>
-              </div>
-            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Saved tiers -->
-  <div class="row g-3 mt-4">
-    <div class="col-12 col-md-6 col-lg-4" *ngFor="let t of savedTiers">
-      <div class="card h-100 shadow-sm border-0">
-        <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
-          <span><i class="bi bi-layers me-2"></i>{{ t.tierName }}</span>
-          <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-light" (click)="duplicateTier(t)">
-              <i class="bi bi-files"></i> Duplicate
-            </button>
-            <button class="btn btn-sm btn-outline-light" (click)="openDetails(t)">
-              <i class="bi bi-eye"></i>
-            </button>
+    <!-- Saved tiers -->
+    <div class="row g-3 mt-4">
+      <div class="col-12 col-md-6 col-lg-4" *ngFor="let t of savedTiers">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-layers me-2"></i>{{ t.tierName }}</span>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-light" (click)="duplicateTier(t)">
+                <i class="bi bi-files"></i> Duplicate
+              </button>
+              <button class="btn btn-sm btn-outline-light" (click)="openDetails(t)">
+                <i class="bi bi-eye"></i>
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div class="card-body">
-          <p class="fw-semibold text-secondary">Makes:
-            <span class="badge bg-secondary">{{ t.makes?.join(', ') }}</span>
-          </p>
+          <div class="card-body">
+            <p class="fw-semibold text-secondary">Makes:
+              <span class="badge bg-secondary">{{ t.makes?.join(', ') }}</span>
+            </p>
 
-          <p class="fw-semibold text-info">Years Supported:
-            <span class="badge bg-info">{{ getYearSummary(t.years) }}</span>
-          </p>
-          <div class="align-items-end">
-            <button class="btn btn-sm btn-outline-danger me-2" (click)="deleteTier(t)"><i
-                class="bi bi-trash"></i></button>
-            <button class="btn btn-sm btn-outline-primary" (click)="editTier(t)"><i class="bi bi-pencil"></i></button>
+            <p class="fw-semibold text-info">Years Supported:
+              <span class="badge bg-info">{{ getYearSummary(t.years) }}</span>
+            </p>
+            <div class="align-items-end">
+              <button class="btn btn-sm btn-outline-danger me-2" (click)="deleteTier(t)"><i
+                  class="bi bi-trash"></i></button>
+              <button class="btn btn-sm btn-outline-primary" (click)="editTier(t)"><i class="bi bi-pencil"></i></button>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
+
 
 <!-- Details Modal -->
 <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">

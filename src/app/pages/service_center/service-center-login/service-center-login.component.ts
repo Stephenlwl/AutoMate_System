@@ -86,7 +86,7 @@ export class ServiceCenterLoginComponent {
           id: snapshot.docs[0].id,
           email: userDoc.adminInfo.email,
           name: userDoc.adminInfo.name,
-          workshopName: userDoc.workshopInfo.name,
+          serviceCenterName: userDoc.serviceCenterInfo.name,
         });
 
         // Navigate to dashboard

@@ -42,10 +42,10 @@ export class ManageBookingsComponent {
 
   async load() {
     const email = this.auth.getEmail()!;
-    const workshopId = await this.ctx.resolveWorkshopIdByEmail(email);
-    if (!workshopId) return;
+    const serviceCenterId = await this.ctx.resolveServiceCenterIdByEmail(email);
+    if (!serviceCenterId) return;
 
-    const qBase = query(collection(this.fs, 'bookings'), where('workshopId', '==', workshopId));
+    const qBase = query(collection(this.fs, 'bookings'), where('serviceCenterId', '==', serviceCenterId));
     const s = await getDocs(qBase);
     let all = s.docs.map(d => ({ id: d.id, ...d.data() }));
     if (this.statusFilter) all = all.filter((b:any)=> b.status===this.statusFilter);
@@ -54,14 +54,14 @@ export class ManageBookingsComponent {
 
   async loadTechniciansAndBays() {
     const email = this.auth.getEmail()!;
-    const workshopId = await this.ctx.resolveWorkshopIdByEmail(email);
-    if (!workshopId) return;
+    const serviceCenterId = await this.ctx.resolveServiceCenterIdByEmail(email);
+    if (!serviceCenterId) return;
 
-    const st = await getDocs(query(collection(this.fs,'staff'), where('workshopId','==',workshopId), where('role','==','technician'), where('active','==',true)));
+    const st = await getDocs(query(collection(this.fs,'staff'), where('serviceCenterId','==',serviceCenterId), where('role','==','technician'), where('active','==',true)));
     this.technicians = st.docs.map(d=>({ id:d.id, ...d.data() }));
     this.techMap = Object.fromEntries(this.technicians.map(t=>[t.id, t.name]));
 
-    const ba = await getDocs(query(collection(this.fs,'bays'), where('workshopId','==',workshopId), where('active','==',true)));
+    const ba = await getDocs(query(collection(this.fs,'bays'), where('serviceCenterId','==',serviceCenterId), where('active','==',true)));
     this.bays = ba.docs.map(d=>({ id:d.id, ...d.data() }));
     this.bayMap = Object.fromEntries(this.bays.map(b=>[b.id, b.name]));
   }

@@ -22,8 +22,8 @@ private fs = inject(Firestore);
   form = this.fb.group({ text:[''] });
 
   async ngOnInit(){
-    const wid = await this.ctx.resolveWorkshopIdByEmail(this.auth.getEmail()!);
-    const s = await getDocs(query(collection(this.fs,'chats'), where('workshopId','==',wid), orderBy('updatedAt','desc')));
+    const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
+    const s = await getDocs(query(collection(this.fs,'chats'), where('serviceCenterId','==',wid), orderBy('updatedAt','desc')));
     this.threads = s.docs.map(d=>({ id:d.id, ...d.data() }));
   }
   async open(i:number){
@@ -34,9 +34,9 @@ private fs = inject(Firestore);
   async send(){
     if (!this.activeThread || !this.form.value.text) return;
     await addDoc(collection(this.fs,'chats', this.activeThread.id,'messages'), {
-      sender: 'workshop', text: this.form.value.text, createdAt: Timestamp.now()
+      sender: 'serviceCenter', text: this.form.value.text, createdAt: Timestamp.now()
     });
-    this.messages.push({ sender:'workshop', text:this.form.value.text, createdAt: Timestamp.now() });
+    this.messages.push({ sender:'serviceCenter', text:this.form.value.text, createdAt: Timestamp.now() });
     this.form.reset();
   }
 }

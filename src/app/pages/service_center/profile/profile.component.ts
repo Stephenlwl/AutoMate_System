@@ -20,17 +20,17 @@ export class ServiceCenterProfileComponent {
   private fb = inject(FormBuilder);
   docId!:string;
 
-  form = this.fb.group({ name:['', Validators.required], phone:['', Validators.required], password:[''] });
+  form = this.fb.group({ name:['', Validators.required], password:[''] });
 
   async ngOnInit(){
-    const wid = await this.ctx.resolveWorkshopIdByEmail(this.auth.getEmail()!);
+    const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
     this.docId = wid!;
     const snap = await getDoc(doc(this.fs,'repair_service_centers', this.docId));
     const a:any = snap.data()?.['adminInfo'];
-    this.form.patchValue({ name: a?.name || '', phone: a?.phone || '' });
+    this.form.patchValue({ name: a?.name || '' });
   }
   async save(){
-    const updates:any = { adminInfo: { name:this.form.value.name, phone:this.form.value.phone } };
+    const updates:any = { adminInfo: { name:this.form.value.name } };
     if (this.form.value.password) {
       updates.adminInfo.password = await bcrypt.hash(this.form.value.password, 10);
     }

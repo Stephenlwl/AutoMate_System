@@ -23,7 +23,7 @@ export class ManageTowingServicesComponent {
   loaded=false; docId!:string;
 
   async ngOnInit(){
-    const wid = await this.ctx.resolveWorkshopIdByEmail(this.auth.getEmail()!);
+    const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
     this.docId = wid!;
     const d = await getDoc(doc(this.fs,'repair_service_centers', this.docId));
     const towing:any = d.data()?.['towing'] || {};

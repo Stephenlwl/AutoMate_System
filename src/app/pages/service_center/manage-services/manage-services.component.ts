@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { Firestore, collection, addDoc, getDocs, where, query, deleteDoc, doc } from '@angular/fire/firestore';
+import { Firestore, collection, addDoc, getDocs, where, query, deleteDoc, doc, setDoc } from '@angular/fire/firestore';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { AuthService } from '../auth/service-center-auth';
 import { Modal } from 'bootstrap';
@@ -21,15 +21,52 @@ export class ServiceCenterServiceComponent implements OnInit {
   private http = inject(HttpClient);
   private auth = inject(AuthService);
 
-  workshopId!: string;
+  //declare tab
+  tab: 'service' | 'tier' = 'service';
+
+  serviceCenterId!: string;
+
+  // services and category from firestore
+  serviceForm!: FormGroup;
+  serviceCategories: any[] = [];
+  serviceTiers: any[] = [];
+  categories: any[] = [];
+  servicesByCategory: Record<string, any[]> = {}; // categoryId to services[]
+  viewCategories: any[] = []; // for read-only listing of existing services
+  selectedMakesSvc: string[] = [];
+  modelSearchSvc: Record<string, string> = {};
+  selectedModelsSvc: Record<string, string[]> = {};
+  selectedYearsSvc: Record<string, number[]> = {};
+  selectedFuelTypesSvc: Record<string, string[]> = {};
+  selectedDisplacementsSvc: Record<string, number[]> = {};
+  selectedSizeClassesSvc: Record<string, string[]> = {};
+
+  svcError = '';
+  svcInfo = '';
+  brandWideDisabledSvc = false;
+
+  // pick from Category to Service to Tier
+  pick = {
+    categoryId: '',
+    serviceId: '',
+    tierId: ''
+  };
+
+  pricing = {
+    type: 'fixed' as 'fixed' | 'range',
+    price: null as number | null,
+    priceMin: null as number | null,
+    priceMax: null as number | null,
+    duration: null as number | null
+  };
+
+  // tiers from firestore
   tierForm!: FormGroup;
   savedTiers: any[] = [];
   selectedTier: any = null;
-
   // data sources
   makes: string[] = [];
   modelsByMake: { [make: string]: string[] } = {};
-
   // selected states
   selectedMakes: string[] = [];
   selectedModels: { [make: string]: string[] } = {};
@@ -37,12 +74,10 @@ export class ServiceCenterServiceComponent implements OnInit {
   fuelTypesByModel: { [model: string]: string[] } = {};
   displacementsByModel: { [model: string]: number[] } = {};
   sizeClassesByModel: { [model: string]: string[] } = {};
-
   selectedYears: { [model: string]: number[] } = {};
   selectedFuelTypes: { [model: string]: string[] } = {};
   selectedDisplacements: { [model: string]: number[] } = {};
   selectedSizeClasses: { [model: string]: string[] } = {};
-
   // searching, filtering, expanding
   modelSearch: { [make: string]: string } = {};
   expandMake: { [make: string]: boolean } = {};
@@ -54,7 +89,8 @@ export class ServiceCenterServiceComponent implements OnInit {
   infoMessage = '';
 
   ngOnInit() {
-    this.workshopId = this.auth.getAdmin().id;
+    this.initServiceTab();
+    this.serviceCenterId = this.auth.getAdmin().id;
     this.tierForm = this.fb.group({
       tierName: ['', Validators.required],
     });
@@ -62,10 +98,362 @@ export class ServiceCenterServiceComponent implements OnInit {
     this.fetchMakes();
   }
 
+  async initServiceTab() {
+
+    const categorySnapshot = await getDocs(query(collection(this.firestore, 'services_categories')));
+    this.categories = categorySnapshot.docs.map(category => ({ id: category.id, ...category.data() }));
+
+    // preload services which grouped by category
+    this.servicesByCategory = {};
+    for (const category of this.categories) {
+      const serviceSnapshot = await getDocs(
+        query(
+          collection(this.firestore, 'services'),
+          where('categoryId', '==', category['id']),
+        )
+      );
+      this.servicesByCategory[category['id']] = serviceSnapshot.docs.map(service => ({ id: service.id, ...service.data() }));
+    }
+
+    // Load service centertiers
+    const tierSnap = await getDocs(query(collection(this.firestore, 'service_tiers'), where('serviceCenterId', '==', this.serviceCenterId)));
+    this.serviceTiers = tierSnap.docs.map(tier => ({ id: tier.id, ...tier.data() }));
+
+    // fetch cake brand if no
+    if (!this.makes?.length) {
+      this.fetchMakes();
+    }
+  }
+
+  onPickCategory() {
+    // reset service when category changes
+    this.pick.serviceId = '';
+  }
+
+  applyTierToPricing() {
+    if (!this.pick.tierId) return;
+    const t = this.serviceTiers.find(x => x.id === this.pick.tierId);
+    if (!t) return;
+    this.pricing.price = (t.price ?? null);
+    this.pricing.priceMin = (t.priceMin ?? null);
+    this.pricing.priceMax = (t.priceMax ?? null);
+    this.pricing.duration = (t.duration ?? null);
+    // choose pricing type based on fields present
+    this.pricing.type = this.pricing.price != null ? 'fixed' : 'range';
+  }
+
+  onPricingTypeChange() {
+    if (this.pricing.type === 'fixed') {
+      this.pricing.priceMin = this.pricing.priceMax = null;
+    } else {
+      this.pricing.price = null;
+    }
+  }
+
+  onMakeSvcToggle(make: string, ev: Event) {
+    const checked = (ev.target as HTMLInputElement).checked;
+    if (checked) {
+      if (!this.selectedMakesSvc.includes(make)) {
+        this.selectedMakesSvc.push(make);
+      }
+      if (!this.modelsByMake[make]) {
+        this.fetchModels(make);
+      }
+    } else {
+      this.selectedMakesSvc = this.selectedMakesSvc.filter(m => m !== make);
+      delete this.selectedModelsSvc[make];
+      // do not nuke model-level caches so user doesn't lose data if reselect
+    }
+  }
+
+  getFilteredModelsSvc(make: string): string[] {
+    const list = this.modelsByMake[make] || [];
+    const searchInput = (this.modelSearchSvc[make] || '').trim().toLowerCase();
+    if (!searchInput) {
+      return list;
+    }
+    // while searching user can disable brand-wide buttons so the user doesn’t mass-apply by mistake
+    this.brandWideDisabledSvc = true;
+    return list.filter(make => make.toLowerCase().includes(searchInput));
+  }
+
+  isSvcModelSelected(make: string, model: string) {
+    return (this.selectedModelsSvc[make] || []).includes(model);
+  }
+
+  toggleSvcModel(make: string, model: string) {
+    const arr = this.selectedModelsSvc[make] || (this.selectedModelsSvc[make] = []);
+    const index = arr.indexOf(model);
+    if (index === -1) {
+      arr.push(model);
+      // fetch filters for this model on demand
+      this.fetchFiltersForModel(make, model);
+    } else {
+      arr.splice(index, 1);
+      delete this.selectedYearsSvc[model];
+      delete this.selectedFuelTypesSvc[model];
+      delete this.selectedDisplacementsSvc[model];
+      delete this.selectedSizeClassesSvc[model];
+    }
+  }
+
+  /*** per-model toggles ***/
+  toggleYearSvc(model: string, year: number, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    const arr = this.selectedYearsSvc[model] || (this.selectedYearsSvc[model] = []);
+    if (checked) { 
+      if (!arr.includes(year)) {
+        arr.push(year); 
+      }
+    }
+    else { 
+      this.selectedYearsSvc[model] = arr.filter(v => v !== year); 
+    }
+  }
+
+  toggleFuelSvc(model: string, fuel: string, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    const arr = this.selectedFuelTypesSvc[model] || (this.selectedFuelTypesSvc[model] = []);
+    if (checked) { 
+      if (!arr.includes(fuel)) {
+        arr.push(fuel);
+      }
+    }
+    else { 
+      this.selectedFuelTypesSvc[model] = arr.filter(v => v !== fuel);
+    }
+  }
+
+  toggleDispSvc(model: string, displacement: number, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    const arr = this.selectedDisplacementsSvc[model] || (this.selectedDisplacementsSvc[model] = []);
+    if (checked) { 
+      if (!arr.includes(displacement)) {
+        arr.push(displacement);
+      }
+    }
+    else { 
+      this.selectedDisplacementsSvc[model] = arr.filter(v => v !== displacement);
+    }
+  }
+
+  toggleSizeSvc(model: string, size: string, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
+    const arr = this.selectedSizeClassesSvc[model] || (this.selectedSizeClassesSvc[model] = []);
+    if (checked) {
+      if (!arr.includes(size)) {
+        arr.push(size);
+      }
+    }
+    else {
+      this.selectedSizeClassesSvc[model] = arr.filter(v => v !== size);
+    }
+  }
+
+  applyYearPresetToMakeSvc(make: string, preset: YearPreset) {
+    (this.selectedModelsSvc[make] || []).forEach(model => {
+      const src = this.yearsByModel[model] || [];
+      let out: number[] = [];
+      if (preset === 'latest5') out = src.slice(0, 5);
+      if (preset === 'all') out = src.slice();
+      if (preset === 'even') out = src.filter(y => y % 2 === 0);
+      if (preset === 'odd') out = src.filter(y => y % 2 === 1);
+      this.selectedYearsSvc[model] = out;
+    });
+  }
+
+  getFilteredFuelTypesSvc(make: string): string[] {
+    // union fuel types for currently selected and filtered models only
+    const selected = (this.selectedModelsSvc[make] || []);
+    const filtered = this.getFilteredModelsSvc(make);
+    const model = selected.filter(m => filtered.includes(m));
+    const set = new Set<string>();
+    model.forEach(m => (this.fuelTypesByModel[m] || []).forEach(f => set.add(f)));
+    this.brandWideDisabledSvc = filtered.length > 0 && filtered.length !== (this.modelsByMake[make] || []).length;
+    return Array.from(set).sort();
+  }
+  getFilteredDisplacementsSvc(make: string): number[] {
+    const selected = (this.selectedModelsSvc[make] || []);
+    const filtered = this.getFilteredModelsSvc(make);
+    const model = selected.filter(m => filtered.includes(m));
+    const set = new Set<number>();
+    model.forEach(m => (this.displacementsByModel[m] || []).forEach(d => set.add(d)));
+    return Array.from(set).sort((a, b) => b - a);
+  }
+  getFilteredSizeClassesSvc(make: string): string[] {
+    const selected = (this.selectedModelsSvc[make] || []);
+    const filtered = this.getFilteredModelsSvc(make);
+    const model = selected.filter(m => filtered.includes(m));
+    const set = new Set<string>();
+    model.forEach(m => (this.sizeClassesByModel[m] || []).forEach(s => set.add(s)));
+    return Array.from(set).sort();
+  }
+
+  applyFuelTypeToMakeSvc(make: string, fuel: string) {
+    (this.selectedModelsSvc[make] || []).forEach(model => {
+      // only apply if model actually supports this fuel
+      if ((this.fuelTypesByModel[model] || []).includes(fuel)) {
+        const arr = this.selectedFuelTypesSvc[model] || (this.selectedFuelTypesSvc[model] = []);
+        if (!arr.includes(fuel)) arr.push(fuel);
+      }
+    });
+  }
+
+  applyDisplacementToMakeSvc(make: string, disp: number) {
+    (this.selectedModelsSvc[make] || []).forEach(model => {
+      if ((this.displacementsByModel[model] || []).includes(disp)) {
+        const arr = this.selectedDisplacementsSvc[model] || (this.selectedDisplacementsSvc[model] = []);
+        if (!arr.includes(disp)) arr.push(disp);
+      }
+    });
+  }
+
+  applySizeClassToMakeSvc(make: string, size: string) {
+    (this.selectedModelsSvc[make] || []).forEach(model => {
+      if ((this.sizeClassesByModel[model] || []).includes(size)) {
+        const arr = this.selectedSizeClassesSvc[model] || (this.selectedSizeClassesSvc[model] = []);
+        if (!arr.includes(size)) arr.push(size);
+      }
+    });
+  }
+
+  svcSelectedPairs() {
+    const output: { make: string; model: string }[] = [];
+    Object.keys(this.selectedModelsSvc).forEach(make => {
+      (this.selectedModelsSvc[make] || []).forEach(model => output.push({ make, model }));
+    });
+    return output;
+  }
+
+  async saveOffer() {
+    try {
+      this.svcError = ''; this.svcInfo = '';
+
+      // validate selection
+      if (!this.pick.categoryId || !this.pick.serviceId) {
+        this.svcError = 'Please select category and service.'; return;
+      }
+      if (this.selectedMakesSvc.length === 0 && this.pick.tierId) {
+        this.svcError = 'Please select at least one car make/model or select a tier you have created.'; return;
+      }
+      if (this.pricing.type === 'fixed' && (this.pricing.price == null || this.pricing.price < 0)) {
+        this.svcError = 'Please enter a valid fixed price.'; return;
+      }
+      if (this.pricing.type === 'range' && (this.pricing.priceMin == null || this.pricing.priceMax == null || this.pricing.priceMin < 0 || this.pricing.priceMin > 9999 || this.pricing.priceMax <= 1 || this.pricing.priceMax >= 9999)) {
+        this.svcError = 'Please enter a valid price range.'; return;
+      }
+      if (!this.pricing.duration || this.pricing.duration <= 5) {
+        this.svcError = 'Please enter a valid duration at least 5 mins.'; return;
+      }
+
+      // fitments of only persist values the admin actually selected
+      const models: Record<string, string[]> = {};
+      const years: Record<string, number[]> = {};
+      const fuel: Record<string, string[]> = {};
+      const disp: Record<string, number[]> = {};
+      const size: Record<string, string[]> = {};
+
+      Object.keys(this.selectedModelsSvc).forEach(make => {
+        const selectedModels = (this.selectedModelsSvc[make] || []);
+        if (selectedModels.length) models[make] = selectedModels;
+
+        selectedModels.forEach(m => {
+          if (this.selectedYearsSvc[m]?.length) {
+            years[m] = [...this.selectedYearsSvc[m]];
+          }
+          if (this.selectedFuelTypesSvc[m]?.length) {
+            fuel[m] = [...this.selectedFuelTypesSvc[m]];
+          }
+          if (this.selectedDisplacementsSvc[m]?.length) {
+            disp[m] = [...this.selectedDisplacementsSvc[m]];
+          }
+          if (this.selectedSizeClassesSvc[m]?.length) {
+            size[m] = [...this.selectedSizeClassesSvc[m]];
+          }
+        });
+      });
+
+      const payload: any = {
+        serviceCenterId: this.serviceCenterId,
+        categoryId: this.pick.categoryId,
+        serviceId: this.pick.serviceId,
+        tierId: this.pick.tierId || null,
+        makes: [...this.selectedMakesSvc],
+        models,
+        years,
+        fuelTypes: fuel,
+        displacements: disp,
+        sizeClasses: size,
+        duration: this.pricing.duration,
+      };
+      if (this.pricing.type === 'fixed') {
+        payload.price = this.pricing.price;
+        payload.priceMin = null; payload.priceMax = null;
+      } else {
+        payload.price = null;
+        payload.priceMin = this.pricing.priceMin;
+        payload.priceMax = this.pricing.priceMax;
+      }
+
+      for (const serviceOffer of payload) {
+        const seen = new Map();
+        for (const tier of serviceOffer.tiers) {
+          for (const fit of tier.fitments) {
+            const key = `${serviceOffer.categoryId}_${serviceOffer.serviceId}_${fit.make}_${fit.model}_${fit.years}_${fit.fuels}_${fit.displacements}_${fit.sizes}`;
+            if (seen.has(key)) {
+              this.svcError = "Duplicate fitment in same service with conflicting tier.";
+              return;
+            }
+            seen.set(key, true);
+          }
+        }
+      }
+
+      payload.forEach(async (serviceOffer: any) => {
+        if (serviceOffer.id) {
+          await setDoc(doc(this.firestore, 'service_center_services_offer', serviceOffer.id), serviceOffer, { merge: true });
+          alert("The service you have successfully updated!");
+        } else {
+          await addDoc(collection(this.firestore, 'service_center_services_offer'), serviceOffer);
+          alert("The service you have successfully created!");
+        }
+      });
+      this.resetServiceUI();
+      await this.initServiceTab();
+    } catch (e: any) {
+      this.svcError = e?.message || 'Failed to save offer';
+    }
+  }
+
+  resetServiceUI() {
+    this.pick = { categoryId: '', serviceId: '', tierId: '' };
+    this.pricing = { type: 'fixed', price: null, priceMin: null, priceMax: null, duration: null };
+    this.selectedMakesSvc = [];
+    this.selectedModelsSvc = {};
+    this.modelSearchSvc = {};
+    this.selectedYearsSvc = {};
+    this.selectedFuelTypesSvc = {};
+    this.selectedDisplacementsSvc = {};
+    this.selectedSizeClassesSvc = {};
+    this.brandWideDisabledSvc = false;
+  }
+
+  /**** OPTIONAL: delete an existing service (from your legacy services list) ****/
+  async deleteService(serviceId: string) {
+    try {
+      await deleteDoc(doc(this.firestore, 'services', serviceId));
+      await this.initServiceTab();
+    } catch (err: any) {
+      this.svcError = err.message;
+    }
+  }
+
+  //  Below are Tier tab
+
   async loadSavedTiers(): Promise<void> {
     try {
       const tiersRef = collection(this.firestore, 'service_tiers');
-      const q = query(tiersRef, where('workshopId', '==', this.workshopId));
+      const q = query(tiersRef, where('serviceCenterId', '==', this.serviceCenterId));
       const snapshot = await getDocs(q);
 
       this.savedTiers = snapshot.docs.map(doc => {
@@ -79,7 +467,7 @@ export class ServiceCenterServiceComponent implements OnInit {
           fuelTypes: data.fuelTypes ?? {},
           displacements: data.displacements ?? {},
           sizeClasses: data.sizeClasses ?? {},
-          workshopId: data.workshopId
+          serviceCenterId: data.serviceCenterId
         };
       });
     } catch (error) {
@@ -90,7 +478,7 @@ export class ServiceCenterServiceComponent implements OnInit {
   async duplicateTier(tier: any) {
     const copy = {
       tierName: `${tier.tierName} *Copy`,
-      workshopId: this.workshopId,
+      serviceCenterId: this.serviceCenterId,
       makes: tier.makes,
       models: tier.models,
       years: tier.years,
@@ -613,7 +1001,7 @@ export class ServiceCenterServiceComponent implements OnInit {
 
     const data = {
       ...this.tierForm.value,
-      workshopId: this.workshopId,
+      serviceCenterId: this.serviceCenterId,
       makes: this.selectedMakes,
       models: this.selectedModels,
       years: this.selectedYears,
@@ -626,7 +1014,7 @@ export class ServiceCenterServiceComponent implements OnInit {
       await addDoc(collection(this.firestore, 'service_tiers'), data);
       alert('Tier saved successfully!');
       this.errorMessage = '';
-      this.tierForm.reset({ workshopId: this.workshopId });
+      this.tierForm.reset({ serviceCenterId: this.serviceCenterId });
       this.clearAllMakes();
       this.loadSavedTiers();
     } catch (err: any) {
@@ -634,7 +1022,7 @@ export class ServiceCenterServiceComponent implements OnInit {
     }
   }
 
-  // trackBys for perf 
+  // fitments of make model and year filter
   trackByMake = (_: number, make: string) => make;
   trackByModel = (_: number, model: string) => model;
   trackByYear = (_: number, y: number) => y;

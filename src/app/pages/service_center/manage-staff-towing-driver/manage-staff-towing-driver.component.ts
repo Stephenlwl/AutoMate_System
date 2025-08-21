@@ -22,29 +22,29 @@ export class ManageStaffTowingDriverComponent {
 
   tab:'staff'|'driver'='staff';
   staff:any[]=[]; drivers:any[]=[];
-  staffForm = this.fb.group({ name:['',Validators.required], email:['', [Validators.required]], phone:['',Validators.required], role:['technician',Validators.required], password:['',Validators.required] });
-  driverForm = this.fb.group({ name:['',Validators.required], email:['', [Validators.required]], phone:['',Validators.required], licenseNo:['',Validators.required], password:['',Validators.required] });
+  staffForm = this.fb.group({ name:['',Validators.required], email:['', [Validators.required]], role:['technician',Validators.required], password:['',Validators.required] });
+  driverForm = this.fb.group({ name:['',Validators.required], email:['', [Validators.required]], licenseNo:['',Validators.required], password:['',Validators.required] });
 
   async ngOnInit(){ await this.load(); }
 
   async load(){
-    const wid = await this.ctx.resolveWorkshopIdByEmail(this.auth.getEmail()!);
-    const s1 = await getDocs(query(collection(this.fs,'staff'), where('workshopId','==',wid)));
+    const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
+    const s1 = await getDocs(query(collection(this.fs,'staff'), where('serviceCenterId','==',wid)));
     this.staff = s1.docs.map(d=>d.data());
-    const s2 = await getDocs(query(collection(this.fs,'towing_drivers'), where('workshopId','==',wid)));
+    const s2 = await getDocs(query(collection(this.fs,'towing_drivers'), where('serviceCenterId','==',wid)));
     this.drivers = s2.docs.map(d=>d.data());
   }
   async createStaff(){
-    const wid = this.ctx.workshopId!;
+    const wid = this.ctx.serviceCenterId!;
     const { password, ...rest } = this.staffForm.value;
-    await addDoc(collection(this.fs,'staff'), { workshopId:wid, ...rest, passwordHash: await bcrypt.hash(password!,10), active:true });
+    await addDoc(collection(this.fs,'staff'), { serviceCenterId:wid, ...rest, passwordHash: await bcrypt.hash(password!,10), active:true });
     this.staffForm.reset({ role:'technician' });
     await this.load();
   }
   async createDriver(){
-    const wid = this.ctx.workshopId!;
+    const wid = this.ctx.serviceCenterId!;
     const { password, ...rest } = this.driverForm.value;
-    await addDoc(collection(this.fs,'towing_drivers'), { workshopId:wid, ...rest, passwordHash: await bcrypt.hash(password!,10), active:true });
+    await addDoc(collection(this.fs,'towing_drivers'), { serviceCenterId:wid, ...rest, passwordHash: await bcrypt.hash(password!,10), active:true });
     this.driverForm.reset();
     await this.load();
   }

@@ -23,8 +23,8 @@ export class AuthService {
         return this.getAdmin()?.email || null;
     }
 
-    getWorkshopName(): string | null {
-        return this.getAdmin()?.workshopName || null;
+    getServiceCenterName(): string | null {
+        return this.getAdmin()?.serviceCenterName || null;
     }
 
     isLoggedIn(): boolean {

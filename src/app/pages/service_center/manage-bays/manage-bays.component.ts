@@ -24,13 +24,13 @@ export class ManageBaysComponent {
   async ngOnInit(){ await this.load(); }
 
   async load(){
-    const workshopId = await this.ctx.resolveWorkshopIdByEmail(this.auth.getEmail()!);
-    const s = await getDocs(query(collection(this.fs,'bays'), where('workshopId','==',workshopId)));
+    const serviceCenterId = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
+    const s = await getDocs(query(collection(this.fs,'bays'), where('serviceCenterId','==',serviceCenterId)));
     this.bays = s.docs.map(d=>({id:d.id, ...d.data()}));
   }
   async create(){
-    const workshopId = this.ctx.workshopId!;
-    await addDoc(collection(this.fs,'bays'), { workshopId, name:this.form.value.name, notes:this.form.value.notes||'', active:true });
+    const serviceCenterId = this.ctx.serviceCenterId!;
+    await addDoc(collection(this.fs,'bays'), { serviceCenterId, name:this.form.value.name, notes:this.form.value.notes||'', active:true });
     this.form.reset();
     await this.load();
   }

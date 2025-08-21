@@ -1,13 +1,22 @@
 const express = require('express');
 const nodemailer = require('nodemailer');
 const cors = require('cors');
+const crypto = require('crypto');
 
 const router = express.Router();
 router.use(cors());
 router.use(express.json());
 
-router.post('/', async (req, res) => {
-  const { toEmail, otpCode } = req.body;
+const otpStore = new Map();
+
+router.post('/send', async (req, res) => {
+  const { toEmail } = req.body;
+
+  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpCodeHash = crypto.createHash('sha256').update(otpCode).digest('hex');
+
+  otpStore.set(toEmail, { otpCode: otpCodeHash, expires: Date.now() + 60 * 1000 }); // exp in 1 min
+
   try {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -36,6 +45,30 @@ router.post('/', async (req, res) => {
     console.error(err);
     res.status(500).json({ success: false, error: 'Failed to send email' });
   }
+});
+
+router.post('/verify', (req, res) => {
+  const { toEmail, otpInput } = req.body;
+  const record = otpStore.get(toEmail);
+
+  if (!record) {
+    return res.status(400).json({ success: false, message: 'No OTP found. Request a new otp code.' });
+  }
+
+  if (Date.now() > record.expires) {
+    otpStore.delete(toEmail);
+    return res.status(400).json({ success: false, message: 'OTP expired. Please request again.' });
+  }
+
+  const hash = crypto.createHash('sha256').update(otpInput).digest('hex');
+  if (hash !== record.otpCode) {
+    record.otpCode = null;
+    return res.status(400).json({ success: false, message: 'Invalid OTP! Please request a new OTP code.' });
+  }
+
+  // remove otp code to prevent reuse
+  otpStore.delete(toEmail);
+  return res.json({ success: true, message: 'OTP verified successfully' });
 });
 
 module.exports = router;

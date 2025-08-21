@@ -4,66 +4,66 @@ import { Firestore, collection, getDocs, doc, updateDoc } from '@angular/fire/fi
 import { FormsModule } from '@angular/forms';
 
 @Component({
-  selector: 'app-validate-workshop-admin',
+  selector: 'app-validate-service-center-admin',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './validate-workshop-admin.component.html',
-  styleUrls: ['./validate-workshop-admin.component.css']
+  templateUrl: './validate-service-center-admin.component.html',
+  styleUrls: ['./validate-service-center-admin.component.css']
 })
-export class ValidateWorkshopAdminComponent implements OnInit {
+export class ValidateServiceCenterAdminComponent implements OnInit {
   private firestore = inject(Firestore);
 
-  pendingWorkshops: any[] = [];
-  respondedWorkshops: any[] = [];
+  pendingServiceCenters: any[] = [];
+  respondedServiceCenters: any[] = [];
   loading = false;
 
-  selectedWorkshop: any = null;       
+  selectedServiceCenter: any = null;       
   selectedRejectId: string | null = null;
   rejectionReason: string = '';
   selectedAdminEmail: string = '';
 
   async ngOnInit() {
-    await this.loadWorkshops();
-    await this.loadRespondedWorkshops();
+    await this.loadServiceCenters();
+    await this.loadRespondedServiceCenters();
   }
 
-  async loadWorkshops() {
+  async loadServiceCenters() {
     this.loading = true;
     try {
       const snapshot = await getDocs(collection(this.firestore, 'repair_service_centers'));
-      this.pendingWorkshops = snapshot.docs
+      this.pendingServiceCenters = snapshot.docs
         .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
-        .filter((workshop: any) => workshop.verification?.status === 'pending');
+        .filter((serviceCenter: any) => serviceCenter.verification?.status === 'pending');
     } catch (error) {
-      console.error('Error loading workshops:', error);
+      console.error('Error loading service center:', error);
     } finally {
       this.loading = false;
     }
   }
 
-  async loadRespondedWorkshops() {
+  async loadRespondedServiceCenters() {
     this.loading = true;
     try {
       const snapshot = await getDocs(collection(this.firestore, 'repair_service_centers'));
-      this.respondedWorkshops = snapshot.docs
+      this.respondedServiceCenters = snapshot.docs
         .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
-        .filter((workshop: any) => workshop.verification?.status !== 'pending');
+        .filter((serviceCenter: any) => serviceCenter.verification?.status !== 'pending');
     } catch (error) {
-      console.error('Error loading responded workshops:', error);
+      console.error('Error loading responded service center:', error);
     } finally {
       this.loading = false;
     }
   }
 
-  viewWorkshopDetails(workshop: any) {
-    this.selectedWorkshop = workshop;
+  viewServiceCenterDetails(serviceCenter: any) {
+    this.selectedServiceCenter = serviceCenter;
   }
 
-  getDocumentList(workshop: any) {
-    const docs = workshop?.documents || {};
+  getDocumentList(serviceCenter: any) {
+    const docs = serviceCenter?.documents || {};
     return [
       { label: 'SSM Document', url: docs.ssm || '' },
-      { label: 'Workshop Photo', url: docs.workshopPhoto || '' },
+      { label: 'Service Center Photo', url: docs.serviceCenterPhoto || '' },
       { label: 'Business License', url: docs.businessLicense || '' },
       { label: 'Admin IC', url: docs.adminIC || '' }
     ];
@@ -77,10 +77,10 @@ export class ValidateWorkshopAdminComponent implements OnInit {
     return file?.startsWith('data:application/pdf;base64,');
   }
 
-  async approveApplication(workshopId: string, adminEmail: string) {
+  async approveApplication(serviceCenterId: string, adminEmail: string) {
     if (!confirm('Are you sure you want to approve this application?')) return;
     try {
-      await updateDoc(doc(this.firestore, 'repair_service_centers', workshopId), {
+      await updateDoc(doc(this.firestore, 'repair_service_centers', serviceCenterId), {
         'verification.status': 'approved',
         'verification.rejectionReason': ''
       });
@@ -90,20 +90,20 @@ export class ValidateWorkshopAdminComponent implements OnInit {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toEmail: adminEmail,
-          subject: 'Your Workshop Application Has Been Approved',
-          text: `<p>Dear user,</p><p>Congratulations! Your workshop account has been <b>verified successfully</b>.</p><p>You may now log in and start using the system.</p><p>Thank you.</p>`
+          subject: 'Your Service Center Application Has Been Approved',
+          text: `<p>Dear user,</p><p>Congratulations! Your service center account has been <b>verified successfully</b>.</p><p>You may now log in and start using the system.</p><p>Thank you.</p>`
         })
       });
-      alert('The workshop has been approved and an email notification sent.');
-      this.loadWorkshops();
-      this.loadRespondedWorkshops();
+      alert('The service center has been approved and an email notification sent.');
+      this.loadServiceCenters();
+      this.loadRespondedServiceCenters();
     } catch (error) {
       console.error('Error approving application:', error);
     }
   }
 
-  openRejectModal(workshopId: string, adminEmail: string) {
-    this.selectedRejectId = workshopId;
+  openRejectModal(serviceCenterId: string, adminEmail: string) {
+    this.selectedRejectId = serviceCenterId;
     this.selectedAdminEmail = adminEmail;
     this.rejectionReason = '';
   }
@@ -120,22 +120,22 @@ export class ValidateWorkshopAdminComponent implements OnInit {
         'verification.status': 'rejected',
         'verification.rejectionReason': this.rejectionReason
       });
-      // const workshop = this.pendingWorkshops.find(w => w.id === this.selectedRejectId);
+      // const service center= this.pendingServiceCenters.find(w => w.id === this.selectedRejectId);
 
       await fetch('http://localhost:3000/sendNotification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toEmail: this.selectedAdminEmail,
-          subject: 'Your Workshop Registration Has Been Rejected',
+          subject: 'Your Service Center Registration Has Been Rejected',
           text: `<p>Dear user,</p><p>We regret to inform you that your registration has been <b>rejected</b> for the following reason:</p><blockquote>${this.rejectionReason}</blockquote><p>Please revise your application and try again.</p>`
         })
       });
 
-      alert('The workshop has been rejected and an email notification sent.');
+      alert('The service center has been rejected and an email notification sent.');
       this.selectedRejectId = null;
-      this.loadWorkshops();
-      this.loadRespondedWorkshops();
+      this.loadServiceCenters();
+      this.loadRespondedServiceCenters();
     } catch (error) {
       console.error('Error rejecting application:', error);
     }

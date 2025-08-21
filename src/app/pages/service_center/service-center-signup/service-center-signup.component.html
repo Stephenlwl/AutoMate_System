@@ -19,7 +19,10 @@
         </div>
         <hr>
         <div *ngIf="infoMessage" class="alert alert-success d-flex align-items-center">
-            <i class="bi bi-check-circle-fill me-2"></i>{{ infoMessage }}
+            <i class="bi bi-check-circle-fill me-2"></i> {{ infoMessage }}
+        </div>
+        <div *ngIf="errorMessage" class="alert alert-danger mt-3">
+            <i class="bi bi-exclamation-circle-fill me-2"></i> {{ errorMessage }}
         </div>
         <form [formGroup]="form" (ngSubmit)="submit()">
 
@@ -45,7 +48,8 @@
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Email *</label>
                     <div class="input-group">
-                        <input formControlName="email" type="email" class="form-control" placeholder="steven@example.com" [readOnly]="otpCountdown > 0 || isEmailVerified"
+                        <input formControlName="email" type="email" class="form-control"
+                            placeholder="steven@example.com" [readOnly]="otpCountdown > 0 || isEmailVerified"
                             [ngClass]="{'is-invalid': form.get('email')?.invalid && form.get('email')?.touched, 'is-valid': form.get('email')?.valid && form.get('email')?.touched}">
                         <button class="btn btn-outline-primary" type="button" (click)="sendOtp()"
                             [disabled]="otpLoading || isEmailVerified || otpCountdown > 0">
@@ -72,9 +76,9 @@
                 <div *ngIf="isEmailVerified" class="text-success small mt-1">Email verified &#10004;</div>
 
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Phone *</label>
-                    <input formControlName="phone" class="form-control" placeholder="60XXXXXXXXX"
-                        [ngClass]="{'is-invalid': form.get('phone')?.invalid && form.get('phone')?.touched, 'is-valid': form.get('phone')?.valid && form.get('phone')?.touched}">
+                    <label class="form-label fw-semibold">Service Center Phone Number *</label>
+                    <input formControlName="serviceCenterPhoneNo" class="form-control" placeholder="60XXXXXXXXX"
+                        [ngClass]="{'is-invalid': form.get('serviceCenterPhoneNo')?.invalid && form.get('serviceCenterPhoneNo')?.touched, 'is-valid': form.get('serviceCenterPhoneNo')?.valid && form.get('serviceCenterPhoneNo')?.touched}">
                     <div class="invalid-feedback">Valid phone number is required.</div>
                 </div>
 
@@ -103,22 +107,22 @@
                 </div>
             </div>
 
-            <!-- Step 2: Workshop Details -->
+            <!-- Step 2: Service Center Details -->
             <div *ngIf="step === 2" class="p-3 bg-light rounded shadow-sm">
                 <h4 class="mb-3 text-primary fw-semibold">
-                    <i class="bi bi-building-gear me-2"></i> Workshop Details
+                    <i class="bi bi-building-gear me-2"></i> Service Center Details
                 </h4>
                 <p class="text-muted small mb-4">
-                    Provide accurate information about your workshop for customer reference.
+                    Provide accurate information about your service centerfor customer reference.
                 </p>
 
-                <!-- Workshop Name -->
+                <!-- Service Center Name -->
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">Workshop Name *</label>
-                    <input formControlName="workshopName" type="text" class="form-control" placeholder="ABC Auto Repair"
-                        [ngClass]="{'is-invalid': form.get('workshopName')?.invalid && form.get('workshopName')?.touched,
-                  'is-valid': form.get('workshopName')?.valid && form.get('workshopName')?.touched}">
-                    <div class="invalid-feedback">Workshop name is required.</div>
+                    <label class="form-label fw-semibold">Service Center Name *</label>
+                    <input formControlName="serviceCenterName" type="text" class="form-control"
+                        placeholder="ABC Auto Repair" [ngClass]="{'is-invalid': form.get('serviceCenterName')?.invalid && form.get('serviceCenterName')?.touched,
+                  'is-valid': form.get('serviceCenterName')?.valid && form.get('serviceCenterName')?.touched}">
+                    <div class="invalid-feedback">Service center name is required.</div>
                 </div>
 
                 <!-- SSM Registration -->
@@ -190,11 +194,11 @@
                     <i class="bi bi-tools me-2"></i> Services Offered
                 </h4>
                 <p class="text-muted small mb-4">
-                    Select the services your workshop provides. You can add custom services if they are not listed.
+                    Select the services your service centerprovides. You can add custom services if they are not listed.
                 </p> -->
 
-                <!-- Service Buttons -->
-                <!-- <div class="mb-3">
+            <!-- Service Buttons -->
+            <!-- <div class="mb-3">
                     <div class="d-flex flex-wrap">
                         <button *ngFor="let service of predefinedServices" type="button"
                             class="btn btn-outline-primary m-1" [class.active]="servicesArray.value.includes(service)"
@@ -215,7 +219,8 @@
                     <i class="bi bi-clock-history me-2"></i> Operating Hours
                 </h4>
                 <p class="text-muted small mb-4">
-                    Set the opening and closing times for each day. Mark as <strong>Closed</strong> if the workshop is
+                    Set the opening and closing times for each day. Mark as <strong>Closed</strong> if the service
+                    centeris
                     not operating on that day.
                 </p>
 
@@ -325,8 +330,6 @@
                 </div> -->
 
             </div>
-
-            <div *ngIf="errorMessage" class="alert alert-danger mt-3">{{ errorMessage }}</div>
 
             <div class="mt-3 d-flex justify-content-between">
                 <button type="button" class="btn btn-secondary" (click)="prevStep()"

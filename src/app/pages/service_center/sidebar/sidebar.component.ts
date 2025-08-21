@@ -14,10 +14,10 @@ export class ServiceCenterSidebarComponent {
   private auth = inject(AuthService);
 
   expanded: { [key: string]: boolean } = {};
-  workshopName: string | null = null;
+  serviceCenterName: string | null = null;
 
   ngOnInit() {
-    this.workshopName = this.auth.getWorkshopName();
+    this.serviceCenterName = this.auth.getServiceCenterName();
   }
 
   navItems = [
@@ -28,7 +28,7 @@ export class ServiceCenterSidebarComponent {
     { label: 'Manage Towing Service', route: 'manage-towing-services', icon: 'bi bi-truck' },
     { label: 'Manage Payments', route: 'manage-payments', icon: 'bi bi-cash-coin' },
     { label: 'Chat Support', route: 'chat-support', icon: 'bi bi-chat-dots' },
-    { label: 'Workshop Details', route: 'workshop-details', icon: 'bi bi-building' },
+    { label: 'Service Center Details', route: 'service-center-details', icon: 'bi bi-building' },
     { label: 'Profile', route: 'profile', icon: 'bi bi-person-circle' },
     { label: 'Manage Stuff & Towing Driver', route: 'manage-staff-towing-driver', icon: 'bi bi-person-plus' },
     { label: 'Logout', route: 'login', icon: 'bi bi-box-arrow-right' }

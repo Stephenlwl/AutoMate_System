@@ -22,8 +22,8 @@ export class SidebarComponent {
         {
           label: 'Car Repair Service Center', icon: 'bi bi-tools',
           children: [
-            { label: 'Admin Account', route: 'validate-workshop-admin' },
-            { label: 'Staff Account', route: 'validate-workshop-staff' },
+            { label: 'Admin Account', route: 'validate-service-center-admin' },
+            { label: 'Staff Account', route: 'validate-service-center-staff' },
             { label: 'Towing Driver Account', route: 'validate-towing-driver' }
           ]
         }

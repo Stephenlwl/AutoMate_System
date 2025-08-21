@@ -1,45 +1,46 @@
 <div class="container py-4">
   <h3 class="mb-4 fw-bold text-primary">
-    <i class="bi bi-building-gear me-2"></i> Workshop Admin Accounts
+    <i class="bi bi-building-gear me-2"></i> Service Center Admin Accounts
   </h3>
   <hr>
   <h5 class="mb-4 text-secondary">
-    Manage and validate workshop admin accounts
+    Manage and validate service centeradmin accounts
   </h5>
 
   <!-- Loading -->
   <div *ngIf="loading" class="text-center py-5">
     <div class="spinner-border text-primary"></div>
-    <p class="mt-2">Loading workshop applications...</p>
+    <p class="mt-2">Loading service centerapplications...</p>
   </div>
 
   <!-- Empty State -->
-  <div *ngIf="!loading && pendingWorkshops.length === 0" class="alert alert-info shadow-sm">
-    <i class="bi bi-info-circle me-2"></i> No pending workshop applications found.
+  <div *ngIf="!loading && pendingServiceCenters.length === 0" class="alert alert-info shadow-sm">
+    <i class="bi bi-info-circle me-2"></i> No pending service center applications found.
   </div>
 
-  <div class="table-responsive" *ngIf="pendingWorkshops.length > 0 && !loading">
+  <div class="table-responsive" *ngIf="pendingServiceCenters.length > 0 && !loading">
     <table class="table table-hover align-middle shadow-sm">
       <thead class="table-primary">
         <tr>
-          <th>Workshop Name</th>
+          <th>Service Center Name</th>
           <th>State</th>
+          <th>Service Center Phone No</th>
           <th>SSM No.</th>
           <th>Admin Name</th>
           <th>Email</th>
-          <th>Phone</th>
           <th>Status</th>
           <th style="width: 220px;">Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let pw of pendingWorkshops">
-          <td class="fw-semibold">{{ pw.workshopInfo?.name }}</td>
-          <td>{{ pw.workshopInfo?.address.state }}</td>
-          <td>{{ pw.workshopInfo?.registrationNumber }}</td>
+        <tr *ngFor="let pw of pendingServiceCenters">
+          <td class="fw-semibold">{{ pw.serviceCenterInfo?.name }}</td>
+          <td>{{ pw.serviceCenterInfo?.address.state }}</td>
+          <td>{{ pw.serviceCenterInfo?.serviceCenterPhoneNo }}</td>
+          <td>{{ pw.serviceCenterInfo?.registrationNumber }}</td>
           <td>{{ pw.adminInfo?.name }}</td>
           <td>{{ pw.adminInfo?.email }}</td>
-          <td>{{ pw.adminInfo?.phone }}</td>
+          
           <td>
             <span class="badge bg-warning text-dark">
               {{ pw.verification?.status | titlecase }}
@@ -53,7 +54,7 @@
             <button class="btn btn-danger btn-sm m-1 p-2" (click)="openRejectModal(pw.id, pw.adminInfo?.email)"
               data-bs-toggle="modal" [disabled]="pw.verification?.status !== 'pending'" data-bs-target="#rejectModal"><i
                 class="bi bi-x-circle me-1"></i> Reject</button>
-            <button class="btn btn-outline-info btn-sm m-1 p-2" (click)="viewWorkshopDetails(pw)" data-bs-toggle="modal"
+            <button class="btn btn-outline-info btn-sm m-1 p-2" (click)="viewServiceCenterDetails(pw)" data-bs-toggle="modal"
               data-bs-target="#detailsModal">
               <i class="bi bi-eye me-1"></i> View
             </button>
@@ -65,43 +66,44 @@
 
   <br>
   <h5 class="mb-4 text-secondary">
-    Responded Workshop Accounts
+    Responded Service Center Accounts
   </h5>
 
   <!-- Loading -->
   <div *ngIf="loading" class="text-center py-5">
     <div class="spinner-border text-primary"></div>
-    <p class="mt-2">Loading workshop applications...</p>
+    <p class="mt-2">Loading service center applications...</p>
   </div>
 
-  <!-- Verified Workshop Account -->
-  <div *ngIf="!loading && respondedWorkshops.length === 0" class="alert alert-info shadow-sm">
-    <i class="bi bi-info-circle me-2"></i> No responded workshop accounts found.
+  <!-- Verified Service Center Account -->
+  <div *ngIf="!loading && respondedServiceCenters.length === 0" class="alert alert-info shadow-sm">
+    <i class="bi bi-info-circle me-2"></i> No responded service center accounts found.
   </div>
 
-  <div class="table-responsive" *ngIf="respondedWorkshops.length > 0 && !loading">
+  <div class="table-responsive" *ngIf="respondedServiceCenters.length > 0 && !loading">
     <table class="table table-hover align-middle shadow-sm">
       <thead class="table-primary">
         <tr>
-          <th>Workshop Name</th>
+          <th>Service Center Name</th>
           <th>State</th>
+          <th>Service Center Phone No</th>
           <th>SSM No.</th>
           <th>Admin Name</th>
           <th>Email</th>
-          <th>Phone</th>
+          
           <th>Status</th>
           <th>Status Reason</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let rw of respondedWorkshops">
-          <td class="fw-semibold">{{ rw.workshopInfo?.name }}</td>
-          <td>{{ rw.workshopInfo?.address.state }}</td>
-          <td>{{ rw.workshopInfo?.registrationNumber }}</td>
+        <tr *ngFor="let rw of respondedServiceCenters">
+          <td class="fw-semibold">{{ rw.serviceCenterInfo?.name }}</td>
+          <td>{{ rw.serviceCenterInfo?.address.state }}</td>
+          <td>{{ rw.serviceCenterInfo?.serviceCenterPhoneNo }}</td>
+          <td>{{ rw.serviceCenterInfo?.registrationNumber }}</td>
           <td>{{ rw.adminInfo?.name }}</td>
           <td>{{ rw.adminInfo?.email }}</td>
-          <td>{{ rw.adminInfo?.phone }}</td>
           <td>
             <span *ngIf="rw.verification?.status == 'rejected'" class="badge bg-danger text-white">
               {{ rw.verification?.status | titlecase }}
@@ -112,7 +114,7 @@
           </td>
           <td>* {{ rw.verification?.rejectionReason || 'N/A' }}</td>
           <td>
-            <button class="btn btn-outline-info btn-sm me-1" (click)="viewWorkshopDetails(rw)" data-bs-toggle="modal"
+            <button class="btn btn-outline-info btn-sm me-1" (click)="viewServiceCenterDetails(rw)" data-bs-toggle="modal"
               data-bs-target="#detailsModal">
               <i class="bi bi-eye me-1"></i> View
             </button>
@@ -134,20 +136,21 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
 
-      <div class="modal-body" *ngIf="selectedWorkshop">
-        <!-- Workshop Info -->
+      <div class="modal-body" *ngIf="selectedServiceCenter">
+        <!-- Service Center Info -->
         <div class="card mb-3 border-0 shadow-sm">
           <div class="card-header bg-light fw-semibold">
-            <i class="bi bi-building me-2 text-primary"></i> Workshop Information
+            <i class="bi bi-building me-2 text-primary"></i> Service Center Information
           </div>
           <div class="card-body">
-            <p><strong>Name:</strong> {{ selectedWorkshop.workshopInfo?.name }}</p>
-            <p><strong>SSM No:</strong> {{ selectedWorkshop.workshopInfo?.registrationNumber }}</p>
-            <p><strong>Address:</strong> {{ selectedWorkshop.workshopInfo?.address?.addressLine1 }},
-              {{ selectedWorkshop.workshopInfo?.address?.addressLine2 }},
-              {{ selectedWorkshop.workshopInfo?.address?.postalCode }},
-              {{ selectedWorkshop.workshopInfo?.address?.city }},
-              {{ selectedWorkshop.workshopInfo?.address?.state }}</p>
+            <p><strong>Service Center Name:</strong> {{ selectedServiceCenter.serviceCenterInfo?.name }}</p>
+            <p><strong>SSM No:</strong> {{ selectedServiceCenter.serviceCenterInfo?.registrationNumber }}</p>
+            <p><strong>Service Center Phone No:</strong> {{ selectedServiceCenter.serviceCenterInfo?.serviceCenterPhoneNo }}</p>
+            <p><strong>Address:</strong> {{ selectedServiceCenter.serviceCenterInfo?.address?.addressLine1 }},
+              {{ selectedServiceCenter.serviceCenterInfo?.address?.addressLine2 }},
+              {{ selectedServiceCenter.serviceCenterInfo?.address?.postalCode }},
+              {{ selectedServiceCenter.serviceCenterInfo?.address?.city }},
+              {{ selectedServiceCenter.serviceCenterInfo?.address?.state }}</p>
           </div>
         </div>
 
@@ -157,9 +160,8 @@
             <i class="bi bi-person-circle me-2 text-primary"></i> Admin Information
           </div>
           <div class="card-body">
-            <p><strong>Name:</strong> {{ selectedWorkshop.adminInfo?.name }}</p>
-            <p><strong>Email:</strong> {{ selectedWorkshop.adminInfo?.email }}</p>
-            <p><strong>Phone:</strong> {{ selectedWorkshop.adminInfo?.phone }}</p>
+            <p><strong>Name:</strong> {{ selectedServiceCenter.adminInfo?.name }}</p>
+            <p><strong>Email:</strong> {{ selectedServiceCenter.adminInfo?.email }}</p>
           </div>
         </div>
 
@@ -179,7 +181,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let day of selectedWorkshop.operatingHours">
+                <tr *ngFor="let day of selectedServiceCenter.operatingHours">
                   <td>{{ day.day }}</td>
                   <td>{{ day.open }}</td>
                   <td>{{ day.close }}</td>
@@ -201,7 +203,7 @@
           </div>
           <div class="card-body">
             <div class="row">
-              <div class="col-md-6 mb-3" *ngFor="let doc of getDocumentList(selectedWorkshop)">
+              <div class="col-md-6 mb-3" *ngFor="let doc of getDocumentList(selectedServiceCenter)">
                 <strong>{{ doc.label }}</strong>
                 <div class="border p-2 rounded text-center bg-white">
                   <ng-container *ngIf="doc.url">
@@ -226,10 +228,10 @@
 
       <div class="modal-footer">
         <button class="btn btn-success"
-          (click)="approveApplication(selectedWorkshop.id, selectedWorkshop.adminInfo.email)" data-bs-dismiss="modal">
+          (click)="approveApplication(selectedServiceCenter.id, selectedServiceCenter.adminInfo.email)" data-bs-dismiss="modal">
           <i class="bi bi-check-circle me-1"></i> Approve
         </button>
-        <button class="btn btn-danger" (click)="openRejectModal(selectedWorkshop.id, selectedWorkshop.adminInfo.email)"
+        <button class="btn btn-danger" (click)="openRejectModal(selectedServiceCenter.id, selectedServiceCenter.adminInfo.email)"
           data-bs-toggle="modal" data-bs-target="#rejectModal">Reject</button>
       </div>
 

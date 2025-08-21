@@ -4,9 +4,9 @@ import { SignupComponent } from './auth/signup/signup.component';
 import { DashboardComponent } from './pages/system_admin/dashboard/dashboard.component';
 import { LayoutComponent } from './pages/system_admin/layout/layout.component'; 
 import { ValidateUserAccountsComponent } from './pages/system_admin/validate-user-accounts/validate-user-accounts.component';
-import { ValidateWorkshopAdminComponent } from './pages/system_admin/validate-workshop-admin/validate-workshop-admin.component';
-import { ValidateWorkshopStaffComponent } from './pages/system_admin/validate-workshop-staff/validate-workshop-staff.component';
-import { ValidateWorkshopTowingDriverComponent } from './pages/system_admin/validate-workshop-towing-driver/validate-workshop-towing-driver.component';
+import { ValidateServiceCenterAdminComponent } from './pages/system_admin/validate-service-center-admin/validate-service-center-admin.component';
+import { ValidateServiceCenterStaffComponent } from './pages/system_admin/validate-service-center-staff/validate-service-center-staff.component';
+import { ValidateServiceCenterTowingDriverComponent } from './pages/system_admin/validate-service-center-towing-driver/validate-service-center-towing-driver.component';
 import { VerifyVehiclesComponent } from './pages/system_admin/verify-vehicles/verify-vehicles.component';
 import { ManageReviewComponent } from './pages/system_admin/manage-review/manage-review.component';
 import { ManageServicesComponent } from './pages/system_admin/manage-services/manage-services.component';
@@ -24,7 +24,7 @@ import { ServiceCenterServiceComponent } from './pages/service_center/manage-ser
 import { ManageTowingServicesComponent } from './pages/service_center/manage-towing-services/manage-towing-services.component';
 import { ServiceCenterPaymentsComponent } from './pages/service_center/manage-payments/manage-payments.component';
 import { ServiceCenterChatComponent } from './pages/service_center/chat-support/chat-support.component';
-import { WorkshopDetailsComponent } from './pages/service_center/workshop-details/workshop-details.component';
+import { ServiceCenterDetailsComponent } from './pages/service_center/service-center-details/service-center-details.component';
 import { ServiceCenterProfileComponent } from './pages/service_center/profile/profile.component';
 import { ManageStaffTowingDriverComponent } from './pages/service_center/manage-staff-towing-driver/manage-staff-towing-driver.component';
 
@@ -40,9 +40,9 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'validate-user-accounts', component: ValidateUserAccountsComponent },
-      { path: 'validate-workshop-admin', component: ValidateWorkshopAdminComponent },
-      { path: 'validate-workshop-staff', component: ValidateWorkshopStaffComponent },
-      { path: 'validate-towing-driver', component: ValidateWorkshopTowingDriverComponent },
+      { path: 'validate-service-center-admin', component: ValidateServiceCenterAdminComponent },
+      { path: 'validate-service-center-staff', component: ValidateServiceCenterStaffComponent },
+      { path: 'validate-towing-driver', component: ValidateServiceCenterTowingDriverComponent },
       { path: 'verify-vehicles', component: VerifyVehiclesComponent },
       { path: 'manage-review', component: ManageReviewComponent },
       { path: 'manage-services', component: ManageServicesComponent},
@@ -63,7 +63,7 @@ export const routes: Routes = [
       { path: 'manage-towing-services', component: ManageTowingServicesComponent },
       { path: 'manage-payments', component: ServiceCenterPaymentsComponent },
       { path: 'chat-support', component: ServiceCenterChatComponent },
-      { path: 'workshop-details', component: WorkshopDetailsComponent },
+      { path: 'service-center-details', component: ServiceCenterDetailsComponent },
       { path: 'profile', component: ServiceCenterProfileComponent },
       { path: 'manage-staff-towing-driver', component: ManageStaffTowingDriverComponent },
     ]

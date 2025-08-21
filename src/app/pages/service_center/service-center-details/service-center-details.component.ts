@@ -6,13 +6,13 @@ import { ServiceCenterContextService } from '../auth/service-center-context';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 
 @Component({
-  selector: 'app-workshop-details',
+  selector: 'app-service-center-details',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
-  templateUrl: './workshop-details.component.html',
-  styleUrl: './workshop-details.component.css'
+  templateUrl: './service-center-details.component.html',
+  styleUrl: './service-center-details.component.css'
 })
-export class WorkshopDetailsComponent {
+export class ServiceCenterDetailsComponent {
 private fs = inject(Firestore);
   private auth = inject(AuthService);
   private ctx = inject(ServiceCenterContextService);
@@ -25,24 +25,24 @@ private fs = inject(Firestore);
   docId!:string;
 
   async ngOnInit(){
-    const wid = await this.ctx.resolveWorkshopIdByEmail(this.auth.getEmail()!);
+    const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
     this.docId = wid!;
     const snap = await getDoc(doc(this.fs,'repair_service_centers', this.docId));
     const w:any = snap.data();
     this.form.patchValue({
-      name: w?.workshopInfo?.name || '',
-      registrationNumber: w?.workshopInfo?.registrationNumber || '',
-      addressLine1: w?.workshopInfo?.address?.addressLine1 || '',
-      addressLine2: w?.workshopInfo?.address?.addressLine2 || '',
-      city: w?.workshopInfo?.address?.city || '',
-      state: w?.workshopInfo?.address?.state || '',
-      postalCode: w?.workshopInfo?.address?.postalCode || ''
+      name: w?.serviceCenterInfo?.name || '',
+      registrationNumber: w?.serviceCenterInfo?.registrationNumber || '',
+      addressLine1: w?.serviceCenterInfo?.address?.addressLine1 || '',
+      addressLine2: w?.serviceCenterInfo?.address?.addressLine2 || '',
+      city: w?.serviceCenterInfo?.address?.city || '',
+      state: w?.serviceCenterInfo?.address?.state || '',
+      postalCode: w?.serviceCenterInfo?.address?.postalCode || ''
     });
   }
 
   async save(){
     await updateDoc(doc(this.fs,'repair_service_centers', this.docId), {
-      workshopInfo: {
+      serviceCenterInfo: {
         name: this.form.value.name,
         registrationNumber: this.form.value.registrationNumber,
         address: {

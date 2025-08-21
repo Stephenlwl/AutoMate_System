@@ -10,8 +10,8 @@
     <div class="col-md-8" *ngIf="activeThread">
       <div class="border rounded p-2 mb-2" style="height:300px; overflow:auto;">
         <div *ngFor="let m of messages" class="mb-2">
-          <div [class.text-end]="m.sender==='workshop'">
-            <span class="badge" [class.bg-secondary]="m.sender!=='workshop'" [class.bg-primary]="m.sender==='workshop'">{{ m.sender }}</span>
+          <div [class.text-end]="m.sender==='serviceCenter'">
+            <span class="badge" [class.bg-secondary]="m.sender!=='serviceCenter'" [class.bg-primary]="m.sender==='serviceCenter'">{{ m.sender }}</span>
             <div>{{ m.text }}</div>
             <small class="text-muted">{{ m.createdAt?.toDate() | date:'short' }}</small>
           </div>

@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { SidebarComponent } from './sidebar.component';
+import { ServiceCenterSidebarComponent } from './sidebar.component';
 
-describe('SidebarComponent', () => {
-  let component: SidebarComponent;
-  let fixture: ComponentFixture<SidebarComponent>;
+describe('ServiceCenterSidebarComponent', () => {
+  let component: ServiceCenterSidebarComponent;
+  let fixture: ComponentFixture<ServiceCenterSidebarComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SidebarComponent]
+      imports: [ServiceCenterSidebarComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(SidebarComponent);
+    fixture = TestBed.createComponent(ServiceCenterSidebarComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

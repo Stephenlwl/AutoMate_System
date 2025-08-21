@@ -18,8 +18,8 @@ private fs = inject(Firestore);
   payments:any[]=[];
 
   async ngOnInit(){
-    const wid = await this.ctx.resolveWorkshopIdByEmail(this.auth.getEmail()!);
-    const s = await getDocs(query(collection(this.fs,'payments'), where('workshopId','==',wid)));
+    const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
+    const s = await getDocs(query(collection(this.fs,'payments'), where('serviceCenterId','==',wid)));
     this.payments = s.docs.map(d=>({ id:d.id, ...d.data() }));
   }
   async markStatus(p:any, status:'paid'|'refunded'){
