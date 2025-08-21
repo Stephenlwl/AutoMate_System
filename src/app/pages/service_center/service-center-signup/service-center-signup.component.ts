@@ -1,11 +1,12 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray, FormControl } from '@angular/forms';
-import { Firestore, collection, addDoc, query, where, getDocs } from '@angular/fire/firestore';
+import { Firestore, collection, addDoc, query, where, getDocs, updateDoc } from '@angular/fire/firestore';
 import * as bcrypt from 'bcryptjs';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { getStates, getCities, getPostcodes } from 'malaysia-postcodes';
 import { RouterLink } from '@angular/router';
+import * as CryptoJS from 'crypto-js';
 
 @Component({
   selector: 'app-service-center-signup',
@@ -19,6 +20,7 @@ export class ServiceCenterSignupComponent {
   private fb = inject(FormBuilder);
   private firestore = inject(Firestore);
   private http = inject(HttpClient);
+  private secretKey = 'AUTO_MATE_SECRET_KEY_256';
 
   ngOnInit() {
     this.malaysiaStates = getStates();
@@ -64,7 +66,7 @@ export class ServiceCenterSignupComponent {
       email: ['', [Validators.required, Validators.email]],
       otp: [{ value: '', disabled: true }, [Validators.required]],
       serviceCenterPhoneNo: ['', [Validators.required, Validators.pattern(/^(6?0)[0-9]{8,10}$/)]],
-      password: ['', [Validators.required, Validators.pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)]],
+      password: ['', [Validators.required, Validators.pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@#$!%*?&])[A-Za-z\d@$#!%*?&]{8,}$/)]],
       confirmPassword: ['', Validators.required],
 
       serviceCenterName: ['', Validators.required],
@@ -202,7 +204,8 @@ export class ServiceCenterSignupComponent {
         clearInterval(this.otpTimer);
         if (!this.isEmailVerified && this.otpUnmatched) {
           this.otpUnmatched = false;
-        } else {
+          this.infoMessage = '';
+        } else if (!this.isEmailVerified) {
           this.infoMessage = '';
           this.errorMessage = 'OTP expired. Please request a new one.';
           this.form.get('otp')?.disable();
@@ -232,7 +235,7 @@ export class ServiceCenterSignupComponent {
       if (data.success) {
         this.isEmailVerified = true;
         this.form.get('otp')?.disable();
-        this.infoMessage = data.message;
+        alert(data.message);
       } else {
         alert(data.message);
         this.form.get('otp')?.setValue('');
@@ -381,9 +384,17 @@ export class ServiceCenterSignupComponent {
       this.errorMessage = 'Please check on your registration form for any errors.';
       return;
     }
+
     this.loading = true;
     try {
+      const encryptedRegistrationNumber = CryptoJS.AES.encrypt(this.form.value.registrationNumber, this.secretKey).toString();
+      const encryptedSsm = CryptoJS.AES.encrypt(this.form.value.ssm, this.secretKey).toString();
+      const encryptedServiceCenterPhoto = CryptoJS.AES.encrypt(this.form.value.serviceCenterPhoto, this.secretKey).toString();
+      const encryptedBusinessLicense = CryptoJS.AES.encrypt(this.form.value.businessLicense, this.secretKey).toString();
+      const encryptedAdminIC = CryptoJS.AES.encrypt(this.form.value.adminIC, this.secretKey).toString();
+
       const hashedPassword = await bcrypt.hash(this.form.value.password, 10);
+
       const payload = {
         adminInfo: {
           name: this.form.value.adminName,
@@ -392,7 +403,7 @@ export class ServiceCenterSignupComponent {
         },
         serviceCenterInfo: {
           name: this.form.value.serviceCenterName,
-          registrationNumber: this.form.value.registrationNumber,
+          registrationNumber: encryptedRegistrationNumber,
           serviceCenterPhoneNo: this.form.value.serviceCenterPhoneNo,
           address: {
             addressLine1: this.form.value.addressLine1,
@@ -404,22 +415,42 @@ export class ServiceCenterSignupComponent {
         },
         operatingHours: this.form.value.operatingHours,
         documents: {
-          ssm: this.form.value.ssm || '',
-          serviceCenterPhoto: this.form.value.serviceCenterPhoto || '',
-          businessLicense: this.form.value.businessLicense || '',
-          adminIC: this.form.value.adminIC || ''
+          ssm: encryptedSsm || '',
+          serviceCenterPhoto: encryptedServiceCenterPhoto || '',
+          businessLicense: encryptedBusinessLicense || '',
+          adminIC: encryptedAdminIC || ''
         },
         verification: { status: 'pending', rejectionReason: '' },
-        createdAt: new Date()
+        updatedAt: new Date()
       };
-      await addDoc(collection(this.firestore, 'repair_service_centers'), payload);
-      alert('Your application has been submitted for approval. (*Please note that the admin will takes 1-2 working days to review.)');
+
+      // check email existing
+      const q = query(
+        collection(this.firestore, 'repair_service_centers'),
+        where('adminInfo.email', '==', this.form.value.email.toLowerCase())
+      );
+      const snapshot = await getDocs(q);
+
+      if (!snapshot.empty) {
+        const docRef = snapshot.docs[0].ref;
+        const existing = snapshot.docs[0].data() as any;
+
+        if (existing.verification?.status === 'rejected') {
+          await updateDoc(docRef, payload);
+          alert('Your application has been re-submitted for approval. Please wait for 1-2 working days to get the status update.');
+        }
+      } else {
+        await addDoc(collection(this.firestore, 'repair_service_centers'), { ...payload, createdAt: new Date() });
+        alert('Your application has been submitted for approval. Please note that the admin will takes 1-2 working days to review.');
+
+      }
       this.form.reset();
       this.isEmailVerified = false;
       this.errorMessage = '';
       this.infoMessage = '';
       this.step = 1;
     } catch (err: any) {
+      alert(err.message + ' ' + 'Sum of file sizes is too large. Please upload files under 900 KB.');
       this.errorMessage = err.message + ' ' + 'Sum of file sizes is too large. Please upload files under 900 KB.';
     } finally {
       this.loading = false;

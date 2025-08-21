@@ -2,6 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Firestore, collection, getDocs, doc, updateDoc } from '@angular/fire/firestore';
 import { FormsModule } from '@angular/forms';
+import * as CryptoJS from 'crypto-js';
 
 @Component({
   selector: 'app-validate-service-center-admin',
@@ -12,12 +13,13 @@ import { FormsModule } from '@angular/forms';
 })
 export class ValidateServiceCenterAdminComponent implements OnInit {
   private firestore = inject(Firestore);
+  private secretKey = "AUTO_MATE_SECRET_KEY_256";
 
   pendingServiceCenters: any[] = [];
   respondedServiceCenters: any[] = [];
   loading = false;
 
-  selectedServiceCenter: any = null;       
+  selectedServiceCenter: any = null;
   selectedRejectId: string | null = null;
   rejectionReason: string = '';
   selectedAdminEmail: string = '';
@@ -27,12 +29,33 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
     await this.loadRespondedServiceCenters();
   }
 
+  decryptText(encryptedText: string): string {
+    if (!encryptedText) return '';
+    try {
+      const bytes = CryptoJS.AES.decrypt(encryptedText, this.secretKey);
+      return bytes.toString(CryptoJS.enc.Utf8); // safe for text
+    } catch (err) {
+      console.error("Decryption failed:", err);
+      return '';
+    }
+  }
+
   async loadServiceCenters() {
     this.loading = true;
     try {
       const snapshot = await getDocs(collection(this.firestore, 'repair_service_centers'));
       this.pendingServiceCenters = snapshot.docs
-        .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+        .map(docSnap => {
+          const data: any = {
+            id: docSnap.id, ...docSnap.data()
+          };
+          // decrypt registration number if exists
+          if (data.serviceCenterInfo?.registrationNumber) {
+            data.serviceCenterInfo.registrationNumber =
+              this.decryptText(data.serviceCenterInfo.registrationNumber);
+          }
+          return data;
+        })
         .filter((serviceCenter: any) => serviceCenter.verification?.status === 'pending');
     } catch (error) {
       console.error('Error loading service center:', error);
@@ -46,7 +69,17 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
     try {
       const snapshot = await getDocs(collection(this.firestore, 'repair_service_centers'));
       this.respondedServiceCenters = snapshot.docs
-        .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }))
+        .map(docSnap => {
+          const data: any = {
+            id: docSnap.id, ...docSnap.data()
+          };
+          // decrypt registration number if exists
+          if (data.serviceCenterInfo?.registrationNumber) {
+            data.serviceCenterInfo.registrationNumber =
+              this.decryptText(data.serviceCenterInfo.registrationNumber);
+          }
+          return data;
+        })
         .filter((serviceCenter: any) => serviceCenter.verification?.status !== 'pending');
     } catch (error) {
       console.error('Error loading responded service center:', error);
@@ -62,11 +95,23 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
   getDocumentList(serviceCenter: any) {
     const docs = serviceCenter?.documents || {};
     return [
-      { label: 'SSM Document', url: docs.ssm || '' },
-      { label: 'Service Center Photo', url: docs.serviceCenterPhoto || '' },
-      { label: 'Business License', url: docs.businessLicense || '' },
-      { label: 'Admin IC', url: docs.adminIC || '' }
+      { label: 'SSM Document', url: this.decryptFile(docs.ssm) },
+      { label: 'Service Center Photo', url: this.decryptFile(docs.serviceCenterPhoto) },
+      { label: 'Business License', url: this.decryptFile(docs.businessLicense) },
+      { label: 'Admin IC', url: this.decryptFile(docs.adminIC) }
     ];
+  }
+
+  decryptFile(encryptedFile: string): string {
+    if (!encryptedFile) return '';
+
+    try {
+      const bytes = CryptoJS.AES.decrypt(encryptedFile, this.secretKey);
+      return bytes.toString(CryptoJS.enc.Utf8); // return full data URL (with mime)
+    } catch (err) {
+      console.error('Decryption failed:', err);
+      return '';
+    }
   }
 
   isImage(file: string) {
@@ -85,13 +130,11 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
         'verification.rejectionReason': ''
       });
 
-      await fetch('http://localhost:3000/sendNotification', {
+      await fetch('http://localhost:3000/sendNotification/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toEmail: adminEmail,
-          subject: 'Your Service Center Application Has Been Approved',
-          text: `<p>Dear user,</p><p>Congratulations! Your service center account has been <b>verified successfully</b>.</p><p>You may now log in and start using the system.</p><p>Thank you.</p>`
         })
       });
       alert('The service center has been approved and an email notification sent.');
@@ -120,15 +163,13 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
         'verification.status': 'rejected',
         'verification.rejectionReason': this.rejectionReason
       });
-      // const service center= this.pendingServiceCenters.find(w => w.id === this.selectedRejectId);
 
-      await fetch('http://localhost:3000/sendNotification', {
+      await fetch('http://localhost:3000/sendNotification/reject', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           toEmail: this.selectedAdminEmail,
-          subject: 'Your Service Center Registration Has Been Rejected',
-          text: `<p>Dear user,</p><p>We regret to inform you that your registration has been <b>rejected</b> for the following reason:</p><blockquote>${this.rejectionReason}</blockquote><p>Please revise your application and try again.</p>`
+          rejectionReason: this.rejectionReason
         })
       });
 
