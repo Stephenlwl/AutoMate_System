@@ -47,7 +47,7 @@ export class ServiceCenterLoginComponent {
       const password = this.form.value.password;
 
       const q = query(
-        collection(this.firestore, 'repair_service_centers'),
+        collection(this.firestore, 'service_centers'),
         where('adminInfo.email', '==', email)
       );
       const snapshot = await getDocs(q);

@@ -23,7 +23,7 @@ export class DashboardComponent {
     ).pipe(map(data => ({ label: 'Car Owner Pending Accounts', value: data.length, icon: 'bi bi-person-check' })));
 
     const carRepairServiceCenterPending$ = collectionData(
-       query(collection(this.firestore, 'repair_service_centers'), where("verification.status", "==", "pending"))
+       query(collection(this.firestore, 'service_centers'), where("verification.status", "==", "pending"))
     ).pipe(map(data => ({ label: 'Car Repair Service Center Pending Accounts', value: data.length, icon: 'bi bi-tools' })));
 
     const carRepairServiceCenterStuffPending$ = collectionData(

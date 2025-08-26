@@ -10,7 +10,7 @@
   <!-- Loading -->
   <div *ngIf="loading" class="text-center py-5">
     <div class="spinner-border text-primary"></div>
-    <p class="mt-2">Loading service centerapplications...</p>
+    <p class="mt-2">Loading service center applications...</p>
   </div>
 
   <!-- Empty State -->
@@ -33,29 +33,43 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let pw of pendingServiceCenters">
-          <td class="fw-semibold">{{ pw.serviceCenterInfo?.name }}</td>
-          <td>{{ pw.serviceCenterInfo?.address.state }}</td>
-          <td>{{ pw.serviceCenterInfo?.serviceCenterPhoneNo }}</td>
-          <td>{{ pw.serviceCenterInfo?.registrationNumber }}</td>
-          <td>{{ pw.adminInfo?.name }}</td>
-          <td>{{ pw.adminInfo?.email }}</td>
-          
+        <tr *ngFor="let psc of pendingServiceCenters">
+          <td class="fw-semibold">{{ psc.serviceCenterInfo?.name }}</td>
+          <td>{{ psc.serviceCenterInfo?.address.state }}</td>
+          <td>{{ psc.serviceCenterInfo?.serviceCenterPhoneNo }}</td>
+          <td>{{ psc.serviceCenterInfo?.registrationNumber }}</td>
+          <td>{{ psc.adminInfo?.name }}</td>
+          <td>{{ psc.adminInfo?.email }}</td>
           <td>
             <span class="badge bg-warning text-dark">
-              {{ pw.verification?.status | titlecase }}
+              {{ psc.verification?.status | titlecase }}
             </span>
           </td>
           <td>
-            <button class="btn btn-success btn-sm m-1 p-2" (click)="approveApplication(pw.id, pw.adminInfo?.email)"
-              [disabled]="pw.verification?.status !== 'pending'">
-              <i class="bi bi-check-circle me-1"></i> Approve
+            <button class="btn btn-success btn-sm m-1 p-2" (click)="approveApplication(psc.id, psc.adminInfo?.email)"
+              [disabled]="psc.verification?.status !== 'pending' || loadingServiceCenterAction === psc.id">
+              <ng-container
+                *ngIf="loadingServiceCenterAction === psc.id && loadingServiceCenterActionType === 'approve'; else approveText">
+                <span class="spinner-border spinner-border-sm me-1"></span> Approving...
+              </ng-container>
+              <ng-template #approveText>
+                <i class="bi bi-check-circle me-1"></i> Approve
+              </ng-template>
             </button>
-            <button class="btn btn-danger btn-sm m-1 p-2" (click)="openRejectModal(pw.id, pw.adminInfo?.email)"
-              data-bs-toggle="modal" [disabled]="pw.verification?.status !== 'pending'" data-bs-target="#rejectModal"><i
-                class="bi bi-x-circle me-1"></i> Reject</button>
-            <button class="btn btn-outline-info btn-sm m-1 p-2" (click)="viewServiceCenterDetails(pw)" data-bs-toggle="modal"
-              data-bs-target="#detailsModal">
+            <button class="btn btn-danger btn-sm m-1 p-2" (click)="openRejectModal(psc.id, psc.adminInfo?.email)"
+              data-bs-toggle="modal"
+              [disabled]="psc.verification?.status !== 'pending' || loadingServiceCenterAction === psc.id"
+              data-bs-target="#rejectModal">
+              <ng-container
+                *ngIf="loadingServiceCenterAction === psc.id && loadingServiceCenterActionType === 'reject'; else rejectText">
+                <span class="spinner-border spinner-border-sm me-1"></span> Rejecting...
+              </ng-container>
+              <ng-template #rejectText>
+                <i class="bi bi-x-circle me-1"></i> Reject
+              </ng-template>
+            </button>
+            <button class="btn btn-outline-info btn-sm m-1 p-2" (click)="viewServiceCenterDetails(psc)"
+              [disabled]="loadingServiceCenterAction === psc.id" data-bs-toggle="modal" data-bs-target="#detailsModal">
               <i class="bi bi-eye me-1"></i> View
             </button>
           </td>
@@ -90,7 +104,7 @@
           <th>SSM No.</th>
           <th>Admin Name</th>
           <th>Email</th>
-          
+
           <th>Status</th>
           <th>Status Reason</th>
           <th>Actions</th>
@@ -114,8 +128,8 @@
           </td>
           <td>* {{ rw.verification?.rejectionReason || 'N/A' }}</td>
           <td>
-            <button class="btn btn-outline-info btn-sm me-1" (click)="viewServiceCenterDetails(rw)" data-bs-toggle="modal"
-              data-bs-target="#detailsModal">
+            <button class="btn btn-outline-info btn-sm me-1" (click)="viewServiceCenterDetails(rw)"
+              [disabled]="loadingServiceCenterAction === rw.id" data-bs-toggle="modal" data-bs-target="#detailsModal">
               <i class="bi bi-eye me-1"></i> View
             </button>
           </td>
@@ -145,7 +159,8 @@
           <div class="card-body">
             <p><strong>Service Center Name:</strong> {{ selectedServiceCenter.serviceCenterInfo?.name }}</p>
             <p><strong>SSM No:</strong> {{ selectedServiceCenter.serviceCenterInfo?.registrationNumber }}</p>
-            <p><strong>Service Center Phone No:</strong> {{ selectedServiceCenter.serviceCenterInfo?.serviceCenterPhoneNo }}</p>
+            <p><strong>Service Center Phone No:</strong> {{
+              selectedServiceCenter.serviceCenterInfo?.serviceCenterPhoneNo }}</p>
             <p><strong>Address:</strong> {{ selectedServiceCenter.serviceCenterInfo?.address?.addressLine1 }},
               {{ selectedServiceCenter.serviceCenterInfo?.address?.addressLine2 }},
               {{ selectedServiceCenter.serviceCenterInfo?.address?.postalCode }},
@@ -226,15 +241,34 @@
         </div>
       </div>
 
-      <div class="modal-footer">
-        <button class="btn btn-success"
-          (click)="approveApplication(selectedServiceCenter.id, selectedServiceCenter.adminInfo.email)" data-bs-dismiss="modal">
-          <i class="bi bi-check-circle me-1"></i> Approve
-        </button>
-        <button class="btn btn-danger" (click)="openRejectModal(selectedServiceCenter.id, selectedServiceCenter.adminInfo.email)"
-          data-bs-toggle="modal" data-bs-target="#rejectModal">Reject</button>
+      <div *ngIf="selectedServiceCenter?.verification?.status === 'pending'">
+        <div class="modal-footer">
+          <button class="btn btn-success"
+            (click)="approveApplication(selectedServiceCenter?.id, selectedServiceCenter.adminInfo.email)"
+            [disabled]="loadingServiceCenterAction === selectedServiceCenter?.id && loadingServiceCenterActionType !== 'approve'"
+            data-bs-dismiss="modal">
+            <ng-container
+              *ngIf="loadingServiceCenterAction === selectedServiceCenter?.id && loadingServiceCenterActionType === 'approve'; else modalApproveText">
+              <span class="spinner-border spinner-border-sm me-1"></span> Approving...
+            </ng-container>
+            <ng-template #modalApproveText>
+              <i class="bi bi-check-circle me-1"></i> Approve
+            </ng-template>
+          </button>
+          <button class="btn btn-danger"
+            (click)="openRejectModal(selectedServiceCenter?.id, selectedServiceCenter.adminInfo.email)"
+            [disabled]="loadingServiceCenterAction === selectedServiceCenter?.id && loadingServiceCenterActionType !== 'reject'"
+            data-bs-toggle="modal" data-bs-target="#rejectModal">
+            <ng-container
+              *ngIf="loadingServiceCenterAction === selectedServiceCenter?.id && loadingServiceCenterActionType === 'reject'; else modalRejectText">
+              <span class="spinner-border spinner-border-sm me-1"></span> Rejecting...
+            </ng-container>
+            <ng-template #modalRejectText>
+              Reject
+            </ng-template>
+          </button>
+        </div>
       </div>
-
     </div>
 
   </div>

@@ -37,6 +37,7 @@ export const routes: Routes = [
   {
     path: 'systemAdmin',
     component: LayoutComponent,
+    canActivate: [ServiceCenterAuthGuard],
     children: [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'validate-user-accounts', component: ValidateUserAccountsComponent },

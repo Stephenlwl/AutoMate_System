@@ -24,6 +24,9 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
   rejectionReason: string = '';
   selectedAdminEmail: string = '';
 
+  loadingServiceCenterAction: string | null = null;
+  loadingServiceCenterActionType: 'approve' | 'reject' | null = null;
+
   async ngOnInit() {
     await this.loadServiceCenters();
     await this.loadRespondedServiceCenters();
@@ -43,7 +46,7 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
   async loadServiceCenters() {
     this.loading = true;
     try {
-      const snapshot = await getDocs(collection(this.firestore, 'repair_service_centers'));
+      const snapshot = await getDocs(collection(this.firestore, 'service_centers'));
       this.pendingServiceCenters = snapshot.docs
         .map(docSnap => {
           const data: any = {
@@ -67,7 +70,7 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
   async loadRespondedServiceCenters() {
     this.loading = true;
     try {
-      const snapshot = await getDocs(collection(this.firestore, 'repair_service_centers'));
+      const snapshot = await getDocs(collection(this.firestore, 'service_centers'));
       this.respondedServiceCenters = snapshot.docs
         .map(docSnap => {
           const data: any = {
@@ -123,9 +126,13 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
   }
 
   async approveApplication(serviceCenterId: string, adminEmail: string) {
+    this.loadingServiceCenterAction = serviceCenterId;
+    this.loadingServiceCenterActionType = 'approve';
+
     if (!confirm('Are you sure you want to approve this application?')) return;
+
     try {
-      await updateDoc(doc(this.firestore, 'repair_service_centers', serviceCenterId), {
+      await updateDoc(doc(this.firestore, 'service_centers', serviceCenterId), {
         'verification.status': 'approved',
         'verification.rejectionReason': ''
       });
@@ -138,6 +145,8 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
         })
       });
       alert('The service center has been approved and an email notification sent.');
+      this.loadingServiceCenterAction = null;
+      this.loadingServiceCenterActionType = null;
       this.loadServiceCenters();
       this.loadRespondedServiceCenters();
     } catch (error) {
@@ -152,6 +161,9 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
   }
 
   async rejectApplication() {
+    this.loadingServiceCenterAction = this.selectedRejectId;
+    this.loadingServiceCenterActionType = 'reject';
+
     if (!this.selectedRejectId || !this.rejectionReason.trim()) {
       alert('Please enter a rejection reason.');
       return;
@@ -159,7 +171,7 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
     if (!confirm('Are you sure you want to reject this application?')) return;
 
     try {
-      await updateDoc(doc(this.firestore, 'repair_service_centers', this.selectedRejectId), {
+      await updateDoc(doc(this.firestore, 'service_centers', this.selectedRejectId), {
         'verification.status': 'rejected',
         'verification.rejectionReason': this.rejectionReason
       });
@@ -175,6 +187,8 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
 
       alert('The service center has been rejected and an email notification sent.');
       this.selectedRejectId = null;
+      this.loadingServiceCenterAction = null;
+      this.loadingServiceCenterActionType = null;
       this.loadServiceCenters();
       this.loadRespondedServiceCenters();
     } catch (error) {

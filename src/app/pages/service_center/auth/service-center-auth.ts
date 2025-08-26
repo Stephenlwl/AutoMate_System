@@ -1,17 +1,21 @@
 import { Injectable } from '@angular/core';
+import { ServiceCenterContextService } from './service-center-context';
+
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
     private adminData: any = null;
 
+    constructor(private context: ServiceCenterContextService) {}
+
     setAdmin(data: any) {
         this.adminData = data;
-        localStorage.setItem('serviceCenterAdmin', JSON.stringify(data));
+        sessionStorage.setItem('serviceCenterAdmin', JSON.stringify(data));
     }
 
     getAdmin() {
         if (!this.adminData) {
-            const stored = localStorage.getItem('serviceCenterAdmin');
+            const stored = sessionStorage.getItem('serviceCenterAdmin');
             if (stored) {
                 this.adminData = JSON.parse(stored);
             }
@@ -33,6 +37,6 @@ export class AuthService {
 
     logout() {
         this.adminData = null;
-        localStorage.removeItem('serviceCenterAdmin');
+        sessionStorage.removeItem('serviceCenterAdmin');
     }
 }

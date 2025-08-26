@@ -27,7 +27,7 @@ private fs = inject(Firestore);
   async ngOnInit(){
     const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
     this.docId = wid!;
-    const snap = await getDoc(doc(this.fs,'repair_service_centers', this.docId));
+    const snap = await getDoc(doc(this.fs,'service_centers', this.docId));
     const w:any = snap.data();
     this.form.patchValue({
       name: w?.serviceCenterInfo?.name || '',
@@ -41,7 +41,7 @@ private fs = inject(Firestore);
   }
 
   async save(){
-    await updateDoc(doc(this.fs,'repair_service_centers', this.docId), {
+    await updateDoc(doc(this.fs,'service_centers', this.docId), {
       serviceCenterInfo: {
         name: this.form.value.name,
         registrationNumber: this.form.value.registrationNumber,

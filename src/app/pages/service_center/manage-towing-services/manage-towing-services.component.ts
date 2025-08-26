@@ -25,7 +25,7 @@ export class ManageTowingServicesComponent {
   async ngOnInit(){
     const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
     this.docId = wid!;
-    const d = await getDoc(doc(this.fs,'repair_service_centers', this.docId));
+    const d = await getDoc(doc(this.fs,'service_centers', this.docId));
     const towing:any = d.data()?.['towing'] || {};
     this.form.patchValue({ offers: !!towing.offers, towingServices: towing.towingServices || [], coverageKm: towing.coverageKm || 25 });
     this.loaded = true;
@@ -37,7 +37,7 @@ export class ManageTowingServicesComponent {
     this.form.patchValue({ towingServices: Array.from(cur) });
   }
   async save(){
-    await updateDoc(doc(this.fs,'repair_service_centers', this.docId), { towing: this.form.value });
+    await updateDoc(doc(this.fs,'service_centers', this.docId), { towing: this.form.value });
     alert('Saved.');
   }
 }

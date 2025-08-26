@@ -133,7 +133,7 @@ export class ServiceCenterSignupComponent {
     try {
       // check existing application
       const q = query(
-        collection(this.firestore, 'repair_service_centers'),
+        collection(this.firestore, 'service_centers'),
         where('adminInfo.email', '==', adminEmail.toLowerCase())
       );
       const snapshot = await getDocs(q);
@@ -426,7 +426,7 @@ export class ServiceCenterSignupComponent {
 
       // check email existing
       const q = query(
-        collection(this.firestore, 'repair_service_centers'),
+        collection(this.firestore, 'service_centers'),
         where('adminInfo.email', '==', this.form.value.email.toLowerCase())
       );
       const snapshot = await getDocs(q);
@@ -440,7 +440,7 @@ export class ServiceCenterSignupComponent {
           alert('Your application has been re-submitted for approval. Please wait for 1-2 working days to get the status update.');
         }
       } else {
-        await addDoc(collection(this.firestore, 'repair_service_centers'), { ...payload, createdAt: new Date() });
+        await addDoc(collection(this.firestore, 'service_centers'), { ...payload, createdAt: new Date() });
         alert('Your application has been submitted for approval. Please note that the admin will takes 1-2 working days to review.');
 
       }

@@ -1,12 +1,63 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { Firestore, collection, addDoc, getDocs, where, query, deleteDoc, doc, setDoc } from '@angular/fire/firestore';
+import { Firestore, collection, addDoc, getDocs, getDoc, where, query, deleteDoc, doc, setDoc } from '@angular/fire/firestore';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { AuthService } from '../auth/service-center-auth';
 import { Modal } from 'bootstrap';
 
-type YearPreset = 'latest5' | 'all' | 'even' | 'odd';
+// define on the presets year range
+type YearPreset = 'latest5' | 'all';
+
+// define service offer that stored in db
+interface ServiceOffer {
+  id: string;
+  serviceCenterId: string;
+  categoryId: string;
+  serviceId: string;
+  tierId?: string | null;
+  makes: string[];
+  models: Record<string, string[]>; // for supporting in a grouped data
+  years: Record<string, number[]>;
+  fuelTypes: Record<string, string[]>;
+  displacements: Record<string, number[]>;
+  sizeClasses: Record<string, string[]>;
+  duration: number;
+  price?: number | null;
+  priceMin?: number | null;
+  priceMax?: number | null;
+}
+
+// define tier that stored in db
+interface Tier {
+  id: string;
+  tierName: string;
+  serviceCenterId: string;
+  makes: string[];
+  models: Record<string, string[]>;
+  years: Record<string, number[]>;
+  fuelTypes: Record<string, string[]>;
+  displacements: Record<string, number[]>;
+  sizeClasses: Record<string, string[]>;
+}
+
+// define fitment information if no tier is linked
+interface CarFitments {
+  makes: string[];
+  models: Record<string, string[]>;
+  years: Record<string, number[]>;
+  fuelTypes: Record<string, string[]>;
+  displacements: Record<string, number[]>;
+  sizeClasses: Record<string, string[]>;
+}
+
+// for showing the relavent service offer data
+interface EnrichedServiceOffer extends ServiceOffer {
+  service?: { id: string; name: string;[key: string]: any };
+  category?: { id: string; name: string;[key: string]: any };
+  tier?: Tier;
+  carFitments?: CarFitments;
+}
 
 @Component({
   selector: 'app-manage-services',
@@ -15,7 +66,12 @@ type YearPreset = 'latest5' | 'all' | 'even' | 'odd';
   styleUrls: ['./manage-services.component.css'],
   templateUrl: './manage-services.component.html'
 })
+
 export class ServiceCenterServiceComponent implements OnInit {
+  // all service offers by the service center
+  serviceOffers: EnrichedServiceOffer[] = [];
+  error = '';
+
   private fb = inject(FormBuilder);
   private firestore = inject(Firestore);
   private http = inject(HttpClient);
@@ -23,16 +79,32 @@ export class ServiceCenterServiceComponent implements OnInit {
 
   //declare tab
   tab: 'service' | 'tier' = 'service';
-
   serviceCenterId!: string;
+  viewCategories: any[] = [];
+  filteredCategories: any[] = [];
+  offeredCategories: any[] = [];
+
+  searchInput: string = '';
+  filterMake: string = '';
+  filterYear: string = '';
+  filterFuelType: string = '';
+  filterDisplacement: string = '';
+  filterSizeClass: string = '';
+
+  allMakes: string[] = [];
+  allYears: number[] = [];
+  allFuelTypes: string[] = [];
+  allDisplacements: number[] = [];
+  allSizeClasses: string[] = [];
 
   // services and category from firestore
   serviceForm!: FormGroup;
+  serviceOffered: any[] = [];
   serviceCategories: any[] = [];
   serviceTiers: any[] = [];
   categories: any[] = [];
-  servicesByCategory: Record<string, any[]> = {}; // categoryId to services[]
-  viewCategories: any[] = []; // for read-only listing of existing services
+  servicesByCategory: Record<string, any[]> = {}; // based on categoryId to define services[]
+  servicesByOffered: Record<string, any[]> = {}; // based on serviceOfferedId to define services[]
   selectedMakesSvc: string[] = [];
   modelSearchSvc: Record<string, string> = {};
   selectedModelsSvc: Record<string, string[]> = {};
@@ -94,12 +166,13 @@ export class ServiceCenterServiceComponent implements OnInit {
     this.tierForm = this.fb.group({
       tierName: ['', Validators.required],
     });
+    this.loadServiceOffered();
     this.loadSavedTiers();
     this.fetchMakes();
   }
 
   async initServiceTab() {
-
+    this.loading = true;
     const categorySnapshot = await getDocs(query(collection(this.firestore, 'services_categories')));
     this.categories = categorySnapshot.docs.map(category => ({ id: category.id, ...category.data() }));
 
@@ -115,29 +188,180 @@ export class ServiceCenterServiceComponent implements OnInit {
       this.servicesByCategory[category['id']] = serviceSnapshot.docs.map(service => ({ id: service.id, ...service.data() }));
     }
 
-    // Load service centertiers
-    const tierSnap = await getDocs(query(collection(this.firestore, 'service_tiers'), where('serviceCenterId', '==', this.serviceCenterId)));
+    // Load service center tiers
+    const tierSnap = await getDocs(query(collection(this.firestore, 'service_center_service_tiers'), where('serviceCenterId', '==', this.serviceCenterId)));
     this.serviceTiers = tierSnap.docs.map(tier => ({ id: tier.id, ...tier.data() }));
 
     // fetch cake brand if no
     if (!this.makes?.length) {
       this.fetchMakes();
+      this.loading = false;
+    } else {
+      this.loading = false;
     }
   }
 
+  async loadServiceOffered() {
+    this.loading = true;
+    this.error = '';
+
+    try { // fetch service offer
+      const offerRef = collection(this.firestore, 'service_center_services_offer');
+      const q = query(offerRef, where('serviceCenterId', '==', this.serviceCenterId));
+
+      const offerSnap = await getDocs(q);
+      const offers: ServiceOffer[] = offerSnap.docs.map(docSnap => {
+        const data = docSnap.data() as ServiceOffer;
+        return { serviceOfferId: docSnap.id, ...data };
+      });
+
+      const enrichedOffers: EnrichedServiceOffer[] = [];
+
+      for (const offer of offers) {
+        const enrichedOffer: EnrichedServiceOffer = { ...offer };
+
+        // Related service
+        if (offer.serviceId) {
+          const serviceSnap = await getDoc(doc(this.firestore, 'services', offer.serviceId));
+          if (serviceSnap.exists()) {
+            const data = serviceSnap.data() as { name: string;[key: string]: any };
+            enrichedOffer.service = { id: serviceSnap.id, ...data };
+          }
+        }
+
+        // Related category
+        if (offer.categoryId) {
+          const categorySnap = await getDoc(doc(this.firestore, 'services_categories', offer.categoryId));
+          if (categorySnap.exists()) {
+            const data = categorySnap.data() as { name: string;[key: string]: any };
+            enrichedOffer.category = { id: categorySnap.id, ...data };
+          }
+        }
+
+        // Related tier
+        if (offer.tierId) {
+          const tierSnap = await getDoc(doc(this.firestore, 'service_center_service_tiers', offer.tierId));
+          if (tierSnap.exists()) {
+            // get raw Firestore data and cast to Tier without the id yet
+            enrichedOffer.tier = { id: tierSnap.id, ...(tierSnap.data() as Omit<Tier, 'id'>) };
+          }
+        }
+
+        // car fitments from the service offer 
+        if (offer.makes?.length || Object.keys(offer.models || {}).length) {
+          enrichedOffer.carFitments = {
+            makes: offer.makes || [],
+            models: offer.models || {},
+            years: offer.years || {},
+            fuelTypes: offer.fuelTypes || {},
+            displacements: offer.displacements || {},
+            sizeClasses: offer.sizeClasses || {}
+          };
+        }
+
+        enrichedOffers.push(enrichedOffer);
+      }
+
+      this.serviceOffers = enrichedOffers;
+
+      // define makes and years
+      const makesSet = new Set<string>();
+      const yearsSet = new Set<number>();
+
+      this.serviceOffers.forEach(offer => {
+        // from Tier
+        if (offer.tier) {
+          Object.keys(offer.tier.models || {}).forEach(make => makesSet.add(make));
+          Object.values(offer.tier.years || {}).forEach(yearArr =>
+            yearArr.forEach(year => yearsSet.add(year))
+          );
+        }
+
+        // from Car Fitments
+        if (offer.carFitments) {
+          offer.carFitments.makes.forEach(make => makesSet.add(make));
+          Object.values(offer.carFitments.years || {}).forEach(yearArr =>
+            yearArr.forEach(year => yearsSet.add(year))
+          );
+        }
+      });
+
+      // convert to arrays and sort
+      this.allMakes = Array.from(makesSet).sort();
+      this.allYears = Array.from(yearsSet).sort((a, b) => a - b);
+
+    } catch (err: any) {
+      this.error = err.message || 'Failed to load service offers';
+    } finally {
+      this.loading = false;
+      this.applyFilters();
+    }
+  }
+
+  applyFilters() {
+    this.filteredCategories = this.serviceOffers.filter(offer => {
+      const serviceName = offer.service?.name?.toLowerCase() || '';
+      const matchesSearch = this.searchInput
+        ? serviceName.includes(this.searchInput.toLowerCase())
+        : true;
+
+      // match by make in either tier or car fitments
+      const matchesMake = this.filterMake
+        ? offer.tier?.makes?.includes(this.filterMake) || offer.carFitments?.makes?.includes(this.filterMake)
+        : true;
+
+        // match by year in either tier or car fitments
+      const matchesYear = this.filterYear
+        ? this.matchesYearFilter(offer, this.filterYear)
+        : true;
+
+      return matchesSearch && matchesMake && matchesYear;
+    });
+  }
+
+  // check years
+  private matchesYearFilter(offer: any, year: string): boolean {
+    const tierYears = offer.tier?.years || {};
+    const fitmentYears = offer.carFitments?.years || {};
+
+    return (
+      Object.values(tierYears).some((arr: any) => (arr as number[]).includes(+year)) ||
+      Object.values(fitmentYears).some((arr: any) => (arr as number[]).includes(+year))
+    );
+  }
+
+  getYearValues(value: unknown): string {
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+    return '';
+  }
+
+  formatPrice(offer: ServiceOffer): string {
+    if (offer.price != null) return `RM ${offer.price}`;
+    if (offer.priceMin != null && offer.priceMax != null) return `RM ${offer.priceMin} - RM ${offer.priceMax}`;
+    return 'N/A';
+  }
+
+  resetFilters() {
+    this.searchInput = '';
+    this.filterMake = '';
+    this.filterYear = '';
+    this.applyFilters();
+  }
+
   onPickCategory() {
-    // reset service when category changes
     this.pick.serviceId = '';
   }
 
   applyTierToPricing() {
     if (!this.pick.tierId) return;
-    const t = this.serviceTiers.find(x => x.id === this.pick.tierId);
-    if (!t) return;
-    this.pricing.price = (t.price ?? null);
-    this.pricing.priceMin = (t.priceMin ?? null);
-    this.pricing.priceMax = (t.priceMax ?? null);
-    this.pricing.duration = (t.duration ?? null);
+    const tier = this.serviceTiers.find(x => x.id === this.pick.tierId);
+    if (!tier) return;
+    this.pricing.price = (tier.price ?? null);
+    this.pricing.priceMin = (tier.priceMin ?? null);
+    this.pricing.priceMax = (tier.priceMax ?? null);
+    this.pricing.duration = (tier.duration ?? null);
     // choose pricing type based on fields present
     this.pricing.type = this.pricing.price != null ? 'fixed' : 'range';
   }
@@ -150,8 +374,8 @@ export class ServiceCenterServiceComponent implements OnInit {
     }
   }
 
-  onMakeSvcToggle(make: string, ev: Event) {
-    const checked = (ev.target as HTMLInputElement).checked;
+  onMakeSvcToggle(make: string, event: Event) {
+    const checked = (event.target as HTMLInputElement).checked;
     if (checked) {
       if (!this.selectedMakesSvc.includes(make)) {
         this.selectedMakesSvc.push(make);
@@ -162,7 +386,6 @@ export class ServiceCenterServiceComponent implements OnInit {
     } else {
       this.selectedMakesSvc = this.selectedMakesSvc.filter(m => m !== make);
       delete this.selectedModelsSvc[make];
-      // do not nuke model-level caches so user doesn't lose data if reselect
     }
   }
 
@@ -172,7 +395,6 @@ export class ServiceCenterServiceComponent implements OnInit {
     if (!searchInput) {
       return list;
     }
-    // while searching user can disable brand-wide buttons so the user doesn’t mass-apply by mistake
     this.brandWideDisabledSvc = true;
     return list.filter(make => make.toLowerCase().includes(searchInput));
   }
@@ -186,7 +408,6 @@ export class ServiceCenterServiceComponent implements OnInit {
     const index = arr.indexOf(model);
     if (index === -1) {
       arr.push(model);
-      // fetch filters for this model on demand
       this.fetchFiltersForModel(make, model);
     } else {
       arr.splice(index, 1);
@@ -197,29 +418,28 @@ export class ServiceCenterServiceComponent implements OnInit {
     }
   }
 
-  /*** per-model toggles ***/
   toggleYearSvc(model: string, year: number, event: Event) {
     const checked = (event.target as HTMLInputElement).checked;
     const arr = this.selectedYearsSvc[model] || (this.selectedYearsSvc[model] = []);
-    if (checked) { 
+    if (checked) {
       if (!arr.includes(year)) {
-        arr.push(year); 
+        arr.push(year);
       }
     }
-    else { 
-      this.selectedYearsSvc[model] = arr.filter(v => v !== year); 
+    else {
+      this.selectedYearsSvc[model] = arr.filter(v => v !== year);
     }
   }
 
   toggleFuelSvc(model: string, fuel: string, event: Event) {
     const checked = (event.target as HTMLInputElement).checked;
     const arr = this.selectedFuelTypesSvc[model] || (this.selectedFuelTypesSvc[model] = []);
-    if (checked) { 
+    if (checked) {
       if (!arr.includes(fuel)) {
         arr.push(fuel);
       }
     }
-    else { 
+    else {
       this.selectedFuelTypesSvc[model] = arr.filter(v => v !== fuel);
     }
   }
@@ -227,12 +447,12 @@ export class ServiceCenterServiceComponent implements OnInit {
   toggleDispSvc(model: string, displacement: number, event: Event) {
     const checked = (event.target as HTMLInputElement).checked;
     const arr = this.selectedDisplacementsSvc[model] || (this.selectedDisplacementsSvc[model] = []);
-    if (checked) { 
+    if (checked) {
       if (!arr.includes(displacement)) {
         arr.push(displacement);
       }
     }
-    else { 
+    else {
       this.selectedDisplacementsSvc[model] = arr.filter(v => v !== displacement);
     }
   }
@@ -256,14 +476,11 @@ export class ServiceCenterServiceComponent implements OnInit {
       let out: number[] = [];
       if (preset === 'latest5') out = src.slice(0, 5);
       if (preset === 'all') out = src.slice();
-      if (preset === 'even') out = src.filter(y => y % 2 === 0);
-      if (preset === 'odd') out = src.filter(y => y % 2 === 1);
       this.selectedYearsSvc[model] = out;
     });
   }
 
   getFilteredFuelTypesSvc(make: string): string[] {
-    // union fuel types for currently selected and filtered models only
     const selected = (this.selectedModelsSvc[make] || []);
     const filtered = this.getFilteredModelsSvc(make);
     const model = selected.filter(m => filtered.includes(m));
@@ -272,6 +489,7 @@ export class ServiceCenterServiceComponent implements OnInit {
     this.brandWideDisabledSvc = filtered.length > 0 && filtered.length !== (this.modelsByMake[make] || []).length;
     return Array.from(set).sort();
   }
+
   getFilteredDisplacementsSvc(make: string): number[] {
     const selected = (this.selectedModelsSvc[make] || []);
     const filtered = this.getFilteredModelsSvc(make);
@@ -280,6 +498,7 @@ export class ServiceCenterServiceComponent implements OnInit {
     model.forEach(m => (this.displacementsByModel[m] || []).forEach(d => set.add(d)));
     return Array.from(set).sort((a, b) => b - a);
   }
+
   getFilteredSizeClassesSvc(make: string): string[] {
     const selected = (this.selectedModelsSvc[make] || []);
     const filtered = this.getFilteredModelsSvc(make);
@@ -333,7 +552,7 @@ export class ServiceCenterServiceComponent implements OnInit {
       if (!this.pick.categoryId || !this.pick.serviceId) {
         this.svcError = 'Please select category and service.'; return;
       }
-      if (this.selectedMakesSvc.length === 0 && this.pick.tierId) {
+      if (this.selectedMakesSvc.length === 0 && !this.pick.tierId) {
         this.svcError = 'Please select at least one car make/model or select a tier you have created.'; return;
       }
       if (this.pricing.type === 'fixed' && (this.pricing.price == null || this.pricing.price < 0)) {
@@ -373,38 +592,54 @@ export class ServiceCenterServiceComponent implements OnInit {
         });
       });
 
-      const payload: any = {
-        serviceCenterId: this.serviceCenterId,
-        categoryId: this.pick.categoryId,
-        serviceId: this.pick.serviceId,
-        tierId: this.pick.tierId || null,
-        makes: [...this.selectedMakesSvc],
-        models,
-        years,
-        fuelTypes: fuel,
-        displacements: disp,
-        sizeClasses: size,
-        duration: this.pricing.duration,
-      };
-      if (this.pricing.type === 'fixed') {
-        payload.price = this.pricing.price;
-        payload.priceMin = null; payload.priceMax = null;
-      } else {
-        payload.price = null;
-        payload.priceMin = this.pricing.priceMin;
-        payload.priceMax = this.pricing.priceMax;
-      }
+      const payload: any[] = [
+        {
+          serviceCenterId: this.serviceCenterId,
+          categoryId: this.pick.categoryId,
+          serviceId: this.pick.serviceId,
+          tierId: this.pick.tierId || null,
+          carFitments: {
+            makes: [...this.selectedMakesSvc],
+            models,
+            years,
+            fuelTypes: fuel,
+            displacements: disp,
+            sizeClasses: size
+          },
+          duration: this.pricing.duration,
+          price: this.pricing.type === 'fixed' ? this.pricing.price : null,
+          priceMin: this.pricing.type === 'range' ? this.pricing.priceMin : null,
+          priceMax: this.pricing.type === 'range' ? this.pricing.priceMax : null,
+        }
+      ];
 
       for (const serviceOffer of payload) {
-        const seen = new Map();
-        for (const tier of serviceOffer.tiers) {
-          for (const fit of tier.fitments) {
-            const key = `${serviceOffer.categoryId}_${serviceOffer.serviceId}_${fit.make}_${fit.model}_${fit.years}_${fit.fuels}_${fit.displacements}_${fit.sizes}`;
-            if (seen.has(key)) {
-              this.svcError = "Duplicate fitment in same service with conflicting tier.";
-              return;
+        // if has tierId validate against the tier's fitments
+        if (serviceOffer.tierId) {
+          const tierRef = doc(this.firestore, "service_center_tiers", serviceOffer.tierId);
+          const tierSnap = await getDoc(tierRef);
+
+          if (tierSnap.exists()) {
+            const tierData: any = tierSnap.data();
+
+            const seen = new Map();
+
+            // compare saved tier fitments and the new one
+            for (const fit of (tierData.fitments || [])) {
+              const key = `${serviceOffer.categoryId}_${serviceOffer.serviceId}_${fit.make}_${fit.model}_${fit.years}_${fit.fuels}_${fit.displacements}_${fit.sizes}`;
+              seen.set(key, true);
             }
-            seen.set(key, true);
+
+            //  check new fitments from payload
+            for (const make of serviceOffer.makes) {
+              const fitKey = `${serviceOffer.categoryId}_${serviceOffer.serviceId}_${make}_${JSON.stringify(serviceOffer.models[make] || [])}_${JSON.stringify(serviceOffer.years[make] || [])}_${JSON.stringify(serviceOffer.fuelTypes[make] || [])}_${JSON.stringify(serviceOffer.displacements[make] || [])}_${JSON.stringify(serviceOffer.sizeClasses[make] || [])}`;
+
+              if (seen.has(fitKey)) {
+                this.svcError = "Duplicate fitment in same service with conflicting tier.";
+                return;
+              }
+              seen.set(fitKey, true);
+            }
           }
         }
       }
@@ -420,8 +655,8 @@ export class ServiceCenterServiceComponent implements OnInit {
       });
       this.resetServiceUI();
       await this.initServiceTab();
-    } catch (e: any) {
-      this.svcError = e?.message || 'Failed to save offer';
+    } catch (err: any) {
+      this.svcError = err?.message || 'Failed to save offer';
     }
   }
 
@@ -438,7 +673,6 @@ export class ServiceCenterServiceComponent implements OnInit {
     this.brandWideDisabledSvc = false;
   }
 
-  /**** OPTIONAL: delete an existing service (from your legacy services list) ****/
   async deleteService(serviceId: string) {
     try {
       await deleteDoc(doc(this.firestore, 'services', serviceId));
@@ -448,11 +682,10 @@ export class ServiceCenterServiceComponent implements OnInit {
     }
   }
 
-  //  Below are Tier tab
-
+  //  Tier tab
   async loadSavedTiers(): Promise<void> {
     try {
-      const tiersRef = collection(this.firestore, 'service_tiers');
+      const tiersRef = collection(this.firestore, 'service_center_service_tiers');
       const q = query(tiersRef, where('serviceCenterId', '==', this.serviceCenterId));
       const snapshot = await getDocs(q);
 
@@ -470,8 +703,8 @@ export class ServiceCenterServiceComponent implements OnInit {
           serviceCenterId: data.serviceCenterId
         };
       });
-    } catch (error) {
-      console.error('Failed to load service tiers:', error);
+    } catch (err) {
+      console.error('Failed to load service tiers:', err);
     }
   }
 
@@ -487,7 +720,7 @@ export class ServiceCenterServiceComponent implements OnInit {
       sizeClasses: tier.sizeClasses,
     };
     try {
-      await addDoc(collection(this.firestore, 'service_tiers'), copy);
+      await addDoc(collection(this.firestore, 'service_center_service_tiers'), copy);
       alert('Tier duplicated!');
       this.loadSavedTiers();
     } catch (err: any) {
@@ -518,12 +751,12 @@ export class ServiceCenterServiceComponent implements OnInit {
 
     if (confirmed) {
       try {
-        await deleteDoc(doc(this.firestore, 'service_tiers', tier.id));
+        await deleteDoc(doc(this.firestore, 'service_center_service_tiers', tier.id));
 
         alert('Tier deleted successfully.');
         this.loadSavedTiers();
-      } catch (error: any) {
-        alert(error.message || 'Failed to delete tier.');
+      } catch (err: any) {
+        alert(err.message || 'Failed to delete tier.');
       }
     }
   }
@@ -724,9 +957,9 @@ export class ServiceCenterServiceComponent implements OnInit {
     }
     const toAdd = this.modelsByMake[make].filter(m => !this.selectedModels[make].includes(m));
     this.selectedModels[make].push(...toAdd);
-    toAdd.forEach(md => {
-      if (!this.yearsByModel[md]) {
-        this.fetchFiltersForModel(make, md);
+    toAdd.forEach(model => {
+      if (!this.yearsByModel[model]) {
+        this.fetchFiltersForModel(make, model);
       }
     });
   }
@@ -860,9 +1093,7 @@ export class ServiceCenterServiceComponent implements OnInit {
     let picked: number[] = [];
     switch (preset) {
       case 'latest5': picked = all.slice(0, 5); break; // years sorted desc
-      case 'all': picked = [...all]; break;
-      case 'even': picked = all.filter(y => y % 2 === 0); break;
-      case 'odd': picked = all.filter(y => y % 2 !== 0); break;
+      case 'all': picked = [...all]; break
     }
     this.selectedYears[model] = picked;
   }
@@ -1011,7 +1242,7 @@ export class ServiceCenterServiceComponent implements OnInit {
     };
 
     try {
-      await addDoc(collection(this.firestore, 'service_tiers'), data);
+      await addDoc(collection(this.firestore, 'service_center_service_tiers'), data);
       alert('Tier saved successfully!');
       this.errorMessage = '';
       this.tierForm.reset({ serviceCenterId: this.serviceCenterId });

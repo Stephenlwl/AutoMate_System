@@ -9,7 +9,7 @@ export class ServiceCenterContextService {
   async resolveServiceCenterIdByEmail(email: string): Promise<string | null> {
     if (this._serviceCenterId) return this._serviceCenterId;
     const q = query(
-      collection(this.firestore, 'repair_service_centers'),
+      collection(this.firestore, 'service_centers'),
       where('adminInfo.email', '==', email), limit(1)
     );
     const snap = await getDocs(q);

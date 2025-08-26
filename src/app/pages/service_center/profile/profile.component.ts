@@ -25,7 +25,7 @@ export class ServiceCenterProfileComponent {
   async ngOnInit(){
     const wid = await this.ctx.resolveServiceCenterIdByEmail(this.auth.getEmail()!);
     this.docId = wid!;
-    const snap = await getDoc(doc(this.fs,'repair_service_centers', this.docId));
+    const snap = await getDoc(doc(this.fs,'service_centers', this.docId));
     const a:any = snap.data()?.['adminInfo'];
     this.form.patchValue({ name: a?.name || '' });
   }
@@ -34,7 +34,7 @@ export class ServiceCenterProfileComponent {
     if (this.form.value.password) {
       updates.adminInfo.password = await bcrypt.hash(this.form.value.password, 10);
     }
-    await updateDoc(doc(this.fs,'repair_service_centers', this.docId), updates);
+    await updateDoc(doc(this.fs,'service_centers', this.docId), updates);
     alert('Saved.');
   }
 }
