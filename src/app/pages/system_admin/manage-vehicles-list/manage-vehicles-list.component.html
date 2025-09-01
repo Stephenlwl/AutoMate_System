@@ -1,0 +1,499 @@
+<div class="container py-4">
+  <h3 class="mb-3">
+    <i class="bi bi-car-front-fill me-2 text-primary"></i>
+    Manage Vehicle List
+  </h3>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="tab==='current'" (click)="tab='current'">
+        Current Vehicles
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="tab==='pending'" (click)="tab='pending'">
+        Pending Requests
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="tab==='import'" (click)="tab='import'">
+        Import Vehicle List
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="tab==='add'" (click)="tab='add'">
+        Add Vehicle
+      </a>
+    </li>
+  </ul>
+
+  <div *ngIf="tab==='current'">
+    <h5 class="mb-3">Approved Vehicle Brands / Makes</h5>
+
+    <div *ngIf="vehicles.length === 0" class="alert alert-info">
+      No approved vehicles found.
+    </div>
+
+    <!-- Expandable Vehicle Panels -->
+    <div *ngFor="let vehicle of vehicles" class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-car-front-fill me-2 text-primary"></i>{{ vehicle.make }}</span>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-outline-danger" (click)="removeMake(vehicle)">
+            <i class="bi bi-trash"></i> Remove Make
+          </button>
+          <button class="btn btn-sm btn-link" (click)="toggleMakePanel(vehicle.make)">
+            <span *ngIf="!expandMake[vehicle.make]"><i class="bi bi-caret-right-fill"></i> Expand</span>
+            <span *ngIf="expandMake[vehicle.make]"><i class="bi bi-caret-down-fill"></i> Collapse</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="card-body" *ngIf="expandMake[vehicle.make]">
+        <!-- Search -->
+        <div class="row g-2 mb-3">
+          <div class="col-md-4">
+            <label class="small text-muted">Search models</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" [(ngModel)]="modelSearch[vehicle.make]" placeholder="e.g. Myvi" />
+            </div>
+          </div>
+          <!-- Year Filter -->
+          <div class="col-md-3">
+            <label class="small text-muted">Filter by Year</label>
+            <select class="form-select" [(ngModel)]="yearFilter[vehicle.make]">
+              <option value="">All Years</option>
+              <option *ngFor="let y of getYears(vehicle)" [value]="y">{{ y }}</option>
+            </select>
+          </div>
+
+          <!-- Fuel Filter -->
+          <div class="col-md-3">
+            <label class="small text-muted">Filter by Fuel</label>
+            <select class="form-select" [(ngModel)]="fuelFilter[vehicle.make]">
+              <option value="">All Fuels</option>
+              <option *ngFor="let f of getFuelTypes(vehicle)" [value]="f">{{ f }}</option>
+            </select>
+          </div>
+
+          <!-- Size Class Filter -->
+          <div class="col-md-3">
+            <label class="small text-muted">Filter by Size Class</label>
+            <select class="form-select" [(ngModel)]="sizeFilter[vehicle.make]">
+              <option value="">All Sizes</option>
+              <option *ngFor="let s of getSizeClasses(vehicle)" [value]="s">{{ s }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <div class="fw-semibold small text-muted">Fuel Types:</div>
+            <ng-container *ngFor="let fuel of getFuelTypes(vehicle)">
+              <span class="badge bg-primary me-1">{{ fuel }}</span>
+            </ng-container>
+          </div>
+          <div class="col-md-6">
+            <div class="fw-semibold small text-muted">Size Classes:</div>
+            <ng-container *ngFor="let size of getSizeClasses(vehicle)">
+              <span class="badge bg-warning text-dark me-1">{{ size }}</span>
+            </ng-container>
+          </div>
+          <div class="col-md-6">
+            <div class="fw-semibold small text-muted">Displacements:</div>
+            <ng-container *ngFor="let disp of getDisplacements(vehicle)">
+              <span class="badge bg-success me-1">{{ disp }}</span>
+            </ng-container>
+          </div>
+          <div class="col-md-6">
+            <div class="fw-semibold small text-muted">Years:</div>
+            <ng-container *ngFor="let yr of getYears(vehicle)">
+              <span class="badge bg-secondary me-1">{{ yr }}</span>
+            </ng-container>
+          </div>
+        </div>
+
+        <div *ngIf="getFilteredModels(vehicle).length === 0" class="alert alert-info">
+          No models match the search/filter criteria.
+        </div>
+
+        <!-- Models -->
+        <div *ngFor="let model of getFilteredModels(vehicle)" class="card mb-3 shadow-sm">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="fw-bold">{{ model.name }}</span>
+            <div class="ms-2">
+              <span class="badge bg-info me-4">{{ model.fitments.length }} variants</span>
+              <button class="btn btn-sm btn-outline-danger" (click)="removeModel(vehicle, model)">
+                <i class="bi bi-trash"></i> Remove Model
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Year</th>
+                    <th>Fuel</th>
+                    <th>Displacement</th>
+                    <th>Size Class</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let f of model.fitments">
+                    <td>{{ f.year }}</td>
+                    <td>{{ f.fuel }}</td>
+                    <td>{{ f.displacement }}</td>
+                    <td>{{ f.sizeClass }}</td>
+                    <td>
+                      <button class="btn btn-sm btn-outline-danger" (click)="removeFitment(vehicle, model, f)">
+                        <i class="bi bi-x-circle"> Remove Fitment</i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="tab==='pending'">
+    <h5 class="mb-3 text-warning">
+      <i class="bi bi-hourglass-split me-2"></i> Pending Vehicle Addition Requests
+    </h5>
+
+    <div *ngIf="pendingRequests.length === 0" class="alert alert-info">
+      No pending requests at the moment.
+    </div>
+
+    <!-- Expandable Pending Panels -->
+    <div *ngFor="let req of pendingRequests" class="card shadow-sm mb-3 border-start">
+      <div class="card-header fw-semibold d-flex justify-content-between align-items-center"
+        style="border-left: 4px solid #f4b625;">
+        <span>
+          <i class="bi bi-building me-2 text-danger"></i> {{ req.make }}
+          <small class="text-muted">by {{ req.serviceCenterName }}</small>
+        </span>
+        <button class="btn btn-sm btn-link" (click)="toggleMakePanel(req.id)">
+          <i class="bi" [ngClass]="expandMake[req.id] ? 'bi-caret-down-fill' : 'bi-caret-right-fill'"></i>
+          {{ expandMake[req.id] ? 'Collapse' : 'Expand' }}
+        </button>
+      </div>
+
+      <div class="card-body" *ngIf="expandMake[req.id]">
+        <!-- Editable Make -->
+        <div class="mb-3">
+          <label class="form-label small text-muted">Make Name</label>
+          <input class="form-control" [(ngModel)]="req.make" />
+        </div>
+
+        <!-- Models -->
+        <div *ngFor="let m of req.model" class="p-3 rounded mb-2 shadow-sm border">
+          <h6 class="fw-bold">
+            {{ m.name }}
+            <span class="badge bg-info ms-2">{{ m.fitments.length }} variants</span>
+          </h6>
+
+          <!-- Fitments -->
+          <ul class="list-unstyled small ms-2">
+            <li *ngFor="let f of m.fitments"
+              class="d-flex justify-content-between align-items-center border-bottom py-1">
+              <span>
+                <i class="bi bi-calendar3 me-1 text-muted"></i> {{ f.year }} |
+                <i class="bi bi-fuel-pump me-1 text-muted"></i> {{ f.fuel }} |
+                <i class="bi bi-speedometer2 me-1 text-muted"></i> {{ f.displacement }} |
+                <i class="bi bi-grid-1x2 me-1 text-muted"></i> {{ f.sizeClass }}
+              </span>
+              <span class="badge" [ngClass]="isFitmentExist(req.make, m.name, f) ? 'bg-secondary' : 'bg-success'">
+                {{ isFitmentExist(req.make, m.name, f) ? 'Already Exists' : 'New' }}
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-success btn-sm" [disabled]="carMakeRequestExist(req)" (click)="approveRequest(req)">
+            <i class="bi bi-check-circle"></i> Approve
+          </button>
+          <button class="btn btn-danger btn-sm" (click)="rejectRequest(req)">
+            <i class="bi bi-x-circle"></i> Reject
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="tab==='import'">
+    <h5 class="mb-3 text-primary">
+      <i class="bi bi-cloud-arrow-down me-2"></i> Import Vehicle Data
+    </h5>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <p class="text-muted mb-4">
+          Search and add vehicle <strong>makes, models, and fitments</strong> from the OpenDataSoft API directly into
+          your system.
+          <br />
+          <span class="text-danger fw-semibold">Note:</span> Adding large makes may take some time.
+        </p>
+
+        <!-- Search -->
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-semibold">Search Make</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control" [(ngModel)]="searchMake" placeholder="e.g. Perodua, Honda" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div *ngIf="loadingMakes" class="d-flex align-items-center text-primary mb-3">
+          <div class="spinner-border spinner-border-sm me-2"></div>
+          Fetching available makes...
+        </div>
+
+        <!-- List of Makes -->
+        <div *ngIf="!loadingMakes && filteredApiMakes().length > 0" class="list-group">
+          <div *ngFor="let make of filteredApiMakes()" class="list-group-item">
+            <div class="row align-items-center mb-2">
+
+              <div class="col-md-6 d-flex">
+                <span class="fw-semibold">{{ make }}</span>
+              </div>
+
+              <div class="col-md-6 d-flex justify-content-end">
+                <div class="btn-group">
+                  <button class="btn btn-sm btn-outline-info me-2" [disabled]="loadingMakeDetails[make]"
+                    (click)="openMakeDetails(make)">
+                    <ng-container *ngIf="loadingMakeDetails[make]; else detailLabel">
+                      <span class="spinner-border spinner-border-sm me-1"></span> Loading...
+                    </ng-container>
+                    <ng-template #detailLabel>
+                      <i class="bi bi-info-circle"></i> Details
+                    </ng-template>
+                  </button>
+
+                  <button class="btn btn-sm me-2" [disabled]="addingMake || isMakeImported(make)"
+                    [ngClass]="isMakeImported(make) ? 'btn-success' : 'btn-outline-success'"
+                    (click)="importMakeFromApi(make)">
+                    <i class="bi" [ngClass]="isMakeImported(make) ? 'bi-check-circle' : 'bi-plus-circle'"></i>
+                    {{ isMakeImported(make) ? 'Make Added' : 'Add Make' }}
+                  </button>
+
+                </div>
+              </div>
+            </div>
+
+            <!-- Expanded Model Details -->
+            <div *ngIf="expandedMakeDetails[make]" class="mt-3 ps-3 border-start">
+              <div *ngIf="loadingMakeDetails[make]" class="text-muted small">
+                <div class="spinner-border spinner-border-sm me-2"></div> Loading {{ make }} details...
+              </div>
+
+              <div *ngFor="let model of expandedMakeDetails[make]" class="mb-3">
+                <div class="fw-semibold text-dark">
+                  <i class="bi bi-car-front me-1 text-primary"></i> {{ model.name }}
+                </div>
+
+                <!-- Years Summary -->
+                <div class="mb-2 small text-muted">
+                  Years:
+                  <ng-container *ngFor="let yr of getEachModelYears(model.fitments)">
+                    <span class="badge bg-secondary me-1">{{ yr }}</span>
+                  </ng-container>
+                </div>
+
+                <!-- Import Model -->
+                <button class="btn btn-sm btn-outline-success me-2" [disabled]="isModelImported(make, model)"
+                  (click)="importModel(make, model)">
+                  <i class="bi" [ngClass]="isModelImported(make, model) ? 'bi-check-circle' : 'bi-plus-circle'"></i>
+                  {{ isModelImported(make, model) ? 'Model Added' : 'Add Entire Model' }}
+                </button>
+
+                <!-- Fitments -->
+                <div class="card mt-2 shadow-sm border-0">
+                  <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="m-0">
+                      <i class="bi bi-list-check me-2 text-primary"></i> Fitments ({{ model.fitments.length }})
+                    </h6>
+                    <button class="btn btn-sm btn-link" (click)="toggleFitmentPanel(model.name)">
+                      <span *ngIf="!expandFitment[model.name]"><i class="bi bi-caret-right-fill"></i> Show
+                        Fitments</span>
+                      <span *ngIf="expandFitment[model.name]"><i class="bi bi-caret-down-fill"></i> Hide Fitments</span>
+                    </button>
+                  </div>
+
+                  <div class="card-body p-2" *ngIf="expandFitment[model.name]">
+                    <div class="table-responsive">
+                      <table class="table table-sm table-striped table-hover align-middle">
+                        <thead class="table-light">
+                          <tr>
+                            <th><i class="bi bi-calendar3 text-muted"></i> Year</th>
+                            <th><i class="bi bi-fuel-pump text-muted"></i> Fuel</th>
+                            <th><i class="bi bi-speedometer2 text-muted"></i> Displacement</th>
+                            <th><i class="bi bi-grid-1x2 text-muted"></i> Size Class</th>
+                            <th class="text-end">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let f of model.fitments; trackBy: trackByFitment">
+                            <td>{{ f.year }}</td>
+                            <td>{{ f.fuel }}</td>
+                            <td>{{ f.displacement }}</td>
+                            <td>{{ f.sizeClass }}</td>
+                            <td class="text-end">
+                              <button class="btn btn-sm btn-outline-success ms-2"
+                                [disabled]="isFitmentImported(make, model, f)"
+                                (click)="importModelFitment(make, model, f)">
+                                <i class="bi"
+                                  [ngClass]="isFitmentImported(make, model, f) ? 'bi-check-circle' : 'bi-plus-circle'"></i>
+                                {{ isFitmentImported(make, model, f) ? 'Fitment Added' : 'Add Fitment' }}
+                              </button>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- No Results -->
+        <div *ngIf="!loadingMakes && filteredApiMakes().length === 0" class="text-muted small">
+          <i class="bi bi-info-circle me-1"></i> No makes found for your search.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="tab==='add'">
+    <div class="card p-4 mt-3 mb-3 shadow-sm" style="border-left: 4px solid #dc8635;">
+      <h5 class="mb-3 text-danger">
+        <i class="bi bi-exclamation-circle"></i> Add Brand / Model
+      </h5>
+
+      <!-- Brand Selection -->
+      <div class="mb-3">
+        <label class="form-label">Brand Type</label>
+        <select class="form-select" [(ngModel)]="brandSelectionType">
+          <option value="" disabled selected>Select option</option>
+          <option value="new">New Brand</option>
+          <option value="existing">Existing Brand</option>
+        </select>
+      </div>
+
+      <!-- New Brand Input -->
+      <div *ngIf="brandSelectionType === 'new'" class="mb-3">
+        <label class="form-label">Enter New Brand Name</label>
+        <input class="form-control" [(ngModel)]="newMakeRequest" placeholder="e.g., Perodua, Proton" />
+      </div>
+
+      <!-- Existing Brand Dropdown -->
+      <div *ngIf="brandSelectionType === 'existing'" class="mb-3">
+        <label class="form-label">Select Existing Brand</label>
+        <select class="form-select" [(ngModel)]="selectedMake">
+          <option value="" disabled selected>Select Brand</option>
+          <option *ngFor="let v of vehicles" [value]="v.make">{{ v.make }}</option>
+        </select>
+      </div>
+
+      <!-- Add Models -->
+      <div *ngFor="let model of newModels; let modelIndex = index"
+        class="p-3 rounded mb-3 shadow-sm card" style="border-left: 4px solid #1c058b;">
+        <h6>Model {{ modelIndex + 1 }}</h6>
+        <input [(ngModel)]="model.name" class="form-control mb-2 col-lg-6"
+          placeholder="Model name (e.g., Myvi, Ativa)" />
+
+        <!-- Shared Attributes -->
+        <div class="row g-2 mb-3">
+          <div class="col-md-4">
+            <label class="small text-muted">Select Fuel Type</label>
+            <select class="form-select" [(ngModel)]="model.sharedFuel" (ngModelChange)="updateFitments(modelIndex)">
+              <option value="" disabled>Fuel Type</option>
+              <option *ngFor="let fuel of allFuelTypes" [value]="fuel">{{ fuel }}</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="small text-muted">Enter Displacement Volume (L)</label>
+            <input (input)="onDisplacementChange($event, modelIndex)" class="form-control" 
+              placeholder="Displacement (e.g., 1.5)" (ngModelChange)="updateFitments(modelIndex)" />
+          </div>
+          <div class="col-md-4">
+            <label class="small text-muted">Select Size Class</label>
+            <select class="form-select" [(ngModel)]="model.sharedSizeClass" (ngModelChange)="updateFitments(modelIndex)">
+              <option value="" disabled selected>Size Class</option>
+              <option *ngFor="let size of allSizeClasses" [value]="size">{{ size }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Fitments -->
+        <h6>Production Years</h6>
+        <div *ngFor="let fitment of model.fitments; let fitmentIndex = index" class="border p-2 rounded mb-2">
+          <div class="row g-2 align-items-center">
+            <div class="col-md-3">
+              <input [(ngModel)]="fitment.year" class="form-control" placeholder="Year (e.g., 2020)" />
+            </div>
+            <div class="col-md-3">
+              <select class="form-select" [(ngModel)]="fitment.sharedFuel" [value]="model.sharedFuel">
+                <option value="" disabled selected>Fuel Type</option>
+                <option *ngFor="let fuel of allFuelTypes" [value]="fuel">{{ fuel }}</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <input (input)="onDisplacementChange($event, modelIndex, fitmentIndex)" [(ngModel)]="fitment.sharedDisplacement"
+                class="form-control" placeholder="Displacement (e.g., 1.5)" [value]="model.sharedDisplacement" />
+            </div>
+            <div class="col-md-3">
+              <select class="form-select" [(ngModel)]="fitment.sharedSizeClass" [value]="model.sharedSizeClass">
+                <option value="" disabled selected>Size Class</option>
+                <option *ngFor="let size of allSizeClasses" [value]="size">{{ size }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="text-end mt-2">
+            <button class="btn btn-sm btn-outline-danger" (click)="removeFitmentInAddTab(modelIndex, fitmentIndex)">
+              <i class="bi bi-trash"></i> Remove Fitment
+            </button>
+          </div>
+        </div>
+
+        <!-- Model actions -->
+        <div class="row p-3">
+          <button class="btn btn-sm btn-outline-success me-3 col-lg-3" (click)="addFitment(modelIndex)">
+            <i class="bi bi-plus-circle"></i> Add Fitment
+          </button>
+          <button class="btn btn-sm btn-outline-danger me-3 col-lg-3" (click)="removeModelInAddTab(modelIndex)">
+            <i class="bi bi-trash"></i> Remove Model
+          </button>
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="row p-3">
+        <button class="btn btn-outline-primary me-3 col-lg-3 mb-2" (click)="addModel()">
+          <i class="bi bi-plus-circle"></i> Add Model
+        </button>
+
+        <button class="btn btn-primary me-3 col-lg-3 mb-2" (click)="addNewVehicleAttribute()">
+          Submit Brand & Models
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -33,6 +33,7 @@ export class SidebarComponent {
     { label: 'Verify Vehicles', route: 'verify-vehicles', icon: 'bi bi-car-front' },
     { label: 'User Reviews', route: 'manage-review', icon: 'bi bi-chat-left-text' },
     { label: 'Manage Services', route: 'manage-services', icon: 'bi bi-gear' },
+    { label: 'Manage Vehicles List', route: 'manage-vehicles-list', icon: 'bi bi-car-front' },
     { label: 'Manage Payments', route: 'manage-payment', icon: 'bi bi-cash-coin' },
     { label: 'Chat Support', route: 'manage-chat', icon: 'bi bi-chat-dots' },
     { label: 'Logout', route: 'logout', icon: 'bi bi-box-arrow-right' }

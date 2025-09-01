@@ -18,7 +18,7 @@ interface ServiceOffer {
   tierId?: string | null;
   makes: string[];
   models: Record<string, string[]>; // for supporting in a grouped data
-  years: Record<string, number[]>;
+  years: Record<string, string[]>;
   fuelTypes: Record<string, string[]>;
   displacements: Record<string, number[]>;
   sizeClasses: Record<string, string[]>;
@@ -35,7 +35,7 @@ interface Tier {
   serviceCenterId: string;
   makes: string[];
   models: Record<string, string[]>;
-  years: Record<string, number[]>;
+  years: Record<string, string[]>;
   fuelTypes: Record<string, string[]>;
   displacements: Record<string, number[]>;
   sizeClasses: Record<string, string[]>;
@@ -45,7 +45,7 @@ interface Tier {
 interface CarFitments {
   makes: string[];
   models: Record<string, string[]>;
-  years: Record<string, number[]>;
+  years: Record<string, string[]>;
   fuelTypes: Record<string, string[]>;
   displacements: Record<string, number[]>;
   sizeClasses: Record<string, string[]>;
@@ -80,9 +80,17 @@ export class ServiceCenterServiceComponent implements OnInit {
   //declare tab
   tab: 'service' | 'tier' = 'service';
   serviceCenterId!: string;
+  serviceCenterName!: string;
   viewCategories: any[] = [];
   filteredCategories: any[] = [];
   offeredCategories: any[] = [];
+
+  // request new vehicle attributes
+  requestOtherMakeSelectedInService = false;
+  requestOtherMakeSelectedInTier = false;
+  newMakeRequest: string = '';
+  newModels: any[] = [];
+  vehicles: any[] = [];
 
   searchInput: string = '';
   filterMake: string = '';
@@ -94,7 +102,7 @@ export class ServiceCenterServiceComponent implements OnInit {
   allMakes: string[] = [];
   allYears: number[] = [];
   allFuelTypes: string[] = [];
-  allDisplacements: number[] = [];
+  // allDisplacements: number[] = [];
   allSizeClasses: string[] = [];
 
   // services and category from firestore
@@ -163,10 +171,14 @@ export class ServiceCenterServiceComponent implements OnInit {
   ngOnInit() {
     this.initServiceTab();
     this.serviceCenterId = this.auth.getAdmin().id;
+    this.serviceCenterName = this.auth.getServiceCenterName() || '';
     this.tierForm = this.fb.group({
       tierName: ['', Validators.required],
     });
     this.loadServiceOffered();
+    this.fetchFuelTypes();
+    this.fetchSizeClasses();
+
     this.loadSavedTiers();
     this.fetchMakes();
   }
@@ -273,7 +285,7 @@ export class ServiceCenterServiceComponent implements OnInit {
         if (offer.tier) {
           Object.keys(offer.tier.models || {}).forEach(make => makesSet.add(make));
           Object.values(offer.tier.years || {}).forEach(yearArr =>
-            yearArr.forEach(year => yearsSet.add(year))
+            yearArr.forEach(year => yearsSet.add(Number(year)))
           );
         }
 
@@ -281,7 +293,7 @@ export class ServiceCenterServiceComponent implements OnInit {
         if (offer.carFitments) {
           offer.carFitments.makes.forEach(make => makesSet.add(make));
           Object.values(offer.carFitments.years || {}).forEach(yearArr =>
-            yearArr.forEach(year => yearsSet.add(year))
+            yearArr.forEach(year => yearsSet.add(Number(year)))
           );
         }
       });
@@ -310,7 +322,7 @@ export class ServiceCenterServiceComponent implements OnInit {
         ? offer.tier?.makes?.includes(this.filterMake) || offer.carFitments?.makes?.includes(this.filterMake)
         : true;
 
-        // match by year in either tier or car fitments
+      // match by year in either tier or car fitments
       const matchesYear = this.filterYear
         ? this.matchesYearFilter(offer, this.filterYear)
         : true;
@@ -354,6 +366,194 @@ export class ServiceCenterServiceComponent implements OnInit {
     this.pick.serviceId = '';
   }
 
+  private capitalizeFirstAlphabet(str: string): string {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  }
+
+  private validateNewModels(): string | null {
+    const currentYear = new Date().getFullYear();
+
+    for (const [mIndex, model] of this.newModels.entries()) {
+      if (!model.name.trim()) {
+        return `Model ${mIndex + 1} is missing a name.`;
+      }
+
+      if (model.fitments.length === 0) {
+        return `Model "${model.name}" must have at least one fitment.`;
+      }
+
+      for (const [fIndex, f] of model.fitments.entries()) {
+        if (!f.year.trim()) {
+          return `Fitment ${fIndex + 1} in model "${model.name}" is missing a year.`;
+        } else if (isNaN(parseInt(f.year.trim()))) {
+          return `Fitment ${fIndex + 1} in model "${model.name}" has an invalid year.`;
+        } else if (parseInt(f.year.trim()) < 1886 || parseInt(f.year.trim()) > currentYear) {
+          return `Fitment ${fIndex + 1} in model "${model.name}" has an invalid year.`;
+        }
+
+        if (!f.sharedFuel) {
+          return `Fitment ${fIndex + 1} in model "${model.name}" is missing a fuel type.`;
+        }
+
+        if (!f.sharedDisplacement || (Array.isArray(f.sharedDisplacement) && f.sharedDisplacement.length === 0)) {
+          return `Fitment ${fIndex + 1} in model "${model.name}" is missing a displacement.`;
+        } else if (isNaN(parseFloat(f.sharedDisplacement))) {
+          return `Fitment ${fIndex + 1} in model "${model.name}" has an invalid displacement.`;
+        } else if (parseFloat(f.sharedDisplacement) <= 0 || parseFloat(f.sharedDisplacement) > 12.9) {
+          return `Fitment ${fIndex + 1} in model "${model.name}" has an invalid displacement volume.`;
+        }
+
+        if (!f.sharedSizeClass) {
+          return `Fitment ${fIndex + 1} in model "${model.name}" is missing a size class.`;
+        }
+      }
+    }
+    return null;
+  }
+
+  async submitNewVehicleAttributeRequest() {
+    if (!this.newMakeRequest || this.newModels.length === 0) {
+      return alert('Please enter a new make and add at least one model.');
+    }
+
+    const validationError = this.validateNewModels();
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
+
+    try {
+
+      // Fetch all current vehicles in db
+      const snapshot = await getDocs(collection(this.firestore, 'vehicles_list'));
+      const existingVehicles: any[] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const existingMake = existingVehicles.find(
+        v => v.make.toLowerCase() === this.newMakeRequest.toLowerCase()
+      );
+
+      // Prepare models/fitments
+      const standardizedModels = this.newModels.map(model => ({
+        name: this.capitalizeFirstAlphabet(model.name),
+        fitments: model.fitments.map((fit: any) => ({
+          year: fit.year,
+          fuel: fit.sharedFuel || model.sharedFuel,
+          displacement: fit.sharedDisplacement || model.sharedDisplacement,
+          sizeClass: fit.sharedSizeClass || model.sharedSizeClass,
+          status: 'pending'
+        }))
+      }));
+
+      let filteredModels = [...standardizedModels];
+
+      if (existingMake) {
+        // Filter out models/fitments already in db
+        filteredModels = standardizedModels.map(m => {
+          const existingModel = existingMake.model.find(
+            (em: any) => em.name.toLowerCase() === m.name.toLowerCase()
+          );
+
+          if (!existingModel) return m; // whole model is new
+
+          const newFitments = m.fitments.filter((f: any) => {
+            const key = `${f.year}-${f.fuel}-${f.displacement}-${f.sizeClass}`;
+            return !existingModel.fitments.some(
+              (ef: any) =>
+                `${ef.year}-${ef.fuel}-${ef.displacement}-${ef.sizeClass}` === key
+            );
+          });
+
+          return { ...m, fitments: newFitments };
+        }).filter(m => m.fitments.length > 0);
+      }
+
+      if (filteredModels.length === 0) {
+        alert(`All of your request for "${this.newMakeRequest}" already exists in the vehicle list.`);
+        return;
+      }
+
+      // Save filtered request into requests collection
+      const carRequestsRef = collection(this.firestore, 'vehicle_attribute_requests');
+      await addDoc(carRequestsRef, {
+        make: this.capitalizeFirstAlphabet(this.newMakeRequest),
+        model: filteredModels,
+        serviceCenterId: this.serviceCenterId,
+        serviceCenterName: this.serviceCenterName,
+        status: 'pending',
+        requestedAt: new Date()
+      });
+
+      alert(
+        `Your request for "${this.newMakeRequest}" has been submitted for admin approval (only new models/fitments included).`
+      );
+
+      // Reset
+      this.requestOtherMakeSelectedInService = false;
+      this.requestOtherMakeSelectedInTier = false;
+      this.newMakeRequest = '';
+      this.newModels = [];
+    } catch (err: any) {
+      console.error(err);
+      this.svcError = err.message || 'Failed to request new vehicle attribute';
+    }
+  }
+
+  addModel() {
+    const exists = this.makes.find(v => v.toLowerCase() === this.newMakeRequest.toLowerCase());
+    if (exists) {
+      alert(`Brand "${this.newMakeRequest}" already exists in the vehicle list. You will be using the existing brand to request additions to new models.`);
+    }
+
+    this.newModels.push({
+      name: '',
+      fitments: [],
+    });
+  }
+
+  addFitment(modelIndex: number) {
+    const model = this.newModels[modelIndex];
+    model.fitments.push({
+      year: '',
+      sharedFuel: model.sharedFuel || '',
+      sharedDisplacement: model.sharedDisplacement?.length ? [...model.sharedDisplacement] : [],
+      sharedSizeClass: model.sharedSizeClass || ''
+    });
+  }
+
+  updateFitments(modelIndex: number) {
+    const model = this.newModels[modelIndex];
+    model.fitments = model.fitments.map((fit: any) => ({
+      ...fit,
+      sharedFuel: model.sharedFuel,
+      sharedDisplacement: model.sharedDisplacement,
+      sharedSizeClass: model.sharedSizeClass
+    }));
+  }
+
+  removeFitment(modelIndex: number, fitmentIndex: number) {
+    const model = this.newModels[modelIndex];
+    model.fitments.splice(fitmentIndex, 1);
+  }
+
+  removeModel(index: number) {
+    this.newModels.splice(index, 1);
+  }
+
+  onDisplacementChange(event: any, modelIndex: number, fitmentIndex?: number) {
+    const inputValue = event.target.value;
+    const displacementArray = inputValue
+      .split(',')
+      .map((v: string) => v.trim())
+      .filter((v: string) => v.length > 0);
+
+    if (fitmentIndex !== undefined) {
+      this.newModels[modelIndex].fitments[fitmentIndex].displacement = displacementArray;
+    } else {
+      this.newModels[modelIndex].sharedDisplacement = displacementArray;
+    }
+  }
+
   applyTierToPricing() {
     if (!this.pick.tierId) return;
     const tier = this.serviceTiers.find(x => x.id === this.pick.tierId);
@@ -374,6 +574,7 @@ export class ServiceCenterServiceComponent implements OnInit {
     }
   }
 
+  // shows the selected make's model panel
   onMakeSvcToggle(make: string, event: Event) {
     const checked = (event.target as HTMLInputElement).checked;
     if (checked) {
@@ -773,100 +974,199 @@ export class ServiceCenterServiceComponent implements OnInit {
     return `${min} - ${max}`;
   }
 
-  fetchMakes() {
-    this.http
-      .get<any>('https://public.opendatasoft.com/api/records/1.0/search/?dataset=all-vehicles-model&rows=100&facet=make')
-      .subscribe(res => {
-        this.makes = Array.from(
-          new Set<string>(
-            res.records
-              .map((r: any) => String(r.fields.make))
-              .filter((v: unknown): v is string => typeof v === 'string' && v.trim().length > 0)
-          )
-        ).sort();
-      });
+  // Load all makes
+  async fetchMakes() {
+    const snap = await getDocs(collection(this.firestore, 'vehicles_list'));
+    this.makes = snap.docs
+      .map(d => d.data()['make'])
+      .filter((v: unknown): v is string => typeof v === 'string' && v.trim().length > 0)
+      .sort();
   }
 
-  fetchModels(make: string, after?: () => void) {
-    this.http.get<any>(
-      `https://public.opendatasoft.com/api/records/1.0/search/?dataset=all-vehicles-model&rows=200&refine.make=${make}`
-    ).subscribe(res => {
-      this.modelsByMake[make] = Array.from(
-        new Set<string>(
-          res.records
-            .map((r: any) => String(r.fields.model))
-            .filter((v: unknown): v is string => typeof v === 'string' && v.trim().length > 0)
-        )
-      ).sort();
+  // Load models for a specific make
+  async fetchModels(make: string, after?: () => void) {
+    const q = query(collection(this.firestore, 'vehicles_list'), where('make', '==', make));
+    const snap = await getDocs(q);
 
-      after?.();
-    });
-  }
-
-  fetchFiltersForModel(make: string, model: string, callback?: () => void) {
-    this.http.get<any>(
-      `https://public.opendatasoft.com/api/records/1.0/search/?dataset=all-vehicles-model&rows=500&refine.make=${make}&refine.model=${model}`
-    ).subscribe(res => {
-      this.yearsByModel[model] = Array.from(
-        new Set<number>(
-          res.records.map((r: any) => Number(r.fields.year))
-            .filter((v: unknown): v is number => typeof v === 'number' && !isNaN(v))
-        )
-      ).sort((a: number, b: number) => b - a); // desc
-
-      this.fuelTypesByModel[model] = Array.from(
-        new Set<string>(
-          res.records.map((r: any) => String(r.fields.fueltype))
-            .filter((v: unknown): v is string => typeof v === 'string' && v.trim().length > 0)
-        )
-      ).sort();
-
-      this.displacementsByModel[model] = Array.from(
-        new Set<number>(
-          res.records.map((r: any) => Number(r.fields.displ))
-            .filter((v: unknown): v is number => typeof v === 'number' && !isNaN(v))
-        )
-      ).sort((a: number, b: number) => b - a);
-
-      this.sizeClassesByModel[model] = Array.from(
-        new Set<string>(
-          res.records.map((r: any) => String(r.fields.vclass))
-            .filter((v: unknown): v is string => typeof v === 'string' && v.trim().length > 0)
-        )
-      ).sort();
-
-      // declaring the selected models's fuel type button
-      if (!this.fuelTypesByModel[make]) {
-        this.fuelTypesByModel[make] = [];
-      }
-      this.fuelTypesByModel[make] = Array.from(new Set([
-        ...this.fuelTypesByModel[make],
-        ...this.fuelTypesByModel[model]
-      ]));
-
-      // declaring the selected models's displacement button
-      if (!this.displacementsByModel[make]) {
-        this.displacementsByModel[make] = [];
-      }
-      this.displacementsByModel[make] = Array.from(new Set([
-        ...this.displacementsByModel[make],
-        ...this.displacementsByModel[model]
-      ]));
-
-      // declaring the selected models's sizeClasses button
-      if (!this.sizeClassesByModel[make]) {
-        this.sizeClassesByModel[make] = [];
-      }
-      this.sizeClassesByModel[make] = Array.from(new Set([
-        ...this.sizeClassesByModel[make],
-        ...this.sizeClassesByModel[model]
-      ]));
-
-      if (callback) {
-        callback();
+    const models: string[] = [];
+    snap.forEach(doc => {
+      const data: any = doc.data();
+      if (data.model && Array.isArray(data.model)) {
+        data.model.forEach((m: any) => {
+          if (m.name && typeof m.name === 'string') {
+            models.push(m.name);
+          }
+        });
       }
     });
+
+    this.modelsByMake[make] = Array.from(new Set(models)).sort();
+
+    after?.();
   }
+
+  // Load fitments filters for a model
+  async fetchFiltersForModel(make: string, model: string, callback?: () => void) {
+    const q = query(collection(this.firestore, 'vehicles_list'), where('make', '==', make));
+    const snap = await getDocs(q);
+
+    let years: number[] = [];
+    let fuels: string[] = [];
+    let displacements: number[] = [];
+    let sizes: string[] = [];
+
+    snap.forEach(doc => {
+      const data: any = doc.data();
+      if (data.model && Array.isArray(data.model)) {
+        const m = data.model.find((mm: any) => mm.name.toLowerCase() === model.toLowerCase());
+        if (m) {
+          m.fitments.forEach((f: any) => {
+            if (f.year) years.push(Number(f.year));
+            if (f.fuel) fuels.push(f.fuel);
+            if (f.displacement) displacements.push(Number(f.displacement));
+            if (f.sizeClass) sizes.push(f.sizeClass);
+          });
+        }
+      }
+    });
+
+    this.yearsByModel[model] = Array.from(new Set(years)).sort((a, b) => b - a);
+    this.fuelTypesByModel[model] = Array.from(new Set(fuels)).sort();
+    this.displacementsByModel[model] = Array.from(new Set(displacements)).sort((a, b) => b - a);
+    this.sizeClassesByModel[model] = Array.from(new Set(sizes)).sort();
+
+    // Aggregate by make
+    this.fuelTypesByModel[make] = Array.from(new Set([...(this.fuelTypesByModel[make] || []), ...this.fuelTypesByModel[model]]));
+    this.displacementsByModel[make] = Array.from(new Set([...(this.displacementsByModel[make] || []), ...this.displacementsByModel[model]]));
+    this.sizeClassesByModel[make] = Array.from(new Set([...(this.sizeClassesByModel[make] || []), ...this.sizeClassesByModel[model]]));
+
+    if (callback) callback();
+  }
+
+  fetchFuelTypes() {
+    this.allFuelTypes = [
+      'Petrol RON95',
+      'Petrol RON97',
+      'Diesel',
+      'EV',
+      'Hybrid (RON97 + EV)',
+      'Hybrid (RON95 + EV)'
+    ];
+  }
+
+  fetchSizeClasses() {
+    this.allSizeClasses = [
+      'A-Segment (Mini Car)',
+      'B-Segment (Compact Car)',
+      'C-Segment (Compact Sedan/Hatchback)',
+      'D-Segment (Midsize Sedan)',
+      'E-Segment (Executive / Large Sedan)',
+      'Sports Car / Coupe',
+      'Small SUV / Crossover',
+      'Mid/Large SUV',
+      'SUV',
+      'MPV / Minivan',
+      'Station Wagon (Small)',
+      'Station Wagon (Midsize)',
+      'Station Wagon (Large)',
+      'Station Wagon',
+      'Pickup (Small)',
+      'Pickup (Standard / Double Cab)',
+      'Pickup',
+      'Van (Cargo)',
+      'Van (Passenger)',
+      'Van',
+      'Commercial / Special Purpose'
+    ];
+  }
+
+  convertFuelTypeToMalaysia(apiFuel: string): string {
+    const f = apiFuel.toLowerCase();
+
+    if (f.includes('diesel'))
+      return 'Diesel';
+    if (f.includes('electricity') && f.includes('gas'))
+      return 'Hybrid (RON97 + EV)';
+    if (f.includes('electricity') && f.includes('premium'))
+      return 'Hybrid (RON97 + EV)';
+    if (f.includes('electricity') && f.includes('regular'))
+      return 'Hybrid (RON95 + EV)';
+    if (f.includes('electricity'))
+      return 'EV';
+    if (f.includes('premium'))
+      return 'Petrol RON97';
+    if (f.includes('regular') || f.includes('gasoline'))
+      return 'Petrol RON95';
+    if (f.includes('e85'))
+      return 'Petrol RON95';
+    if (f.includes('hydrogen'))
+      return 'Hydrogen (FCEV)';
+    if (f.includes('cng'))
+      return 'NGV (Natural Gas)';
+    if (f.includes('midgrade'))
+      return 'Petrol RON95';
+
+    return f;
+  }
+
+  convertSizeClassToMalaysia(apiSize: string): string {
+    const s = apiSize.toLowerCase();
+
+    // Cars
+    if (s.includes('minicompact'))
+      return 'A-Segment (Mini Car)';
+    if (s.includes('subcompact'))
+      return 'B-Segment (Compact Car)';
+    if (s.includes('compact'))
+      return 'C-Segment (Compact Sedan/Hatchback)';
+    if (s.includes('midsize') && s.includes('wagon'))
+      return 'Station Wagon (Midsize)';
+    if (s.includes('midsize'))
+      return 'D-Segment (Midsize Sedan)';
+    if (s.includes('large'))
+      return 'E-Segment (Executive / Large Sedan)';
+    if (s.includes('two seat'))
+      return 'Sports Car / Coupe';
+
+    // SUVs
+    if (s.includes('small sport utility'))
+      return 'Small SUV / Crossover';
+    if (s.includes('standard sport utility'))
+      return 'Mid/Large SUV';
+    if (s.includes('sport utility vehicle'))
+      return 'SUV';
+
+    // MPV / Minivan
+    if (s.includes('minivan'))
+      return 'MPV / Minivan';
+    if (s.includes('station wagon') && s.includes('large'))
+      return 'Station Wagon (Large)';
+    if (s.includes('station wagon') && s.includes('small'))
+      return 'Station Wagon (Small)';
+    if (s.includes('station wagon'))
+      return 'Station Wagon';
+
+    // Pickups
+    if (s.includes('small pickup'))
+      return 'Pickup (Small)';
+    if (s.includes('standard pickup'))
+      return 'Pickup (Standard / Double Cab)';
+    if (s.includes('pickup'))
+      return 'Pickup';
+
+    // Vans & Special Purpose
+    if (s.includes('cargo'))
+      return 'Van (Cargo)';
+    if (s.includes('passenger'))
+      return 'Van (Passenger)';
+    if (s.includes('van'))
+      return 'Van';
+    if (s.includes('special purpose'))
+      return 'Commercial / Special Purpose';
+
+    return apiSize;
+  }
+
 
   onMakeToggle(make: string, event: Event) {
     const checked = (event.target as HTMLInputElement).checked;
@@ -994,6 +1294,21 @@ export class ServiceCenterServiceComponent implements OnInit {
     });
   }
 
+  selectFilteredModelsSvc(make: string) {
+    const filtered = this.getFilteredModels(make);
+    if (!this.selectedModelsSvc[make]) {
+      this.selectedModelsSvc[make] = [];
+    }
+    filtered.forEach(model => {
+      if (!this.selectedModelsSvc[make].includes(model)) {
+        this.selectedModelsSvc[make].push(model);
+        if (!this.yearsByModel[model]) {
+          this.fetchFiltersForModel(make, model);
+        }
+      }
+    });
+  }
+
   getFilteredFuelTypes(make: string): string[] {
     const models = this.getFilteredModels(make);
     const fuelSet = new Set<string>();
@@ -1040,6 +1355,16 @@ export class ServiceCenterServiceComponent implements OnInit {
     const filtered = new Set(this.getFilteredModels(make));
     if (!this.selectedModels[make]) return;
     this.selectedModels[make] = this.selectedModels[make].filter(m => {
+      const remove = filtered.has(m);
+      if (remove) this.clearModelFilters(m);
+      return !remove;
+    });
+  }
+
+  clearFilteredModelsSvc(make: string) {
+    const filtered = new Set(this.getFilteredModels(make));
+    if (!this.selectedModelsSvc[make]) return;
+    this.selectedModelsSvc[make] = this.selectedModelsSvc[make].filter(m => {
       const remove = filtered.has(m);
       if (remove) this.clearModelFilters(m);
       return !remove;

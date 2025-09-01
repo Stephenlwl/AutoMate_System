@@ -10,6 +10,7 @@ import { ValidateServiceCenterTowingDriverComponent } from './pages/system_admin
 import { VerifyVehiclesComponent } from './pages/system_admin/verify-vehicles/verify-vehicles.component';
 import { ManageReviewComponent } from './pages/system_admin/manage-review/manage-review.component';
 import { ManageServicesComponent } from './pages/system_admin/manage-services/manage-services.component';
+import { ManageVehiclesListComponent } from './pages/system_admin/manage-vehicles-list/manage-vehicles-list.component';
 import { ManagePaymentComponent } from './pages/system_admin/manage-payment/manage-payment.component';
 import { ManageChatComponent } from './pages/system_admin/manage-chat/manage-chat.component';
 import { ServiceCenterLoginComponent } from './pages/service_center/service-center-login/service-center-login.component';
@@ -47,6 +48,7 @@ export const routes: Routes = [
       { path: 'verify-vehicles', component: VerifyVehiclesComponent },
       { path: 'manage-review', component: ManageReviewComponent },
       { path: 'manage-services', component: ManageServicesComponent},
+      { path: 'manage-vehicles-list', component: ManageVehiclesListComponent },
       { path: 'manage-payment', component: ManagePaymentComponent },
       { path: 'manage-chat', component: ManageChatComponent },
     ]
