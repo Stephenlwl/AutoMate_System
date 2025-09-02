@@ -14,10 +14,6 @@
   <div *ngIf="tab==='service'">
     <h5 class="mb-3">Service Management</h5>
 
-    <!-- alerts -->
-    <div *ngIf="svcError" class="alert alert-danger">{{ svcError }}</div>
-    <div *ngIf="svcInfo" class="alert alert-success">{{ svcInfo }}</div>
-
     <!-- category service and tier selection -->
     <div class="card shadow-sm mb-4">
       <div class="card-body row g-3 align-items-end">
@@ -44,7 +40,7 @@
         <div class="col-md-3">
           <label class="form-label">Select Tier (optional)</label>
           <select class="form-select" [(ngModel)]="pick.tierId" (change)="applyTierToPricing()">
-            <option value="" disabled selected>None</option>
+            <option value="" selected>None</option>
             <ng-container *ngFor="let t of serviceTiers">
               <option [value]="t.id">{{ t.tierName }}</option>
             </ng-container>
@@ -112,7 +108,8 @@
           </div>
           <div class="col-md-4">
             <label class="small text-muted">Select Size Class</label>
-            <select class="form-select" [(ngModel)]="model.sharedSizeClass" (ngModelChange)="updateFitments(modelIndex)">
+            <select class="form-select" [(ngModel)]="model.sharedSizeClass"
+              (ngModelChange)="updateFitments(modelIndex)">
               <option value="" disabled selected>Size Class</option>
               <option *ngFor="let size of allSizeClasses" [value]="size">{{ size }}</option>
             </select>
@@ -134,8 +131,9 @@
               </select>
             </div>
             <div class="col-md-3">
-              <input (input)="onDisplacementChange($event, modelIndex, fitmentIndex)" [(ngModel)]="fitment.sharedDisplacement"
-                class="form-control" placeholder="Displacement (e.g., 1.5)" [value]="model.sharedDisplacement" />
+              <input (input)="onDisplacementChange($event, modelIndex, fitmentIndex)"
+                [(ngModel)]="fitment.sharedDisplacement" class="form-control" placeholder="Displacement (e.g., 1.5)"
+                [value]="model.sharedDisplacement" />
             </div>
             <div class="col-md-3 d-flex justify-content-between align-items-center">
               <select class="form-select" [(ngModel)]="fitment.sharedSizeClass" [value]="model.sharedSizeClass">
@@ -375,85 +373,339 @@
       </div>
     </div>
 
+    <!-- alerts -->
+    <div *ngIf="svcError" class="alert alert-danger mt-2">{{ svcError }}</div>
+    <div *ngIf="svcInfo" class="alert alert-success mt-2">{{ svcInfo }}</div>
+
     <hr>
-    <!-- List of offered services by category -->
-    <div class="container mt-4">
-      <h5 class="fw-bold text-muted mb-3">Service Offers Summary</h5>
-      <div class="mb-3 d-flex flex-wrap gap-2 align-items-center">
-        <input type="text" class="form-control w-auto" placeholder="Search services..." [(ngModel)]="searchInput"
-          (ngModelChange)="applyFilters()" />
+    <div class="container my-4">
+      <h4 class="mb-3">Service Offers</h4>
 
-        <select class="form-select w-auto" [(ngModel)]="filterMake" (ngModelChange)="applyFilters()">
-          <option value="" disabled selected>All Makes</option>
-          <option *ngFor="let make of allMakes" [value]="make">{{ make }}</option>
-        </select>
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-auto">
+          <label class="small text-muted">Search by services or make</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input class="form-control" placeholder="e.g, Consultation/Toyota" [(ngModel)]="searchInput"
+              (ngModelChange)="applyFilters()" />
+          </div>
+        </div>
 
-        <select class="form-select w-auto" [(ngModel)]="filterYear" (ngModelChange)="applyFilters()">
-          <option value="" disabled selected>All Years</option>
-          <option *ngFor="let year of allYears" [value]="year">{{ year }}</option>
-        </select>
-
-        <button class="btn btn-outline-secondary btn-sm" (click)="resetFilters()">Reset</button>
+        <div class="col-auto ms-auto">
+          <label class="small text-muted">Page size</label>
+          <select class="form-select" [(ngModel)]="pageSize" (ngModelChange)="goToPage(1)">
+            <option [value]="10">10</option>
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+          </select>
+        </div>
       </div>
 
-      <div *ngIf="serviceOffers.length === 0 && !loading" class="text-muted">
-        No services found.
+      <div class="row g-2 align-items-center mb-3">
+        <div class="col-auto">
+          <label class="small text-muted">Filter by Category</label>
+          <select class="form-select" [(ngModel)]="filterCategory" (ngModelChange)="applyFilters()">
+            <option value="">All Categories</option>
+            <option *ngFor="let c of allCategories" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+
+        <div class="col-auto">
+          <label class="small text-muted">Filter by Service</label>
+          <select class="form-select" [(ngModel)]="filterService" (ngModelChange)="applyFilters()">
+            <option value="">All Services</option>
+            <option *ngFor="let s of allServices" [value]="s">{{ s }}</option>
+          </select>
+        </div>
+
+        <div class="col-auto">
+          <label class="small text-muted">Filter by Make</label>
+          <select class="form-select" [(ngModel)]="filterMake" (ngModelChange)="applyFilters()">
+            <option value="">All Makes</option>
+            <option *ngFor="let m of allMakes" [value]="m">{{ m }}</option>
+          </select>
+        </div>
+
+        <div class="col-auto">
+          <label class="small text-muted">Filter by Year</label>
+          <select class="form-select" [(ngModel)]="filterYear" (ngModelChange)="applyFilters()">
+            <option value="">All Years</option>
+            <option *ngFor="let y of allYears" [value]="y">{{ y }}</option>
+          </select>
+        </div>
+
+        <div class="col-auto">
+          <label class="small text-muted">Filter by Status Active</label>
+          <select class="form-select" [(ngModel)]="filterStatus" (ngModelChange)="applyFilters()">
+            <option value="">All Status</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
+        </div>
       </div>
+
 
       <div *ngIf="loading" class="alert alert-info">Loading service offers...</div>
       <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+      <div *ngIf="info" class="alert alert-success">{{ info }}</div>
+
+      <div *ngIf="filteredOffers.length === 0 && !loading" class="text-muted">No service offer found.</div>
 
       <div class="row">
-        <div *ngFor="let offer of filteredCategories" class="col-md-6 mb-4">
-          <div class="card shadow-sm border-0">
+        <div class="col-12" *ngFor="let offer of pagedOffers">
+          <div class="card mb-3 shadow-sm">
             <div class="card-body">
-              <h5 class="card-title">
-                Service: {{ offer.service?.name || 'Unknown Service' }}
-              </h5>
-              <h6 class="card-subtitle mb-2 text-muted">
-                Category: {{ offer.category?.name || 'Unknown Category' }}
-              </h6>
+              <div class="d-flex align-items-start">
+                <div class="flex-grow-1">
+                  <div class="d-flex gap-3 align-items-baseline">
+                    <h5 class="mb-0">{{ offer.service?.name || 'Unknown service' }}</h5>
+                    <small class="text-muted">• {{ offer.category?.name || '-' }}</small>
+                    <span class="badge ms-2" [ngClass]="offer.active ? 'bg-success' : 'bg-secondary'">
+                      {{ offer.active ? 'Active' : 'Disabled' }}
+                    </span>
+                  </div>
 
-              <p class="mb-1"><strong>Duration:</strong> {{ offer.duration }} mins</p>
-              <p class="mb-1"><strong>Price:</strong> {{ formatPrice(offer) }}</p>
+                  <div class="mt-2">
+                    <strong>Price:</strong> {{ formatPrice(offer) }}
+                    &nbsp; • &nbsp;
+                    <strong>Duration:</strong> {{ offer.duration }} mins
+                  </div>
 
-              <div *ngIf="offer.tier">
-                <hr />
-                <h6 class="text-primary">Tier: {{ offer.tier?.tierName || 'Unnamed Tier' }}</h6>
-                <p><strong>Makes: </strong>{{ offer.tier?.makes?.join(', ') }}</p>
-                <p><strong>Models: </strong>
-                  <span *ngFor="let make of offer.tier?.makes">
-                    <b>{{ make }}:</b> {{ offer.tier.models[make]?.join(', ') || '-' }}
-                  </span>
-                </p>
-                <p><strong>Years: </strong>
-                  <span *ngFor="let year of offer.tier.years | keyvalue">
-                    <b>{{ year.key }}:</b> {{ getYearValues(year.value) }}
-                  </span>
-                </p>
+                  <div class="mt-3">
+                    <!-- Tier only -->
+                    <div
+                      *ngIf="offer.tier && (offer.tier.makes?.length || Object.keys(offer.tier.models || {}).length) && !(offer.carFitments?.makes?.length || Object.keys(offer.carFitments?.models || {}).length)"
+                      class="p-2 rounded border bg-light mb-2">
+                      <small class="fw-bold text-primary d-block mb-1">
+                        Tier: {{ offer.tier.tierName || 'Tier' }}
+                      </small>
+                      <div class="small text-muted">
+                        <b>Makes:</b> {{ (offer.tier.makes || []).join(', ') || '-' }}
+                      </div>
+                    </div>
+
+                    <!-- Custom Fitment only -->
+                    <div
+                      *ngIf="offer.carFitments && (offer.carFitments.makes?.length || Object.keys(offer.carFitments.models || {}).length) && !(offer.tier?.makes?.length || Object.keys(offer.tier?.models || {}).length)"
+                      class="p-2 rounded border bg-light mb-2">
+                      <small class="fw-bold text-primary d-block mb-1">
+                        Custom Fitment
+                      </small>
+                      <div class="small text-muted">
+                        <b>Makes:</b> {{ (offer.carFitments.makes || []).join(', ') || '-' }}
+                      </div>
+                    </div>
+
+                    <!-- Both Tier and Custom Fitment -->
+                    <div
+                      *ngIf="(offer.tier?.makes?.length || Object.keys(offer.tier?.models || {}).length) && (offer.carFitments?.makes?.length || Object.keys(offer.carFitments?.models || {}).length)"
+                      class="p-2 rounded border bg-light">
+                      <small class="fw-bold text-primary d-block mb-2">
+                        Tier &amp; Custom Fitment
+                      </small>
+                      <div class="small text-muted mb-1">
+                        <b>Tier Makes:</b> {{ (offer.tier?.makes || []).join(', ') || '-' }}
+                      </div>
+                      <div class="small text-muted">
+                        <b>Custom Fitment Makes:</b> {{ (offer.carFitments?.makes || []).join(', ') || '-' }}
+                      </div>
+                    </div>
+                  </div>
+
+
+
+                  <!-- Expand button -->
+                  <div class="mt-3">
+                    <button class="btn btn-sm btn-link" (click)="toggleExpand(offer.serviceOfferId)">
+                      <i
+                        [class]="expanded[offer.serviceOfferId || offer.id] ? 'bi bi-caret-down-fill' : 'bi bi-caret-right-fill'"></i>
+                      {{ expanded[offer.serviceOfferId || offer.id] ? 'Collapse details' : 'Show details' }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="ms-3 text-end">
+                  <div *ngIf="editingOfferId !== offer.serviceOfferId">
+                    <button class="btn btn-sm btn-outline-primary mb-1 me-3" (click)="startEdit(offer)">Edit</button>
+                    <button class="btn btn-sm btn-outline-warning mb-1 me-3" (click)="toggleActive(offer)">
+                      {{ offer.active ? 'Disable' : 'Enable' }}
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger mb-1 me-3" (click)="deleteOffer(offer)">Delete</button>
+                  </div>
+
+                  <!-- inline edit controls -->
+                  <div *ngIf="editingOfferId === offer.serviceOfferId" class="text-start">
+                    <!-- Toggle -->
+                    <div class="mb-2">
+                      <label class="form-label small mb-1">Price Type</label>
+                      <div class="d-flex gap-3">
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" id="fixedPrice-{{offer.serviceOfferId}}"
+                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.priceType === 'fixed'"
+                            (change)="onPriceTypeChange('fixed')" />
+                          <label class="form-check-label" for="fixedPrice-{{offer.serviceOfferId}}">
+                            Fixed Price
+                          </label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" id="rangePrice-{{offer.serviceOfferId}}"
+                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.priceType === 'range'"
+                            (change)="onPriceTypeChange('range')" />
+                          <label class="form-check-label" for="rangePrice-{{offer.serviceOfferId}}">
+                            Price Range
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Fixed price input -->
+                    <div class="mb-2">
+                      <label class="form-label small mb-1">Price (fixed)</label>
+                      <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.price" placeholder="RM.."
+                        [disabled]="editBuffer.priceType !== 'fixed'" />
+                    </div>
+
+                    <!-- Range inputs -->
+                    <div class="mb-2">
+                      <label class="form-label small mb-1">Or Price Min / Max</label>
+                      <div class="d-flex gap-1">
+                        <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.priceMin"
+                          placeholder="Min" [disabled]="editBuffer.priceType !== 'range'" />
+                        <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.priceMax"
+                          placeholder="Max" [disabled]="editBuffer.priceType !== 'range'" />
+                      </div>
+                    </div>
+
+                    <!-- Duration -->
+                    <div class="mb-2">
+                      <label class="form-label small mb-1">Duration (mins)</label>
+                      <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.duration" />
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="d-flex gap-2">
+                      <button class="btn btn-sm btn-success" (click)="saveEdit(offer)">Save</button>
+                      <button class="btn btn-sm btn-secondary" (click)="cancelEdit()">Cancel</button>
+                    </div>
+                  </div>
+
+                </div>
               </div>
 
-              <div *ngIf="!offer.tier && offer.carFitments">
-                <hr />
-                <h6 class="text-secondary">Custom Fitment</h6>
-                <p><strong>Makes: </strong> {{ offer.carFitments.makes?.join(', ') || '-' }}</p>
-                <p><strong>Models:</strong>
-                  <span *ngFor="let make of offer.carFitments.makes">
-                    <b>{{ make }}:</b> {{ offer.carFitments.models[make]?.join(', ') || '-' }}
-                  </span>
-                </p>
-                <p><strong>Years:</strong>
-                  <span *ngFor="let year of offer.carFitments.years | keyvalue">
-                    <b>{{ year.key }}:</b> {{ getYearValues(year.value) }}
-                  </span>
-                </p>
-              </div>
+              <!-- Expanded details -->
+              <div *ngIf="expanded[offer.serviceOfferId || offer.id]" class="mt-3 border-top pt-3">
 
+                <!-- Tier fitments -->
+                <div *ngIf="offer.tier" class="mb-4">
+                  <h6 class="fw-bold text-primary mb-2">
+                    <i class="bi bi-diagram-3 me-1"></i> Tier Fitment (from Tier)
+                  </h6>
+
+                  <div *ngIf="showsSpecificSvcOfferFitmentsArr(offer.tier) as showAllSpecSvcOfferFit"
+                    class="card shadow-sm border-0 mb-3">
+                    <div class="card-body p-3 bg-light rounded">
+                      <div class="row g-2">
+                        <div class="col-md-6"><b>All Models:</b> {{ showAllSpecSvcOfferFit.allModelsSvcOffer.join(', ')
+                          || '-' }}</div>
+                        <div class="col-md-6"><b>All Years:</b> {{ showAllSpecSvcOfferFit.allYearsSvcOffer.join(', ') ||
+                          '-' }}</div>
+                        <div class="col-md-6"><b>All Fuel Types:</b> {{
+                          showAllSpecSvcOfferFit.allFuelTypesSvcOffer.join(', ') || '-' }}</div>
+                        <div class="col-md-6"><b>All Displacements:</b> {{
+                          showAllSpecSvcOfferFit.allDisplacementsSvcOffer.join(', ') || '-' }}</div>
+                        <div class="col-md-6"><b>All Size Classes:</b> {{
+                          showAllSpecSvcOfferFit.allSizeClassesSvcOffer.join(', ') || '-' }}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="small ms-2">
+                    <div *ngFor="let make of offer.tier.makes || []" class="mb-2">
+                      <b class="text-dark">{{ make }}</b>
+                      <div *ngFor="let model of offer.tier.models[make] || []" class="ms-3">
+                        <i class="text-muted">{{ model }}</i>
+                        <ul class="list-unstyled ms-3">
+                          <li><b>Years:</b> {{ (offer.tier.years[model] || []).join(', ') || '-' }}</li>
+                          <li><b>Fuel:</b> {{ (offer.tier.fuelTypes[model] || []).join(', ') || '-' }}</li>
+                          <li><b>Displacements:</b> {{ (offer.tier.displacements[model] || []).join(', ') || '-' }}
+                          </li>
+                          <li><b>Sizes:</b> {{ (offer.tier.sizeClasses[model] || []).join(', ') || '-' }}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Custom fitments -->
+                <div
+                  *ngIf="offer.carFitments && (offer.carFitments.makes?.length || Object.keys(offer.carFitments.models || {}).length)"
+                  class="mb-4">
+                  <h6 class="fw-bold text-secondary mb-2">
+                    <i class="bi bi-wrench-adjustable-circle me-1"></i> Custom Fitments
+                  </h6>
+
+                  <div *ngIf="showsSpecificSvcOfferFitmentsArr(offer.carFitments) as showAllSpecSvcOfferFit"
+                    class="card shadow-sm border-0 mb-3">
+                    <div class="card-body p-3 bg-light rounded">
+                      <div class="row g-2">
+                        <div class="col-md-6"><b>All Models:</b> {{ showAllSpecSvcOfferFit.allModelsSvcOffer.join(', ')
+                          || '-' }}</div>
+                        <div class="col-md-6"><b>All Years:</b> {{ showAllSpecSvcOfferFit.allYearsSvcOffer.join(', ') ||
+                          '-' }}</div>
+                        <div class="col-md-6"><b>All Fuel Types:</b> {{
+                          showAllSpecSvcOfferFit.allFuelTypesSvcOffer.join(', ') || '-' }}</div>
+                        <div class="col-md-6"><b>All Displacements:</b> {{
+                          showAllSpecSvcOfferFit.allDisplacementsSvcOffer.join(', ') || '-' }}</div>
+                        <div class="col-md-6"><b>All Size Classes:</b> {{
+                          showAllSpecSvcOfferFit.allSizeClassesSvcOffer.join(', ') || '-' }}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="small ms-2">
+                    <div *ngFor="let make of offer.carFitments.makes || []" class="mb-2">
+                      <b class="text-dark">{{ make }}</b>
+                      <div *ngFor="let model of offer.carFitments.models[make] || []" class="ms-3">
+                        <i class="text-muted">{{ model }}</i>
+                        <ul class="list-unstyled ms-3">
+                          <li><b>Years:</b> {{ (offer.carFitments.years[model] || []).join(', ') || '-' }}</li>
+                          <li><b>Fuel:</b> {{ (offer.carFitments.fuelTypes[model] || []).join(', ') || '-' }}</li>
+                          <li><b>Displacements:</b> {{ (offer.carFitments.displacements[model] || []).join(', ') ||
+                            '-'
+                            }}</li>
+                          <li><b>Sizes:</b> {{ (offer.carFitments.sizeClasses[model] || []).join(', ') || '-' }}</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Pagination -->
+      <nav *ngIf="filteredOffers.length > pageSize" class="mt-3">
+        <ul class="pagination justify-content-center">
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button class="page-link" (click)="goToPage(currentPage - 1)">Previous</button>
+          </li>
+
+          <li class="page-item" *ngFor="let p of [].constructor(totalPages); let i = index"
+            [class.active]="currentPage === i + 1">
+            <button class="page-link" (click)="goToPage(i + 1)">{{ i + 1 }}</button>
+          </li>
+
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button class="page-link" (click)="goToPage(currentPage + 1)">Next</button>
+          </li>
+        </ul>
+      </nav>
     </div>
+
   </div>
 
   <!-- Tier Management Tab -->
@@ -568,8 +820,9 @@
               </select>
             </div>
             <div class="col-md-3">
-              <input (input)="onDisplacementChange($event, modelIndex, fitmentIndex)" [(ngModel)]="fitment.sharedDisplacement"
-                class="form-control" placeholder="Displacement (e.g., 1.5)" [value]="model.sharedDisplacement" />
+              <input (input)="onDisplacementChange($event, modelIndex, fitmentIndex)"
+                [(ngModel)]="fitment.sharedDisplacement" class="form-control" placeholder="Displacement (e.g., 1.5)"
+                [value]="model.sharedDisplacement" />
             </div>
             <div class="col-md-3 d-flex justify-content-between align-items-center">
               <select class="form-select" [(ngModel)]="fitment.sharedSizeClass" [value]="model.sharedSizeClass">
