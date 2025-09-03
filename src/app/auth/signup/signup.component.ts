@@ -49,7 +49,7 @@ export class SignupComponent {
           role: 'system admin',
           createdAt: new Date(),
         });
-      }).then(() => this.router.navigate(['/admin/dashboard']))
+      }).then(() => this.router.navigate(['/systemAdmin/login']))
       .catch(err => this.errorMessage = this.getFirebaseError(err.code))
       .finally(() => this.loading = false);
   }

@@ -23,9 +23,13 @@ interface ServiceOffer {
   displacements: Record<string, number[]>;
   sizeClasses: Record<string, string[]>;
   duration: number;
-  price?: number | null;
-  priceMin?: number | null;
-  priceMax?: number | null;
+  partPrice: number | null,
+  partPriceMin: number | null,
+  partPriceMax: number | null,
+  labourPrice: number | null,
+  labourPriceMin: number | null,
+  labourPriceMax: number | null,
+  serviceDescription: string | null,
   active: boolean;
   updatedAt: any;
   createdAt: any;
@@ -80,6 +84,7 @@ export class ServiceCenterServiceComponent implements OnInit {
   // all service offers by the service center
   serviceOffers: EnrichedServiceOffer[] = [];
   filteredOffers: EnrichedServiceOffer[] = [];
+  serviceDescription: string = '';
   error = '';
 
   private fb = inject(FormBuilder);
@@ -127,7 +132,18 @@ export class ServiceCenterServiceComponent implements OnInit {
   // expand / edit
   expanded: Record<string, boolean> = {};
   editingOfferId: string | null = null;
-  editBuffer: { priceType?: 'fixed' | 'range'; price?: number | null; priceMin?: number | null; priceMax?: number | null; duration?: number } = {};
+  editBuffer: {
+    partPriceType?: 'none' | 'fixed' | 'range';
+    partPrice?: number | null;
+    partPriceMin?: number | null;
+    partPriceMax?: number | null;
+    labourPriceType?: 'none' | 'fixed' | 'range';
+    labourPrice?: number | null;
+    labourPriceMin?: number | null;
+    labourPriceMax?: number | null;
+    serviceDescription?: string | null;
+    duration?: number
+  } = {};
 
   // services and category from firestore
   serviceForm!: FormGroup;
@@ -158,10 +174,14 @@ export class ServiceCenterServiceComponent implements OnInit {
   };
 
   pricing = {
-    type: 'fixed' as 'fixed' | 'range',
-    price: null as number | null,
-    priceMin: null as number | null,
-    priceMax: null as number | null,
+    partPriceType: 'fixed' as 'fixed' | 'range' | 'none',
+    partPrice: null as number | null,
+    partPriceMin: null as number | null,
+    partPriceMax: null as number | null,
+    labourPriceType: 'fixed' as 'fixed' | 'range' | 'none',
+    labourPrice: null as number | null,
+    labourPriceMin: null as number | null,
+    labourPriceMax: null as number | null,
     duration: null as number | null
   };
 
@@ -220,6 +240,7 @@ export class ServiceCenterServiceComponent implements OnInit {
         query(
           collection(this.firestore, 'services'),
           where('categoryId', '==', category['id']),
+          where('active', '==', true)
         )
       );
       this.servicesByCategory[category['id']] = serviceSnapshot.docs.map(service => ({ id: service.id, ...service.data() }));
@@ -237,6 +258,24 @@ export class ServiceCenterServiceComponent implements OnInit {
       this.loading = false;
     }
   }
+
+  async getServiceOfferDescription() {
+    const descSnap = await getDocs(
+      query(collection(this.firestore, 'services'), where('id', '==', this.pick.serviceId))
+    );
+
+    let description = descSnap.docs[0]?.data()?.['description'] || '';
+
+    const selectedService = this.servicesByCategory[this.pick.categoryId]
+      ?.find(s => s.id === this.pick.serviceId);
+
+    if (selectedService?.description) {
+      description = selectedService.description;
+    }
+
+    this.serviceDescription = description;
+  }
+
 
   async loadServiceOffered() {
     this.loading = true;
@@ -451,10 +490,15 @@ export class ServiceCenterServiceComponent implements OnInit {
     this.editingOfferId = offerId;
     // copy current values into edit buffer
     this.editBuffer = {
-      priceType: offer.price != null ? 'fixed' : 'range',
-      price: offer.price ?? null,
-      priceMin: offer.priceMin ?? null,
-      priceMax: offer.priceMax ?? null,
+      partPriceType: offer.partPrice != null ? 'fixed' : (offer.labourPriceMin != null || offer.labourPriceMax != null ? 'range' : 'none'),
+      partPrice: offer.partPrice ?? null,
+      partPriceMin: offer.partPriceMin ?? null,
+      partPriceMax: offer.partPriceMax ?? null,
+      labourPriceType: offer.labourPrice != null ? 'fixed' : (offer.labourPriceMin != null || offer.labourPriceMax != null ? 'range' : 'none'),
+      labourPrice: offer.labourPrice ?? null,
+      labourPriceMin: offer.labourPriceMin ?? null,
+      labourPriceMax: offer.labourPriceMax ?? null,
+      serviceDescription: offer.serviceDescription ?? null,
       duration: offer.duration
     };
   }
@@ -467,14 +511,33 @@ export class ServiceCenterServiceComponent implements OnInit {
   }
 
   // for updating the service offer price type
-  onPriceTypeChange(type: 'fixed' | 'range') {
-    this.editBuffer.priceType = type;
+  onPartPriceTypeChange(type: 'fixed' | 'range' | 'none') {
+    this.editBuffer.partPriceType = type;
 
     if (type === 'fixed') {
-      this.editBuffer.priceMin = null;
-      this.editBuffer.priceMax = null;
+      this.editBuffer.partPriceMin = null;
+      this.editBuffer.partPriceMax = null;
+    } else if (type === 'range') {
+      this.editBuffer.partPrice = null;
     } else {
-      this.editBuffer.price = null;
+      this.editBuffer.partPriceMin = null;
+      this.editBuffer.partPriceMax = null;
+      this.editBuffer.partPrice = 0;
+    }
+  }
+
+  onLabourPriceTypeChange(type: 'fixed' | 'range' | 'none') {
+    this.editBuffer.labourPriceType = type;
+
+    if (type === 'fixed') {
+      this.editBuffer.labourPriceMin = null;
+      this.editBuffer.labourPriceMax = null;
+    } else if (type === 'range') {
+      this.editBuffer.labourPrice = null;
+    } else {
+      this.editBuffer.labourPriceMin = null;
+      this.editBuffer.labourPriceMax = null;
+      this.editBuffer.labourPrice = 0;
     }
   }
 
@@ -489,35 +552,83 @@ export class ServiceCenterServiceComponent implements OnInit {
         this.error = 'Please enter a valid duration (at least 5 mins).';
         return;
       }
-      if (this.editBuffer.price == null && (this.editBuffer.priceMin == null || this.editBuffer.priceMax == null)) {
+      if (this.editBuffer.partPrice == null && (this.editBuffer.partPriceMin == null || this.editBuffer.partPriceMax == null)) {
         this.error = 'Please provide a price (fixed) or price range.';
         return;
       }
-      if (this.editBuffer.priceType === 'fixed' && (!this.editBuffer.price || this.editBuffer.price <= 0)) {
-        this.error = 'Please enter a valid fixed price.'; return;
+      if (this.editBuffer.partPriceType === 'fixed' && this.editBuffer.partPrice != null && this.editBuffer.partPrice < 0) {
+        this.error = 'Price cannot less then RM0.'; return;
       }
-      if (this.editBuffer.priceType === 'range' && (!this.editBuffer.priceMin || !this.editBuffer.priceMax || this.editBuffer.priceMin >= this.editBuffer.priceMax)) {
+      if (this.editBuffer.partPriceType === 'range' && (!this.editBuffer.partPriceMin || !this.editBuffer.partPriceMax || this.editBuffer.partPriceMin >= this.editBuffer.partPriceMax)) {
         this.error = 'Please enter a valid price range (min < max).'; return;
+      }
+      if (this.editBuffer.labourPrice == null && (this.editBuffer.labourPriceMin == null || this.editBuffer.labourPriceMax == null)) {
+        this.error = 'Please provide a price (fixed) or price range.';
+        return;
+      }
+      if (this.editBuffer.labourPriceType === 'fixed' && this.editBuffer.labourPrice != null && this.editBuffer.labourPrice < 0) {
+        this.error = 'Price cannot less then RM0.'; return;
+      }
+      if (this.editBuffer.labourPriceType === 'range' && (!this.editBuffer.labourPriceMin || !this.editBuffer.labourPriceMax || this.editBuffer.labourPriceMin >= this.editBuffer.labourPriceMax)) {
+        this.error = 'Please enter a valid price range (min < max).'; return;
+      }
+
+      if (this.editBuffer.serviceDescription == '' || this.editBuffer.serviceDescription == null) {
+        this.error = 'Please provide a service offer description.';
+        return;
       }
 
       // update the service offer details
       const updatePayload: any = {
         duration: this.editBuffer.duration
       };
-      if (this.editBuffer.price != null) updatePayload.price = this.editBuffer.price;
-      else {
-        updatePayload.price = null;
-        updatePayload.priceMin = this.editBuffer.priceMin ?? null;
-        updatePayload.priceMax = this.editBuffer.priceMax ?? null;
+
+      if (this.editBuffer.partPriceType === 'fixed') {
+        updatePayload.partPrice = this.editBuffer.partPrice ?? 0;
+        updatePayload.partPriceMin = null;
+        updatePayload.partPriceMax = null;
+      } else if (this.editBuffer.partPriceType === 'range') {
+        updatePayload.partPrice = null;
+        updatePayload.partPriceMin = this.editBuffer.partPriceMin ?? 0;
+        updatePayload.partPriceMax = this.editBuffer.partPriceMax ?? 0;
+      } else {
+        updatePayload.partPrice = 0;
+        updatePayload.partPriceMin = null;
+        updatePayload.partPriceMax = null;
       }
 
-      await setDoc(doc(this.firestore, 'service_center_services_offer', offerId), updatePayload, { merge: true });
+      if (this.editBuffer.labourPriceType === 'fixed') {
+        updatePayload.labourPrice = this.editBuffer.labourPrice ?? 0;
+        updatePayload.labourPriceMin = null;
+        updatePayload.labourPriceMax = null;
+      } else if (this.editBuffer.labourPriceType === 'range') {
+        updatePayload.labourPrice = null;
+        updatePayload.labourPriceMin = this.editBuffer.labourPriceMin ?? 0;
+        updatePayload.labourPriceMax = this.editBuffer.labourPriceMax ?? 0;
+      } else {
+        updatePayload.labourPrice = 0;
+        updatePayload.labourPriceMin = null;
+        updatePayload.labourPriceMax = null;
+      }
 
+      if (this.editBuffer.serviceDescription != null) {
+        updatePayload.serviceDescription = this.editBuffer.serviceDescription;
+      }
+
+      await setDoc(
+        doc(this.firestore, 'service_center_services_offer', offerId),
+        updatePayload,
+        { merge: true }
+      );
       // update current screen to reflect immediately
       offer.duration = updatePayload.duration;
-      offer.price = updatePayload.price ?? null;
-      offer.priceMin = updatePayload.priceMin ?? null;
-      offer.priceMax = updatePayload.priceMax ?? null;
+      offer.partPrice = updatePayload.partPrice;
+      offer.partPriceMin = updatePayload.partPriceMin;
+      offer.partPriceMax = updatePayload.partPriceMax;
+      offer.labourPrice = updatePayload.labourPrice;
+      offer.labourPriceMin = updatePayload.labourPriceMin;
+      offer.labourPriceMax = updatePayload.labourPriceMax;
+      offer.serviceDescription = updatePayload.serviceDescription ?? offer.serviceDescription;
 
       this.info = 'Offer updated';
       this.cancelEdit();
@@ -554,10 +665,14 @@ export class ServiceCenterServiceComponent implements OnInit {
     }
   }
 
-  formatPrice(offer: ServiceOffer): string {
-    if (offer.price != null) return `RM ${offer.price}`;
-    if (offer.priceMin != null && offer.priceMax != null) return `RM ${offer.priceMin} - RM ${offer.priceMax}`;
-    return 'N/A';
+  formatPrice(offer: ServiceOffer, type: 'part' | 'labour'): string {
+    const price = offer[`${type}Price`];
+    const min = offer[`${type}PriceMin`];
+    const max = offer[`${type}PriceMax`];
+
+    if (price != null && price !== 0) return price.toString();
+    if (min != null && max != null) return `${min} - ${max}`;
+    return '0';
   }
 
   resetFilters() {
@@ -569,6 +684,7 @@ export class ServiceCenterServiceComponent implements OnInit {
 
   onPickCategory() {
     this.pick.serviceId = '';
+    this.serviceDescription = '';
   }
 
   private capitalizeFirstAlphabet(str: string): string {
@@ -763,19 +879,41 @@ export class ServiceCenterServiceComponent implements OnInit {
     if (!this.pick.tierId) return;
     const tier = this.serviceTiers.find(x => x.id === this.pick.tierId);
     if (!tier) return;
-    this.pricing.price = (tier.price ?? null);
-    this.pricing.priceMin = (tier.priceMin ?? null);
-    this.pricing.priceMax = (tier.priceMax ?? null);
+    this.pricing.partPrice = (tier.price ?? null);
+    this.pricing.partPriceMin = (tier.priceMin ?? null);
+    this.pricing.partPriceMax = (tier.priceMax ?? null);
     this.pricing.duration = (tier.duration ?? null);
     // choose pricing type based on fields present
-    this.pricing.type = this.pricing.price != null ? 'fixed' : 'range';
+    this.pricing.partPriceType = this.pricing.partPrice != null ? 'fixed' : 'range';
+
+    this.pricing.labourPrice = (tier.labourPrice ?? null);
+    this.pricing.labourPriceMin = (tier.labourPriceMin ?? null);
+    this.pricing.labourPriceMax = (tier.labourPriceMax ?? null);
+
+    this.pricing.labourPriceType = this.pricing.labourPrice != null ? 'fixed' : 'range';
   }
 
-  onPricingTypeChange() {
-    if (this.pricing.type === 'fixed') {
-      this.pricing.priceMin = this.pricing.priceMax = null;
+  onPartPricingTypeChange() {
+    if (this.pricing.partPriceType === 'fixed') {
+      this.pricing.partPriceMin = this.pricing.partPriceMax = null;
+    } else if (this.pricing.partPriceType === 'range') {
+      this.pricing.partPrice = null;
     } else {
-      this.pricing.price = null;
+      this.pricing.partPrice = 0;
+      this.pricing.partPriceMin = 0;
+      this.pricing.partPriceMax = 0;
+    }
+  }
+
+  onLabourPricingTypeChange() {
+    if (this.pricing.labourPriceType === 'fixed') {
+      this.pricing.labourPriceMin = this.pricing.labourPriceMax = null;
+    } else if (this.pricing.labourPriceType === 'range') {
+      this.pricing.labourPrice = null;
+    } else {
+      this.pricing.labourPrice = 0;
+      this.pricing.labourPriceMin = 0;
+      this.pricing.labourPriceMax = 0;
     }
   }
 
@@ -961,23 +1099,44 @@ export class ServiceCenterServiceComponent implements OnInit {
       if ((this.selectedMakesSvc || []).length === 0 && !this.pick.tierId) {
         this.svcError = 'Please select at least one car make/model or a tier.'; return;
       }
-      if (this.pricing.type === 'fixed' && (!this.pricing.price || this.pricing.price <= 0)) {
-        this.svcError = 'Please enter a valid fixed price.'; return;
-      }
-      if (this.pricing.type === 'range' &&
-        (!this.pricing.priceMin || !this.pricing.priceMax || this.pricing.priceMin >= this.pricing.priceMax)) {
-        this.svcError = 'Please enter a valid price range (min < max).'; return;
-      }
       if (!this.pricing.duration || this.pricing.duration < 5) {
         this.svcError = 'Please enter a valid duration (at least 5 mins).'; return;
       }
+      if (this.pricing.partPrice == null && (this.pricing.partPriceMin == null || this.pricing.partPriceMax == null)) {
+        this.svcError = 'Please provide a price (fixed) or price range.';
+        return;
+      }
+      if (this.pricing.partPriceType === 'fixed' && (!this.pricing.partPrice || this.pricing.partPrice < 0)) {
+        this.svcError = 'Please enter a valid fixed price.'; return;
+      }
+      if (this.pricing.partPriceType === 'range' && (!this.pricing.partPriceMin || !this.pricing.partPriceMax || this.pricing.partPriceMin >= this.pricing.partPriceMax)) {
+        this.svcError = 'Please enter a valid price range (min < max).'; return;
+      }
+
+      if (this.pricing.labourPriceType === 'fixed' && (!this.pricing.labourPrice || this.pricing.labourPrice < 0)) {
+        this.svcError = 'Please enter a valid fixed price.'; return;
+      }
+      if (this.pricing.labourPriceType === 'range' && (!this.pricing.labourPriceMin || !this.pricing.labourPriceMax || this.pricing.labourPriceMin >= this.pricing.labourPriceMax)) {
+        this.svcError = 'Please enter a valid price range (min < max).'; return;
+      }
+
+      if (this.serviceDescription == '' || this.serviceDescription == null) {
+        this.svcError = 'Please provide a service offer description.';
+        return;
+      }
+
 
       // prepare offer data
-      const price = this.pricing.type === 'fixed' ? this.pricing.price : null;
-      const priceMin = this.pricing.type === 'range' ? this.pricing.priceMin : null;
-      const priceMax = this.pricing.type === 'range' ? this.pricing.priceMax : null;
-      const duration = this.pricing.duration;
+      const partPrice = this.pricing.partPriceType === 'fixed' ? this.pricing.partPrice : this.pricing.partPriceType === 'none' ? 0 : null;
+      const partPriceMin = this.pricing.partPriceType === 'range' ? this.pricing.partPriceMin : null;
+      const partPriceMax = this.pricing.partPriceType === 'range' ? this.pricing.partPriceMax : null;
 
+      const labourPrice = this.pricing.labourPriceType === 'fixed' ? this.pricing.labourPrice : this.pricing.labourPriceType === 'none' ? 0 : null;
+      const labourPriceMin = this.pricing.labourPriceType === 'range' ? this.pricing.labourPriceMin : null;
+      const labourPriceMax = this.pricing.labourPriceType === 'range' ? this.pricing.labourPriceMax : null;
+
+      const duration = this.pricing.duration;
+      const serviceDescription = this.serviceDescription;
       const timestamp = new Date();
       const newOffer: ServiceOffer = {
         id: '',
@@ -994,9 +1153,13 @@ export class ServiceCenterServiceComponent implements OnInit {
         displacements: this.selectedDisplacementsSvc || {},
         sizeClasses: this.selectedSizeClassesSvc || {},
         duration,
-        price,
-        priceMin,
-        priceMax,
+        partPrice,
+        partPriceMin,
+        partPriceMax,
+        labourPrice,
+        labourPriceMin,
+        labourPriceMax,
+        serviceDescription,
         active: true,
         updatedAt: timestamp,
         createdAt: timestamp,
@@ -1084,7 +1247,8 @@ export class ServiceCenterServiceComponent implements OnInit {
 
   resetServiceUI() {
     this.pick = { categoryId: '', serviceId: '', tierId: '' };
-    this.pricing = { type: 'fixed', price: null, priceMin: null, priceMax: null, duration: null };
+    this.pricing = { partPriceType: 'fixed', partPrice: null, partPriceMin: null, partPriceMax: null, labourPriceType: 'fixed', labourPrice: null, labourPriceMin: null, labourPriceMax: null, duration: null };
+    this.serviceDescription = '';
     this.selectedMakesSvc = [];
     this.selectedModelsSvc = {};
     this.modelSearchSvc = {};
@@ -1796,9 +1960,15 @@ export class ServiceCenterServiceComponent implements OnInit {
       this.tierForm.reset({ serviceCenterId: this.serviceCenterId });
       this.clearAllMakes();
       this.loadSavedTiers();
+      this.updateSvcTierSelection();
     } catch (err: any) {
       this.errorMessage = err.message || 'Failed to save tier';
     }
+  }
+
+  async updateSvcTierSelection() {
+    const tierSnap = await getDocs(query(collection(this.firestore, 'service_center_service_tiers'), where('serviceCenterId', '==', this.serviceCenterId)));
+    this.serviceTiers = tierSnap.docs.map(tier => ({ id: tier.id, ...tier.data() }));
   }
 
   // fitments of make model and year filter

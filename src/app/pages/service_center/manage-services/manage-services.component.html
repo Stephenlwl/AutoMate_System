@@ -18,7 +18,7 @@
     <div class="card shadow-sm mb-4">
       <div class="card-body row g-3 align-items-end">
         <div class="col-md-4">
-          <label class="form-label">Category</label>
+          <label class="form-label small text-muted">Category</label>
           <select class="form-select" [(ngModel)]="pick.categoryId" (change)="onPickCategory()">
             <option value="" disabled selected>Select Category</option>
             <ng-container *ngFor="let c of categories">
@@ -28,8 +28,8 @@
         </div>
 
         <div class="col-md-5">
-          <label class="form-label">Service</label>
-          <select class="form-select" [(ngModel)]="pick.serviceId">
+          <label class="form-label small text-muted">Service</label>
+          <select class="form-select" [(ngModel)]="pick.serviceId" (change)="getServiceOfferDescription()">
             <option value="" disabled selected>Select Service</option>
             <ng-container *ngFor="let s of servicesByCategory[pick.categoryId]">
               <option [value]="s['id']">{{ s['name'] }}</option>
@@ -38,7 +38,7 @@
         </div>
 
         <div class="col-md-3">
-          <label class="form-label">Select Tier (optional)</label>
+          <label class="form-label small text-muted">Select Tier (optional)</label>
           <select class="form-select" [(ngModel)]="pick.tierId" (change)="applyTierToPricing()">
             <option value="" selected>None</option>
             <ng-container *ngFor="let t of serviceTiers">
@@ -48,6 +48,18 @@
         </div>
       </div>
     </div>
+
+    <div class="card shadow-sm mb-4">
+      <div class="card-body row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label small text-muted">Service Description (default)</label>
+          <textarea class="form-control" rows="3" placeholder="Enter Service Description" [value]="serviceDescription"
+            [ngModel]="serviceDescription">
+      </textarea>
+        </div>
+      </div>
+    </div>
+
 
     <!-- Fitments for makes selection -->
     <div class="card shadow-sm mb-4">
@@ -338,37 +350,74 @@
 
     <!-- Pricing & Save -->
     <div class="card shadow-sm">
-      <div class="card-body row g-3 align-items-end">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Part Pricing Type</label>
+            <select class="form-select" [(ngModel)]="pricing.partPriceType" (change)="onPartPricingTypeChange()">
+              <option value="fixed">Fixed</option>
+              <option value="range">Range</option>
+              <option value="none">No Parts Fee</option>
+            </select>
+          </div>
 
-        <div class="col-md-3">
-          <label class="form-label">Pricing Type</label>
-          <select class="form-select" [(ngModel)]="pricing.type" (change)="onPricingTypeChange()">
-            <option value="fixed">Fixed</option>
-            <option value="range">Range</option>
-          </select>
-        </div>
+          <div class="col-md-3" *ngIf="pricing.partPriceType==='fixed'">
+            <label class="form-label small text-muted">Price (RM)</label>
+            <input type="number" class="form-control" [(ngModel)]="pricing.partPrice" />
+          </div>
 
-        <div class="col-md-3" *ngIf="pricing.type==='fixed'">
-          <label class="form-label">Price (RM)</label>
-          <input type="number" class="form-control" [(ngModel)]="pricing.price" />
-        </div>
+          <div class="col-md-3" *ngIf="pricing.partPriceType==='range'">
+            <label class="form-label small text-muted">Price Range (RM)</label>
+            <div class="input-group">
+              <input type="number" class="form-control" placeholder="Min" [(ngModel)]="pricing.partPriceMin" />
+              <span class="input-group-text">—</span>
+              <input type="number" class="form-control" placeholder="Max" [(ngModel)]="pricing.partPriceMax" />
+            </div>
+          </div>
 
-        <div class="col-md-3" *ngIf="pricing.type==='range'">
-          <label class="form-label">Price Range (RM)</label>
-          <div class="input-group">
-            <input type="number" class="form-control" placeholder="Min" [(ngModel)]="pricing.priceMin" />
-            <span class="input-group-text">—</span>
-            <input type="number" class="form-control" placeholder="Max" [(ngModel)]="pricing.priceMax" />
+          <div class="col-md-3" *ngIf="pricing.partPriceType==='none'">
+            <label class="form-label small text-muted">No Parts Fee</label>
+            <input type="text" class="form-control" value="RM 0" disabled />
           </div>
         </div>
 
-        <div class="col-md-3">
-          <label class="form-label">Duration (mins)</label>
-          <input type="number" class="form-control" [(ngModel)]="pricing.duration" />
-        </div>
+        <div class="row g-3 align-items-end mt-2">
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Labour Pricing Type</label>
+            <select class="form-select" [(ngModel)]="pricing.labourPriceType" (change)="onLabourPricingTypeChange()">
+              <option value="fixed">Fixed</option>
+              <option value="range">Range</option>
+              <option value="none">No Labour Fee</option>
+            </select>
+          </div>
 
-        <div class="col-md-3 d-grid">
-          <button class="btn btn-primary" (click)="saveOffer()">Save Offer</button>
+          <div class="col-md-3" *ngIf="pricing.labourPriceType==='fixed'">
+            <label class="form-label small text-muted">Price (RM)</label>
+            <input type="number" class="form-control" [(ngModel)]="pricing.labourPrice" />
+          </div>
+
+          <div class="col-md-3" *ngIf="pricing.labourPriceType==='range'">
+            <label class="form-label small text-muted">Price Range (RM)</label>
+            <div class="input-group">
+              <input type="number" class="form-control" placeholder="Min" [(ngModel)]="pricing.labourPriceMin" />
+              <span class="input-group-text">—</span>
+              <input type="number" class="form-control" placeholder="Max" [(ngModel)]="pricing.labourPriceMax" />
+            </div>
+          </div>
+
+          <div class="col-md-3" *ngIf="pricing.labourPriceType==='none'">
+            <label class="form-label small text-muted">No Labour Fee</label>
+            <input type="text" class="form-control" value="RM 0" disabled />
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label small text-muted">Duration (mins)</label>
+            <input type="number" class="form-control" [(ngModel)]="pricing.duration" />
+          </div>
+
+          <div class="col-md-3 d-grid">
+            <button class="btn btn-primary" (click)="saveOffer()">Save Offer</button>
+          </div>
         </div>
       </div>
     </div>
@@ -466,7 +515,8 @@
                   </div>
 
                   <div class="mt-2">
-                    <strong>Price:</strong> {{ formatPrice(offer) }}
+                    <strong>Part Price:</strong> RM{{ formatPrice(offer, 'part') }} <br>
+                    <strong>Labour Price:</strong> RM{{ formatPrice(offer, 'labour') }}
                     &nbsp; • &nbsp;
                     <strong>Duration:</strong> {{ offer.duration }} mins
                   </div>
@@ -525,7 +575,7 @@
                 </div>
 
                 <!-- Actions -->
-                <div class="ms-3 text-end">
+                <div class="ms-4 text-end">
                   <div *ngIf="editingOfferId !== offer.serviceOfferId">
                     <button class="btn btn-sm btn-outline-primary mb-1 me-3" (click)="startEdit(offer)">Edit</button>
                     <button class="btn btn-sm btn-outline-warning mb-1 me-3" (click)="toggleActive(offer)">
@@ -538,22 +588,30 @@
                   <div *ngIf="editingOfferId === offer.serviceOfferId" class="text-start">
                     <!-- Toggle -->
                     <div class="mb-2">
-                      <label class="form-label small mb-1">Price Type</label>
+                      <label class="form-label small mb-1"><i class="bi bi-tag"></i> Part Price Type</label>
                       <div class="d-flex gap-3">
                         <div class="form-check">
                           <input class="form-check-input" type="radio" id="fixedPrice-{{offer.serviceOfferId}}"
-                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.priceType === 'fixed'"
-                            (change)="onPriceTypeChange('fixed')" />
+                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.partPriceType === 'fixed'"
+                            (change)="onPartPriceTypeChange('fixed')" />
                           <label class="form-check-label" for="fixedPrice-{{offer.serviceOfferId}}">
                             Fixed Price
                           </label>
                         </div>
                         <div class="form-check">
                           <input class="form-check-input" type="radio" id="rangePrice-{{offer.serviceOfferId}}"
-                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.priceType === 'range'"
-                            (change)="onPriceTypeChange('range')" />
+                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.partPriceType === 'range'"
+                            (change)="onPartPriceTypeChange('range')" />
                           <label class="form-check-label" for="rangePrice-{{offer.serviceOfferId}}">
                             Price Range
+                          </label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" id="nonePrice-{{offer.serviceOfferId}}"
+                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.partPriceType === 'none'"
+                            (change)="onPartPriceTypeChange('none')" />
+                          <label class="form-check-label" for="nonePrice-{{offer.serviceOfferId}}">
+                            No Part Price
                           </label>
                         </div>
                       </div>
@@ -561,26 +619,82 @@
 
                     <!-- Fixed price input -->
                     <div class="mb-2">
-                      <label class="form-label small mb-1">Price (fixed)</label>
-                      <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.price" placeholder="RM.."
-                        [disabled]="editBuffer.priceType !== 'fixed'" />
+                      <label class="form-label small mb-1 italic">Price (fixed)</label>
+                      <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.partPrice"
+                        placeholder="RM.." [disabled]="editBuffer.partPriceType !== 'fixed'" />
                     </div>
 
                     <!-- Range inputs -->
                     <div class="mb-2">
-                      <label class="form-label small mb-1">Or Price Min / Max</label>
+                      <label class="form-label small mb-1 italic">Price Min / Max</label>
                       <div class="d-flex gap-1">
-                        <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.priceMin"
-                          placeholder="Min" [disabled]="editBuffer.priceType !== 'range'" />
-                        <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.priceMax"
-                          placeholder="Max" [disabled]="editBuffer.priceType !== 'range'" />
+                        <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.partPriceMin"
+                          placeholder="Min" [disabled]="editBuffer.partPriceType !== 'range'" />
+                        <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.partPriceMax"
+                          placeholder="Max" [disabled]="editBuffer.partPriceType !== 'range'" />
+                      </div>
+                    </div>
+
+                    <div class="mb-2">
+                      <label class="form-label small mb-1"><i class="bi bi-tools"></i> Labour Price Type</label>
+                      <div class="d-flex gap-3">
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" id="fixedPrice-{{offer.serviceOfferId}}"
+                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.labourPriceType === 'fixed'"
+                            (change)="onLabourPriceTypeChange('fixed')" />
+                          <label class="form-check-label" for="fixedPrice-{{offer.serviceOfferId}}">
+                            Fixed Price
+                          </label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" id="rangePrice-{{offer.serviceOfferId}}"
+                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.labourPriceType === 'range'"
+                            (change)="onLabourPriceTypeChange('range')" />
+                          <label class="form-check-label" for="rangePrice-{{offer.serviceOfferId}}">
+                            Price Range
+                          </label>
+                        </div>
+                        <div class="form-check">
+                          <input class="form-check-input" type="radio" id="nonePrice-{{offer.serviceOfferId}}"
+                            name="priceType-{{offer.serviceOfferId}}" [checked]="editBuffer.labourPriceType === 'none'"
+                            (change)="onLabourPriceTypeChange('none')" />
+                          <label class="form-check-label" for="nonePrice-{{offer.serviceOfferId}}">
+                            No Labour Price
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Fixed price input -->
+                    <div class="mb-2">
+                      <label class="form-label small mb-1 italic">Price (fixed)</label>
+                      <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.labourPrice"
+                        placeholder="RM.." [disabled]="editBuffer.labourPriceType !== 'fixed'" />
+                    </div>
+
+                    <!-- Range inputs -->
+                    <div class="mb-2">
+                      <label class="form-label small mb-1 italic">Price Min / Max</label>
+                      <div class="d-flex gap-1">
+                        <input type="number" class="form-control form-control-sm"
+                          [(ngModel)]="editBuffer.labourPriceMin" placeholder="Min"
+                          [disabled]="editBuffer.labourPriceType !== 'range'" />
+                        <input type="number" class="form-control form-control-sm"
+                          [(ngModel)]="editBuffer.labourPriceMax" placeholder="Max"
+                          [disabled]="editBuffer.labourPriceType !== 'range'" />
                       </div>
                     </div>
 
                     <!-- Duration -->
                     <div class="mb-2">
-                      <label class="form-label small mb-1">Duration (mins)</label>
+                      <label class="form-label small mb-1 italic">Duration (mins)</label>
                       <input type="number" class="form-control form-control-sm" [(ngModel)]="editBuffer.duration" />
+                    </div>
+
+                    <div class="mb-2">
+                      <label class="form-label small mb-1 italic">Service Description</label>
+                      <textarea class="form-control form-control-sm" [(ngModel)]="editBuffer.serviceDescription"
+                        rows="2"></textarea>
                     </div>
 
                     <!-- Buttons -->
@@ -726,7 +840,7 @@
     <form [formGroup]="tierForm" class="card p-3 mb-4 shadow-sm">
       <div class="row g-3 align-items-center">
         <div class="col-md-6">
-          <label class="form-label fw-semibold">
+          <label class="form-label small fw-semibold">
             <i class="bi bi-tags-fill me-2 text-primary"></i>Tier Name
           </label>
           <input type="text" class="form-control" formControlName="tierName" placeholder="e.g. Sedan Tier A" />

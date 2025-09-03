@@ -1,11 +1,106 @@
 <h3>Service Center Details</h3>
-  <form [formGroup]="form" class="row g-3" (ngSubmit)="save()">
-    <div class="col-md-6"><label class="form-label">Name</label><input class="form-control" formControlName="name"></div>
-    <div class="col-md-6"><label class="form-label">Registration No</label><input class="form-control" formControlName="registrationNumber"></div>
-    <div class="col-md-12"><label class="form-label">Address Line 1</label><input class="form-control" formControlName="addressLine1"></div>
-    <div class="col-md-12"><label class="form-label">Address Line 2</label><input class="form-control" formControlName="addressLine2"></div>
-    <div class="col-md-4"><label class="form-label">City</label><input class="form-control" formControlName="city"></div>
-    <div class="col-md-4"><label class="form-label">State</label><input class="form-control" formControlName="state"></div>
-    <div class="col-md-4"><label class="form-label">Postal Code</label><input class="form-control" formControlName="postalCode"></div>
-    <div class="col-12"><button class="btn btn-primary">Save</button></div>
-  </form>
+
+<form [formGroup]="serviceForm" class="row g-3" (ngSubmit)="save()">
+  <!-- Service Center Info -->
+  <div class="col-md-6">
+    <label class="form-label">Name</label>
+    <input class="form-control" formControlName="name">
+  </div>
+  <div class="col-md-12">
+    <label class="form-label">Address Line 1</label>
+    <input class="form-control" formControlName="addressLine1">
+  </div>
+  <div class="col-md-12">
+    <label class="form-label">Address Line 2</label>
+    <input class="form-control" formControlName="addressLine2">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">City</label>
+    <input class="form-control" formControlName="city">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">State</label>
+    <input class="form-control" formControlName="state">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Postal Code</label>
+    <input class="form-control" formControlName="postalCode">
+  </div>
+
+  <!-- Operating Hours -->
+  <div class="col-12 mt-4">
+    <h4 class="mb-3 text-primary fw-semibold">
+      <i class="bi bi-clock-history me-2"></i> Weekly Operating Hours
+    </h4>
+    <div formArrayName="operatingHours" class="border rounded p-3 bg-white">
+      <div *ngFor="let day of operatingHoursArray.controls; let i = index"
+           [formGroupName]="i"
+           class="d-flex align-items-center mb-3 border-bottom pb-2">
+
+        <div class="fw-semibold" style="width: 120px;">
+          {{ day.get('day')?.value }}
+        </div>
+
+        <div class="form-check me-3">
+          <input type="checkbox" class="form-check-input" formControlName="isClosed" id="closed-{{i}}">
+          <label class="form-check-label small text-muted" for="closed-{{i}}">Closed</label>
+        </div>
+
+        <div class="d-flex align-items-center flex-grow-1 gap-2">
+          <input type="time" class="form-control" formControlName="open"
+                 [disabled]="day.get('isClosed')?.value"
+                 style="max-width: 150px;">
+          <span class="text-muted small">to</span>
+          <input type="time" class="form-control" formControlName="close"
+                 [disabled]="day.get('isClosed')?.value"
+                 style="max-width: 150px;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Special Closures -->
+  <div class="col-12 mt-4" formArrayName="specialClosures">
+    <h4 class="mb-3 text-danger fw-semibold">
+      <i class="bi bi-calendar-x me-2"></i> Special Closures (Holidays / Maintenance)
+    </h4>
+
+    <!-- Add Closure Form -->
+    <div [formGroup]="closureForm" class="d-flex gap-2 mb-3">
+      <input type="date" class="form-control" formControlName="date">
+      <input type="text" class="form-control" formControlName="reason"
+             placeholder="Reason (e.g., Public Holiday)">
+      <button type="button" class="btn btn-outline-danger" (click)="addClosure()">Add</button>
+    </div>
+
+    <!-- Closures Table -->
+    <table class="table table-sm table-striped align-middle">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Reason</th>
+          <th style="width: 100px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let closure of closuresArray.controls; let i = index" [formGroupName]="i">
+          <td>{{ closure.value.date }}</td>
+          <td>{{ closure.value.reason }}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger" (click)="removeClosure(i)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="closuresArray.length === 0">
+          <td colspan="3" class="text-muted text-center">No special closures added</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Save -->
+  <div class="col-12 mt-3">
+    <button class="btn btn-primary">Save</button>
+  </div>
+</form>

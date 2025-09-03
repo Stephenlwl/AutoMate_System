@@ -249,6 +249,7 @@ export class ServiceCenterSignupComponent {
       this.errorMessage = 'Verification failed. Please try again.';
     } finally {
       this.verifyLoading = false;
+      this.otpSent = false;
     }
   }
 
@@ -446,8 +447,10 @@ export class ServiceCenterSignupComponent {
       }
       this.form.reset();
       this.isEmailVerified = false;
+      this.otpSent = false;
       this.errorMessage = '';
       this.infoMessage = '';
+      this.resetWorkingHoursForm();
       this.step = 1;
     } catch (err: any) {
       alert(err.message + ' ' + 'Sum of file sizes is too large. Please upload files under 900 KB.');
@@ -455,6 +458,19 @@ export class ServiceCenterSignupComponent {
     } finally {
       this.loading = false;
     }
+  }
+
+  resetWorkingHoursForm() {
+    this.form.setControl('operatingHours', this.fb.array(
+      this.daysOfWeek.map(day =>
+        this.fb.group({
+          day: [day],
+          isClosed: [false],
+          open: ['09:00'],
+          close: ['18:00']
+        })
+      )
+    ));
   }
 
   fillFormWithRejectedData(data: any) {
