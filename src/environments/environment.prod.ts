@@ -9,5 +9,6 @@ export const environment = {
     messagingSenderId: "221549700997",
     appId: "1:221549700997:web:66595769b986a10bc746ec",
     measurementId: "G-JRPNDC98G1"
-  }
+  },
+  encryptionKey: 'AUTO_MATE_SECRET_KEY_256'
 };

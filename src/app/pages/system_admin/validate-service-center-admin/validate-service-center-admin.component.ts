@@ -2,6 +2,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Firestore, collection, getDocs, doc, updateDoc } from '@angular/fire/firestore';
 import { FormsModule } from '@angular/forms';
+import { environment } from '../../../../environments/environment';
 import * as CryptoJS from 'crypto-js';
 
 @Component({
@@ -13,7 +14,7 @@ import * as CryptoJS from 'crypto-js';
 })
 export class ValidateServiceCenterAdminComponent implements OnInit {
   private firestore = inject(Firestore);
-  private secretKey = "AUTO_MATE_SECRET_KEY_256";
+  private secretKey = environment.encryptionKey;
 
   pendingServiceCenters: any[] = [];
   respondedServiceCenters: any[] = [];

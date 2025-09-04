@@ -1,106 +1,245 @@
-<h3>Service Center Details</h3>
+<h3 class="mb-4 fw-bold text-primary">
+  <i class="bi bi-building me-2"></i> Service Center Details
+</h3>
 
-<form [formGroup]="serviceForm" class="row g-3" (ngSubmit)="save()">
-  <!-- Service Center Info -->
-  <div class="col-md-6">
-    <label class="form-label">Name</label>
-    <input class="form-control" formControlName="name">
-  </div>
-  <div class="col-md-12">
-    <label class="form-label">Address Line 1</label>
-    <input class="form-control" formControlName="addressLine1">
-  </div>
-  <div class="col-md-12">
-    <label class="form-label">Address Line 2</label>
-    <input class="form-control" formControlName="addressLine2">
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">City</label>
-    <input class="form-control" formControlName="city">
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">State</label>
-    <input class="form-control" formControlName="state">
-  </div>
-  <div class="col-md-4">
-    <label class="form-label">Postal Code</label>
-    <input class="form-control" formControlName="postalCode">
-  </div>
+<form [formGroup]="serviceForm" (ngSubmit)="save()" class="row g-4">
 
-  <!-- Operating Hours -->
-  <div class="col-12 mt-4">
-    <h4 class="mb-3 text-primary fw-semibold">
-      <i class="bi bi-clock-history me-2"></i> Weekly Operating Hours
-    </h4>
-    <div formArrayName="operatingHours" class="border rounded p-3 bg-white">
-      <div *ngFor="let day of operatingHoursArray.controls; let i = index"
-           [formGroupName]="i"
-           class="d-flex align-items-center mb-3 border-bottom pb-2">
-
-        <div class="fw-semibold" style="width: 120px;">
-          {{ day.get('day')?.value }}
+  <div *ngIf="serviceCenterInfoLoading">
+    <div class="card shadow-sm border-0">
+      <div class="card-body text-center">
+        <span class="spinner-border spinner-border-sm me-1"></span> Service Center Information is Loading...
+      </div>
+    </div>
+  </div>
+  <div *ngIf="!serviceCenterInfoLoading" class="row g-4">
+    <!-- Basic Info -->
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-light fw-semibold">
+          <i class="bi bi-info-circle me-2"></i> Basic Information
         </div>
-
-        <div class="form-check me-3">
-          <input type="checkbox" class="form-check-input" formControlName="isClosed" id="closed-{{i}}">
-          <label class="form-check-label small text-muted" for="closed-{{i}}">Closed</label>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Name</label>
+              <input class="form-control" formControlName="name" placeholder="Enter service center name">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label fw-semibold">Company Description</label>
+              <textarea class="form-control" rows="3" formControlName="description"
+                placeholder="Brief description about the service center"></textarea>
+            </div>
+          </div>
         </div>
+      </div>
+    </div>
 
-        <div class="d-flex align-items-center flex-grow-1 gap-2">
-          <input type="time" class="form-control" formControlName="open"
-                 [disabled]="day.get('isClosed')?.value"
-                 style="max-width: 150px;">
-          <span class="text-muted small">to</span>
-          <input type="time" class="form-control" formControlName="close"
-                 [disabled]="day.get('isClosed')?.value"
-                 style="max-width: 150px;">
+    <!-- Images -->
+    <div class="col-12 mt-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-light fw-semibold">
+          <i class="bi bi-images me-2"></i> Company Images
+        </div>
+        <div class="card-body">
+          <input type="file" class="form-control" (change)="handleFileInput($event)" multiple>
+
+          <div class="mt-3 d-flex gap-3 flex-wrap">
+            <div *ngFor="let img of uploadedImages; let i = index" class="position-relative">
+              <img [src]="img" width="140" height="100" class="rounded border shadow-sm object-fit-cover">
+
+              <div class="position-absolute top-0 end-0 d-flex flex-column m-1">
+                <button type="button" class="btn btn-sm btn-light mb-1 shadow-sm" (click)="viewImage(img)">
+                  <i class="bi bi-zoom-in"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-danger shadow-sm" (click)="removeImage(i)">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal for image view -->
+    <div class="modal fade show d-block" *ngIf="isImageModalOpen" tabindex="-1" role="dialog"
+      style="background: rgba(0,0,0,0.5);">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow">
+          <div class="modal-body text-center">
+            <img [src]="selectedImage" class="img-fluid rounded">
+          </div>
+          <div class="modal-footer border-0">
+            <button type="button" class="btn btn-secondary" (click)="closeImageModal()">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Address -->
+    <div class="col-md-6 mt-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-light fw-semibold">
+          <i class="bi bi-geo-alt me-2"></i> Address
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label fw-semibold">Address Line 1</label>
+              <input class="form-control" formControlName="addressLine1" placeholder="Street address, P.O. box">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label fw-semibold">Address Line 2</label>
+              <input class="form-control" formControlName="addressLine2" placeholder="Apartment, suite, unit, building">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">City</label>
+              <input class="form-control" formControlName="city">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">State</label>
+              <input class="form-control" formControlName="state">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Postal Code</label>
+              <input class="form-control" formControlName="postalCode">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Operating Hours -->
+    <div class="col-md-6 mt-3">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-light fw-semibold">
+          <i class="bi bi-clock-history me-2"></i> Weekly Operating Hours
+        </div>
+        <div class="card-body">
+          <div formArrayName="operatingHours" class="p-3 rounded bg-light">
+            <div *ngFor="let day of operatingHoursArray.controls; let i = index" [formGroupName]="i"
+              class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2">
+              <div class="fw-semibold" style="width: 120px;">{{ day.get('day')?.value }}</div>
+              <div class="form-check me-3">
+                <input type="checkbox" class="form-check-input" formControlName="isClosed" id="closed-{{i}}">
+                <label class="form-check-label small text-muted" for="closed-{{i}}">Closed</label>
+              </div>
+              <div class="d-flex align-items-center gap-2 flex-grow-1">
+                <input type="time" class="form-control" formControlName="open" [disabled]="day.get('isClosed')?.value"
+                  style="max-width: 150px;">
+                <span class="text-muted small">to</span>
+                <input type="time" class="form-control" formControlName="close" [disabled]="day.get('isClosed')?.value"
+                  style="max-width: 150px;">
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Special Closures -->
-  <div class="col-12 mt-4" formArrayName="specialClosures">
-    <h4 class="mb-3 text-danger fw-semibold">
-      <i class="bi bi-calendar-x me-2"></i> Special Closures (Holidays / Maintenance)
-    </h4>
-
-    <!-- Add Closure Form -->
-    <div [formGroup]="closureForm" class="d-flex gap-2 mb-3">
-      <input type="date" class="form-control" formControlName="date">
-      <input type="text" class="form-control" formControlName="reason"
-             placeholder="Reason (e.g., Public Holiday)">
-      <button type="button" class="btn btn-outline-danger" (click)="addClosure()">Add</button>
+  <!-- Holidays and Closures side by side -->
+  <div class="col-md-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-light fw-semibold">
+        <i class="bi bi-calendar-event me-2"></i> Suggested Public Holidays
+      </div>
+      <div *ngIf="publicHolidayDataLoading" class="card-body">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        <p class="text-center text-muted"> Loading suggested public holidays...</p>
+      </div>
+      <div *ngIf="!publicHolidayDataLoading">
+        <div class="card-body">
+          <button type="button" class="btn btn-outline-success btn-sm mb-3" (click)="loadPublicHolidays()">
+            <i class="bi bi-arrow-repeat me-1"></i> Load Holidays
+          </button>
+          <div *ngIf="holidays.length > 0; else noHolidays">
+            <table class="table table-hover table-sm align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Date</th>
+                  <th>Holiday</th>
+                  <th>Type</th>
+                  <th class="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let h of holidays">
+                  <td>{{ h.date }}</td>
+                  <td>{{ h.name }}</td>
+                  <td>
+                    <span class="badge bg-primary" *ngIf="h.type==='FEDERAL_PUBLIC_HOLIDAY'">Federal</span>
+                    <span class="badge bg-warning text-dark" *ngIf="h.type==='STATE_HOLIDAY'">State</span>
+                    <span class="badge bg-secondary" *ngIf="h.type==='SEASON'">Season</span>
+                    <span class="badge bg-info text-dark" *ngIf="h.type==='OBSERVANCE'">Observance</span>
+                  </td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" (click)="addHolidayClosure(h)">Add</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <ng-template #noHolidays>
+            <div class="text-center text-muted small">
+              <i class="bi bi-info-circle me-1"></i> No holidays loaded. Click "Load Holidays".
+            </div>
+          </ng-template>
+        </div>
+      </div>
     </div>
-
-    <!-- Closures Table -->
-    <table class="table table-sm table-striped align-middle">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Reason</th>
-          <th style="width: 100px;">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let closure of closuresArray.controls; let i = index" [formGroupName]="i">
-          <td>{{ closure.value.date }}</td>
-          <td>{{ closure.value.reason }}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-danger" (click)="removeClosure(i)">
-              <i class="bi bi-trash"></i>
-            </button>
-          </td>
-        </tr>
-        <tr *ngIf="closuresArray.length === 0">
-          <td colspan="3" class="text-muted text-center">No special closures added</td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 
-  <!-- Save -->
-  <div class="col-12 mt-3">
-    <button class="btn btn-primary">Save</button>
+  <div class="col-md-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-light fw-semibold">
+        <i class="bi bi-calendar-x me-2"></i> Special Closures
+      </div>
+      <div class="card-body">
+        <div [formGroup]="closureForm" class="d-flex gap-2 mb-3">
+          <input type="date" class="form-control" formControlName="date" [attr.min]="today">
+          <input type="text" class="form-control" formControlName="reason" placeholder="Reason (e.g., Public Holiday)">
+          <button type="button" class="btn btn-outline-danger" (click)="addClosure()">Add</button>
+        </div>
+        <div *ngIf="closuresArray.length > 0; else noClosures">
+          <table class="table table-hover table-sm align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Date</th>
+                <th>Reason</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let closure of closuresArray.value; let i=index">
+                <td>{{ closure.date }}</td>
+                <td>{{ closure.reason }}</td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-danger" (click)="removeClosure(i)">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ng-template #noClosures>
+          <div class="text-center text-muted small">
+            <i class="bi bi-info-circle me-1"></i> No special closures added.
+          </div>
+        </ng-template>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="border-top py-3 text-center">
+      <button class="btn btn-primary" (click)="save()" [disabled]="isSaving">
+        <div *ngIf="isSaving"><span class="spinner-border spinner-border-sm me-1"></span>Saving</div>
+        <div *ngIf="!isSaving"><i class="bi bi-save me-1"></i> Save</div>
+      </button>
+    </div>
   </div>
 </form>

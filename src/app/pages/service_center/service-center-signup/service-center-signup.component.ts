@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { getStates, getCities, getPostcodes } from 'malaysia-postcodes';
 import { RouterLink } from '@angular/router';
+import { environment } from '../../../../environments/environment';
 import * as CryptoJS from 'crypto-js';
 
 @Component({
@@ -20,7 +21,7 @@ export class ServiceCenterSignupComponent {
   private fb = inject(FormBuilder);
   private firestore = inject(Firestore);
   private http = inject(HttpClient);
-  private secretKey = 'AUTO_MATE_SECRET_KEY_256';
+  private secretKey = environment.encryptionKey;
 
   ngOnInit() {
     this.malaysiaStates = getStates();
