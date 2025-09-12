@@ -1,1 +1,195 @@
-<p>manage-chat works!</p>
+<div class="admin-dashboard container-fluid h-100 p-0">
+
+  <div class="dashboard-header bg-white shadow-sm border-bottom p-4">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <h1 class="h2 mb-1 text-primary">
+          <i class="bi bi-headset me-2"></i>Admin Support Dashboard
+        </h1>
+        <p class="text-muted mb-0">Manage customer support conversations</p>
+      </div>
+      <div class="header-stats d-flex gap-3">
+        <div class="stat-card bg-light rounded-3 p-3 text-center" style="min-width: 120px;">
+          <span class="stat-number display-6 fw-bold text-primary">{{ totalChannels }}</span>
+          <span class="stat-label small text-muted d-block mt-1">Total Chats</span>
+        </div>
+    </div>
+  </div>
+
+  <div class="dashboard-content d-flex h-100">
+    <!-- channel list sidebar -->
+    <div class="channels-sidebar bg-light border-end" style="width: 400px; min-width: 400px;">
+      <div class="sidebar-header p-3 border-bottom">
+        <h3 class="h5 mb-3">
+          <i class="bi bi-chat me-2 text-primary"></i>Chat Channels
+        </h3>
+        <div class="filter-tabs nav nav-pills nav-fill gap-2">
+          <button class="nav-link flex-fill" [class.active]="selectedFilter === 'all'" (click)="filterChannels('all')">
+            All
+          </button>
+          <button class="nav-link flex-fill" [class.active]="selectedFilter === 'user'"
+            (click)="filterChannels('user')">
+            Customer
+          </button>
+          <button class="nav-link flex-fill" [class.active]="selectedFilter === 'service_center'"
+            (click)="filterChannels('service_center')">
+            Service Center
+          </button>
+        </div>
+      </div>
+
+      <div class="channels-list" style="height: calc(100vh - 200px); overflow-y: auto;">
+        <div *ngFor="let channel of filteredChannels" class="channel-item p-3 border-bottom cursor-pointer"
+          [class.bg-white]="selectedChannel?.id === channel.id" [class.bg-light]="selectedChannel?.id !== channel.id"
+          [class.unread]="channel.unread_count && channel.unread_count > 0" (click)="selectChannel(channel.id)">
+
+          <div class="d-flex align-items-start gap-3">
+            <div class="channel-avatar flex-shrink-0">
+              <div class="rounded-circle d-flex align-items-center justify-content-center"
+                [class]="getChannelAvatarClass(channel.host_by)" style="width: 45px; height: 45px;">
+                <i [class]="getChannelIcon(channel.host_by) + ' bi-fw'"></i>
+              </div>
+            </div>
+
+            <div class="channel-info flex-grow-1">
+              <div class="d-flex justify-content-between align-items-start mb-1">
+                <h6 class="channel-name mb-0 text-truncate" style="max-width: 200px;">
+                  {{ channel.name }}
+                </h6>
+              </div>
+
+              <div class="channel-details small text-muted mb-1">
+                <span *ngIf="channel.customer_info" class="customer-name text-truncate d-block">
+                  <i class="bi bi-person me-1"></i>{{ channel.customer_info.name }}
+                </span>
+                <span class="channel-type badge" [class]="getChannelBadgeClass(channel.host_by)">
+                  {{ getChannelTypeLabel(channel.host_by) }}
+                </span>
+                <button class="btn btn-sm btn-outline-danger delete-btn ms-2"
+                  (click)="confirmDeleteChannel(channel.id, $event)" title="Delete Channel">
+                  Delete
+                </button>            
+              </div>
+
+              <div class="last-message-time small text-muted">
+                <i class="bi bi-clock me-1"></i>
+                {{ formatTime(channel.last_message_at) }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="filteredChannels.length === 0" class="text-center p-5 text-muted">
+          <i class="bi bi-inbox fa-2x mb-3"></i>
+          <p>No channels found</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="chat-area flex-grow-1 d-flex flex-column">
+      <div *ngIf="!selectedChannel"
+        class="no-chat-selected d-flex flex-column align-items-center justify-content-center h-100 bg-light">
+        <div class="text-center text-muted p-5">
+          <i class="bi bi-chat fa-4x mb-4 opacity-50"></i>
+          <h3 class="h4 mb-2">Select a chat to start</h3>
+          <p class="mb-4">Choose a channel from the sidebar to view messages and respond to customers</p>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary">
+              <i class="bi bi-question-circle me-2"></i>Help Guide
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="selectedChannel && selectedChannelData" class="chat-container d-flex flex-column h-100">
+        <!-- Chat Header -->
+        <div class="chat-header bg-white border-bottom p-3">
+          <div class="d-flex justify-content-between align-items-center">
+            <div class="chat-info">
+              <h5 class="chat-title mb-1">
+                <i [class]="getChannelIcon(selectedChannelData.type) + ' me-2 text-primary'"></i>
+                {{ selectedChannelData.name }}
+              </h5>
+              <div class="chat-subtitle small text-muted">
+                <span *ngIf="selectedChannelData.customer_info">
+                  <i class="bi bi-person me-1"></i>Customer: {{ selectedChannelData.customer_info.name }}
+                </span>
+                <span *ngIf="selectedChannelData.customer_info?.email" class="ms-2">
+                  <i class="bi bi-envelope me-1"></i>{{ selectedChannelData.customer_info?.email }}
+                </span>
+              </div>
+            </div>
+            <div class="chat-actions d-flex gap-2">
+              <button class="btn btn-sm btn-outline-primary" title="Call Customer">
+                <i class="bi bi-telephone"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="messages-container flex-grow-1 p-4" style="overflow-y: auto; background-color: #f8f9fa;">
+          <div *ngFor="let message of messages" class="message-wrapper mb-3"
+            [class.text-end]="message.user?.id === 'admin-support'">
+
+            <div class="message-bubble d-inline-block max-w-75">
+              <div class="card border-0 shadow-sm" [class.bg-primary]="message.user?.id === 'admin-support'"
+                [class.bg-white]="message.user?.id !== 'admin-support'">
+                <div class="card-body p-3">
+                  <div class="message-content" [class.text-white]="message.user?.id === 'admin-support'">
+                    {{ message.text }}
+                  </div>
+                  <div class="message-meta small mt-2" [class.text-white-50]="message.user?.id === 'admin-support'"
+                    [class.text-muted]="message.user?.id !== 'admin-support'">
+                    <span class="message-author">{{ message.user?.name || 'Unknown' }}</span>
+                    <span class="message-time ms-2">
+                      <i class="far fa-clock me-1"></i>
+                      {{ formatMessageTime(message.created_at) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div *ngIf="isTyping"
+            class="typing-indicator d-flex align-items-center text-muted p-3 bg-white rounded-3 shadow-sm">
+            <div class="typing-dots me-2">
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+            </div>
+            <span>Customer is typing...</span>
+          </div>
+        </div>
+
+        <!-- message input -->
+        <div class="message-input-container bg-white border-top p-3">
+          <div class="input-wrapper d-flex gap-2 align-items-center">
+            <button class="btn btn-outline-secondary" title="Attach File">
+              <i class="bi bi-paperclip"></i>
+            </button>
+            <input type="text" [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type your message..."
+              class="form-control form-control-lg">
+            <button class="btn btn-primary btn-lg px-4" (click)="sendMessage()" [disabled]="!newMessage.trim()">
+              <i class="bi bi-send"></i>
+            </button>
+          </div>
+
+          <!-- Quick responses -->
+          <div class="quick-responses mt-3" *ngIf="showQuickResponses">
+            <h6 class="small text-muted mb-2">Quick Responses:</h6>
+            <div class="d-flex flex-wrap gap-2">
+              <button *ngFor="let response of quickResponses"
+                class="quick-response-btn btn btn-outline-primary btn-sm text-start"
+                (click)="useQuickResponse(response)">
+                {{ response }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

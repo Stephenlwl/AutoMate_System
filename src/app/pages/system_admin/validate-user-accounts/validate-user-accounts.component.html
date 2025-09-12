@@ -1,66 +1,87 @@
 <div class="container mt-4">
-  <h2 class="mb-4">Pending Car Owner Approvals</h2>
+  <h3 class="mb-4 fw-bold text-primary"><i class="bi bi-person-circle"></i> Car Owner Account Validation</h3>
+  <hr>
+  <!-- Tabs -->
+  <ul class="nav nav-pills mb-4">
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="activeTab==='pending'" (click)="activeTab='pending'">
+        Pending <span class="badge bg-warning text-dark">{{ pendingUsers.length }}</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="activeTab==='approved'" (click)="activeTab='approved'">
+        Approved <span class="badge bg-success">{{ approvedUsers.length }}</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" [class.active]="activeTab==='rejected'" (click)="activeTab='rejected'">
+        Rejected <span class="badge bg-danger">{{ rejectedUsers.length }}</span>
+      </a>
+    </li>
+  </ul>
 
   <!-- Loading -->
   <div *ngIf="loading" class="text-center py-5">
     <div class="spinner-border text-primary"></div>
-    <p class="mt-2">Loading Car Owner User Applications...</p>
+    <p class="mt-2">Loading Car Owner Accounts...</p>
   </div>
 
-  <div class="mt-4" *ngIf="pendingUsers.length === 0 && !loading">
-    <div class="alert alert-info text-center">
-      <i class="bi bi-info-circle"></i> No pending approvals at the moment.
-    </div>
-  </div>
-  <div class="row g-4">
-    <div *ngFor="let user of pendingUsers" class="col-md-6">
-      <div class="card h-100 shadow-sm">
-        <div class="card-body d-flex flex-column">
-          <h5 class="card-title mb-3 text-primary fw-bold">
-            {{ user.name }} ({{ user.vehicles[0]?.brand || 'Unknown Brand' }})
-          </h5>
-
-          <div class="mb-2"><i class="bi bi-envelope"></i> {{ user.email }}</div>
-          <div class="mb-2">
-            <i class="bi bi-car-front-fill"></i> {{ user.vehicles[0]?.model }} - {{ user.vehicles[0]?.plate_number }}
-          </div>
-          <div class="mb-2"><i class="bi bi-calendar-event"></i> Year: {{ user.vehicles[0]?.year }}</div>
-          <div class="mb-2"><i class="bi bi-hash"></i> VIN: {{ user.vehicles[0]?.vin }}</div>
-
-          <div class="row text-center mt-3">
-            <div class="col-4">
-              <label class="form-label fw-semibold">IC Card</label>
-              <img [src]="user.documents?.icUrl" (click)="openPreview(user.documents?.icUrl, 'IC Card')" class="img-thumbnail doc-thumb"
-                alt="IC" *ngIf="user.documents?.icUrl" />
-            </div>
-            <div class="col-4">
-              <label class="form-label fw-semibold">Selfie</label>
-              <img [src]="user.documents?.selfieUrl" (click)="openPreview(user.documents?.selfieUrl, 'Selfie')"
-                class="img-thumbnail doc-thumb" alt="Selfie" *ngIf="user.documents?.selfieUrl" />
-            </div>
-            <div class="col-4">
-              <label class="form-label fw-semibold">VOC Document</label>
-              <img [src]="user.documents?.vocUrl" (click)="openPreview(user.documents?.vocUrl, 'VOC Document')"
-                class="img-thumbnail doc-thumb" alt="VOC" *ngIf="user.documents?.vocUrl" />
-            </div>
-          </div>
-          <div *ngIf="user.verification?.rejectionReason" class="mt-3">
-            <div class="alert alert-warning">
-              <strong>Previous Rejection Reason:</strong> {{ user.verification?.rejectionReason }}
-            </div>
-          </div>
-
-          <div class="mt-auto d-flex justify-content-end gap-2 pt-3">
-            <button class="btn btn-success" (click)="approveUserAccount(user)">
-              <i class="bi bi-check-circle"></i> Approve
+  <!-- Table -->
+  <div *ngIf="!loading">
+    <table class="table table-hover align-middle">
+      <thead class="table-primary">
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Vehicle</th>
+          <th>Plate</th>
+          <th>Status</th>
+          <th>Documents</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let user of getUsersByTab()">
+          <td class="fw-semibold">{{ user.name }}</td>
+          <td>{{ user.email }}</td>
+          <td>{{ user.vehicles[0]?.brand }} {{ user.vehicles[0]?.model }} ({{ user.vehicles[0]?.year }})</td>
+          <td>{{ user.vehicles[0]?.plate_number }}</td>
+          <td>
+            <span class="badge" [ngClass]="{
+                'bg-warning text-dark': user.verification?.status==='pending',
+                'bg-success': user.verification?.status==='approved',
+                'bg-danger': user.verification?.status==='rejected'
+              }">
+              {{ user.verification?.status | titlecase }}
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary me-2"
+              (click)="openPreview(user.documents?.icUrl, user.documents?.icIv, user.documents?.icType, 'IC Card', user.name)">IC</button>
+            <button class="btn btn-sm btn-outline-secondary me-2"
+              (click)="openPreview(user.documents?.selfieUrl, user.documents?.selfieIv, user.documents?.selfieType, 'Selfie', user.name)">
+              Selfie
             </button>
-            <button class="btn btn-danger" (click)="openRejectionModal(user)">
-              <i class="bi bi-x-circle"></i> Reject
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+            <button class="btn btn-sm btn-outline-info me-2"
+              (click)="openPreview(user.documents?.vocUrl, user.documents?.vocIv, user.documents?.vocType, 'VOC', user.vehicles[0]?.vin)">VOC</button>
+          </td>
+          <td>
+            <ng-container *ngIf="user.verification?.status==='pending'">
+              <button class="btn btn-sm btn-success me-1" (click)="approveUserAccount(user, user.email)">
+                <i class="bi bi-check-circle"></i>
+              </button>
+              <button class="btn btn-sm btn-danger" (click)="openRejectionModal(user)">
+                <i class="bi bi-x-circle"></i>
+              </button>
+            </ng-container>
+            <ng-container *ngIf="user.verification?.status==='rejected'">
+              <i class="bi bi-exclamation-circle text-danger"></i>
+              <small class="text-muted">Reason: {{ user.verification?.rejectionReason }}</small>
+            </ng-container>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
   <!-- Modal Preview -->
@@ -69,30 +90,35 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">{{ previewTitle }}</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body text-center">
-          <img [src]="previewUrl" class="img-fluid rounded shadow" alt="Preview" />
+        <div class="modal-body">
+          <p class="fw-semibold">{{ carOwnerDetails }}</p>
+          <div class="text-center">
+            <img [src]="previewUrl" class="img-fluid rounded shadow" alt="Preview" />
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Rejection Feedback Modal -->
-<div class="modal fade" id="rejectionReasonModal" tabindex="-1" aria-labelledby="rejectionReasonModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="rejectionReasonModalLabel">Rejection Feedback</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>Please provide a reason for rejecting <strong>{{ selectedUser?.name }}</strong>'s account:</p>
-        <textarea [(ngModel)]="rejectionReason" class="form-control" rows="3" placeholder="E.g. IC is blurry, car info is incorrect, document is missing..."></textarea>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-danger" (click)="confirmRejection()">Confirm Reject</button>
+  <!-- Rejection Modal -->
+  <div class="modal fade" id="rejectionReasonModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Rejection Feedback</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Please provide a reason for rejecting <strong>{{ selectedUser?.name }}</strong>'s account:</p>
+          <textarea [(ngModel)]="rejectionReason" class="form-control" rows="3"
+            placeholder="E.g. IC is blurry..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-danger" (click)="confirmRejection()">Confirm Reject</button>
+        </div>
       </div>
     </div>
   </div>

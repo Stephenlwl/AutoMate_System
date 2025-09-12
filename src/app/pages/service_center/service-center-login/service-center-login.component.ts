@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Firestore, collection, query, where, getDocs } from '@angular/fire/firestore';
+import { Firestore, collection, query, where, getDocs, updateDoc, doc } from '@angular/fire/firestore';
 import { Router, RouterLink } from '@angular/router';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from '../auth/service-center-auth';
@@ -82,21 +82,79 @@ export class ServiceCenterLoginComponent {
           return;
         }
 
+        const docId = snapshot.docs[0].id;
+
         this.authService.setAdmin({
-          id: snapshot.docs[0].id,
+          id: docId,
           email: userDoc.adminInfo.email,
           name: userDoc.adminInfo.name,
           serviceCenterName: userDoc.serviceCenterInfo.name,
         });
 
+        const isLocationProvided = await this.updateServiceCenterLocation(docId);
         // Navigate to dashboard
-        this.router.navigate(['/serviceCenter/dashboard']);
+        if (isLocationProvided) {
+          this.router.navigate(['/serviceCenter/dashboard']);
+        } 
       }
     } catch (error) {
       console.error(error);
       this.errorMessage = 'Login failed. Please try again.';
     } finally {
       this.loading = false;
+    }
+  }
+
+  private async getCurrentLocation(): Promise<{ latitude: number, longitude: number } | null> {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject('Geolocation not supported by this browser.');
+      } else {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+          },
+          (error) => {
+            console.error('Location error:', error);
+            switch (error.code) {
+              case error.PERMISSION_DENIED:
+                alert('Location permission is required. Please enable it in your browser settings.');
+                break;
+              case error.POSITION_UNAVAILABLE:
+                alert('Location information is unavailable. Please check your device settings.');
+                break;
+              case error.TIMEOUT:
+                alert('Location request timed out. Please try again.');
+                break;
+              default:
+                alert('An unknown error occurred while fetching location.');
+            }
+            reject(error);
+          }
+        );
+      }
+    });
+  }
+
+  private async updateServiceCenterLocation(docId: string): Promise<boolean> {
+    try {
+      const location = await this.getCurrentLocation();
+      if (location) {
+        await updateDoc(doc(this.firestore, 'service_centers', docId), {
+          'serviceCenterInfo.latitude': location.latitude,
+          'serviceCenterInfo.longitude': location.longitude,
+          updatedAt: new Date(),
+        });
+        console.log('Location updated in Firestore:', location);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('Could not update location:', err);
+      return false;
     }
   }
 

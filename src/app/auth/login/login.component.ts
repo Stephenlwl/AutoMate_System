@@ -27,25 +27,41 @@ export class LoginComponent {
       password: ['', [Validators.required]],
     });
   }
-  login() {
-    if (this.form.invalid) return;
-    const { email, password } = this.form.value;
+  async login() {
+  if (this.form.invalid) return;
+  const { email, password } = this.form.value;
 
-    this.loading = true;
-    signInWithEmailAndPassword(this.auth, email, password)
-      .then(async cred => {
-        const uid = cred.user.uid;
-        const systemAdminDoc = await getDoc(doc(this.firestore, 'system_admins', uid));
-        if (systemAdminDoc.exists()) {
-          this.router.navigate(['/systemAdmin/dashboard']);
-        }
-        else {
-          this.errorMessage = 'You are not authorized to access this portal.';
-        }
-      })
-      .catch(err => this.errorMessage = this.getFirebaseError(err.code))
-      .finally(() => this.loading = false);
+  this.loading = true;
+  try {
+    const cred = await signInWithEmailAndPassword(this.auth, email, password);
+    const uid = cred.user.uid;
+
+    const adminDocRef = doc(this.firestore, 'system_admins', uid);
+    const adminSnap = await getDoc(adminDocRef);
+
+    if (adminSnap.exists()) {
+      const adminData = adminSnap.data();
+
+      // Example structure: { id: uid, name: 'Admin Name', email: 'admin@...' }
+      const adminInfo = {
+        id: uid,
+        name: adminData['name'] || 'Admin',
+        email: adminData['email'] || email
+      };
+
+      // Pass adminInfo to the ManageChatComponent via a service or route state
+      this.router.navigate(['/systemAdmin/dashboard'], { state: { adminInfo } });
+
+    } else {
+      this.errorMessage = 'You are not authorized to access this portal.';
+    }
+  } catch (err) {
+    console.error(err);
+    this.errorMessage = 'Login failed. Check your credentials.';
+  } finally {
+    this.loading = false;
   }
+}
 
   getFirebaseError(code: string): string {
     switch (code) {

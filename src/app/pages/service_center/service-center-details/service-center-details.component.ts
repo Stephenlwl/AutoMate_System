@@ -19,8 +19,6 @@ export class ServiceCenterDetailsComponent {
   private auth = inject(AuthService);
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
-
-  // encryption key from environment.ts
   private secretKey = environment.encryptionKey;
 
   serviceCenterId!: string;
@@ -50,9 +48,9 @@ export class ServiceCenterDetailsComponent {
   async ngOnInit() {
     this.serviceCenterId = this.auth.getAdmin().id;
 
-    // build form
     this.serviceForm = this.fb.group({
-      name: [''],
+      name: [{ value: '', disabled: true }],
+      phoneNo: [''],
       description: [''],
       addressLine1: [''],
       addressLine2: [''],
@@ -78,7 +76,6 @@ export class ServiceCenterDetailsComponent {
     this.serviceCenterInfoLoading = true;
     try {
 
-
       // fetch service center info data
       const snap = await getDoc(doc(this.fs, 'service_centers', this.serviceCenterId));
       const data: any = snap.data();
@@ -86,6 +83,7 @@ export class ServiceCenterDetailsComponent {
       if (data) {
         this.serviceForm.patchValue({
           name: data?.serviceCenterInfo?.name || '',
+          phoneNo: data?.serviceCenterInfo?.serviceCenterPhoneNo || '',
           description: data?.serviceCenterInfo?.description || '',
           addressLine1: data?.serviceCenterInfo?.address?.addressLine1 || '',
           addressLine2: data?.serviceCenterInfo?.address?.addressLine2 || '',
@@ -346,20 +344,26 @@ export class ServiceCenterDetailsComponent {
   // save form to db
   async save() {
     this.isSaving = true;
+
+    if (!this.serviceForm.value.phoneNo.match(/^(\+?6?0)[0-9]{8,10}$/)) {
+      alert('Please provide a valid phone number.');
+      this.isSaving = false;
+      return;
+    }
+
     try {
       await updateDoc(doc(this.fs, 'service_centers', this.serviceCenterId), {
-        serviceCenterInfo: {
-          name: this.serviceForm.value.name,
-          description: this.serviceForm.value.description,
-          address: {
-            addressLine1: this.serviceForm.value.addressLine1,
-            addressLine2: this.serviceForm.value.addressLine2,
-            city: this.serviceForm.value.city,
-            state: this.serviceForm.value.state,
-            postalCode: this.serviceForm.value.postalCode
-          },
-          images: this.serviceForm.value.images
+        "serviceCenterInfo.name": this.serviceForm.getRawValue().name,
+        "serviceCenterInfo.serviceCenterPhoneNo": this.serviceForm.value.phoneNo,
+        "serviceCenterInfo.description": this.serviceForm.value.description,
+        "serviceCenterInfo.address": {
+          addressLine1: this.serviceForm.value.addressLine1,
+          addressLine2: this.serviceForm.value.addressLine2,
+          city: this.serviceForm.value.city,
+          state: this.serviceForm.value.state,
+          postalCode: this.serviceForm.value.postalCode
         },
+        "serviceCenterInfo.images": this.serviceForm.value.images,
         operatingHours: this.serviceForm.value.operatingHours,
         specialClosures: this.serviceForm.value.specialClosures
       });

@@ -21,11 +21,15 @@
         <div class="card-body">
           <div class="row g-3">
             <div class="col-md-6">
-              <label class="form-label fw-semibold">Name</label>
+              <label class="form-label fw-semibold">Service Center Name</label>
               <input class="form-control" formControlName="name" placeholder="Enter service center name">
             </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Service Center Contact Number</label>
+              <input class="form-control" formControlName="phoneNo" placeholder="Enter service center contact number">
+            </div>
             <div class="col-md-12">
-              <label class="form-label fw-semibold">Company Description</label>
+              <label class="form-label fw-semibold">Service Center Description</label>
               <textarea class="form-control" rows="3" formControlName="description"
                 placeholder="Brief description about the service center"></textarea>
             </div>
@@ -111,7 +115,7 @@
       </div>
     </div>
 
-    <!-- Operating Hours -->
+    <!-- operating hours -->
     <div class="col-md-6 mt-3">
       <div class="card shadow-sm border-0">
         <div class="card-header bg-light fw-semibold">
@@ -140,7 +144,7 @@
     </div>
   </div>
 
-  <!-- Holidays and Closures side by side -->
+  <!-- holidays and closures side by side -->
   <div class="col-md-6">
     <div class="card shadow-sm border-0 h-100">
       <div class="card-header bg-light fw-semibold">
