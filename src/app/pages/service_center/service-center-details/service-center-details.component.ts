@@ -341,7 +341,6 @@ export class ServiceCenterDetailsComponent {
     }
   }
 
-  // save form to db
   async save() {
     this.isSaving = true;
 
@@ -349,7 +348,7 @@ export class ServiceCenterDetailsComponent {
       alert('Please provide a valid phone number.');
       this.isSaving = false;
       return;
-    }
+    } 
 
     try {
       await updateDoc(doc(this.fs, 'service_centers', this.serviceCenterId), {
@@ -371,7 +370,8 @@ export class ServiceCenterDetailsComponent {
     } catch (error) {
       alert('Failed to save service center details: ' + error);
       console.error('Failed to save service center details', error);
+    } finally {
+      this.isSaving = false;
     }
-    this.isSaving = false;
   }
 }

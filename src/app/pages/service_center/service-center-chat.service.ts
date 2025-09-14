@@ -161,7 +161,7 @@ export class ServiceCenterChatService {
           id: channel.id || '',
           host_by: data?.host_by || 'user',
           type: data?.type || 'general',
-          name: data?.service_center_info?.name || data?.customer_info?.name || 'Unknown',
+          name: data?.customer_info?.name || data?.name || 'Unknown',
           member_count: data?.member_count || 0,
           last_message_at: data?.last_message_at || new Date().toISOString(),
           customer_info: data?.customer_info,

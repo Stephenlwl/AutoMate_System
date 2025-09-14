@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { AdminService } from '../auth/system-admin-auth';
 
 @Component({
   selector: 'app-sidebar',
@@ -12,6 +13,12 @@ import { CommonModule } from '@angular/common';
 export class SidebarComponent {
   expanded: { [key: string]: boolean } = {};
 
+  systemAdminName: string | null = null;
+  ngOnInit() {
+    this.systemAdminName = this.adminService.getAdminName();
+  }
+  
+  constructor(private adminService: AdminService) {}
   navItems = [
     { label: 'Dashboard', route: 'dashboard', icon: 'bi bi-speedometer2' },
 

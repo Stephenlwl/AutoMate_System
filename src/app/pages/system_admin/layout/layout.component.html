@@ -1,7 +1,13 @@
 <div class="d-flex">
-  <app-sidebar></app-sidebar>
+  <div class="bg-light border-end sidebar" [ngClass]="{ 'collapsed': isCollapsed }">
+    <app-sidebar></app-sidebar>
+  </div>
 
-  <div class="flex-grow-1 p-4" style="margin-left: 250px;">
+  <button class="btn btn-outline-secondary d-md-none toggle-btn" (click)="isCollapsed = !isCollapsed">
+    <i class="bi" [ngClass]="isCollapsed ? 'bi-list' : 'bi-x'"></i>
+  </button>
+
+  <div class="flex-grow-1 p-4 content">
     <router-outlet></router-outlet>
   </div>
 </div>

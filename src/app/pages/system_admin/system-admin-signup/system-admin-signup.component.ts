@@ -7,11 +7,11 @@ import { Auth } from '@angular/fire/auth';
 import { Firestore, doc, setDoc } from '@angular/fire/firestore';
 
 @Component({
-  selector: 'app-signup',
+  selector: 'app-system-admin-signup',
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule, RouterModule],
-  templateUrl: './signup.component.html',
-  styleUrls: ['./signup.component.css']
+  templateUrl: './system-admin-signup.component.html',
+  styleUrls: ['./system-admin-signup.component.css']
 })
 
 export class SignupComponent {

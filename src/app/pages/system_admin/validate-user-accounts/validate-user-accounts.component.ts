@@ -7,11 +7,12 @@ import { Modal } from 'bootstrap';
 import { RouterModule } from '@angular/router';
 import * as CryptoJS from 'crypto-js';
 import { environment } from '../../../../environments/environment.prod';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-validate-user-accounts',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, HttpClientModule],
   templateUrl: './validate-user-accounts.component.html',
   styleUrl: './validate-user-accounts.component.css'
 })
@@ -19,6 +20,7 @@ import { environment } from '../../../../environments/environment.prod';
 export class ValidateUserAccountsComponent implements OnInit {
 
   firestore = inject(Firestore);
+  private http = inject(HttpClient);
   private carOwnerSecretKey = environment.encryptionCarOwnerKey;
   pendingUsers: any[] = [];
   approvedUsers: any[] = [];
@@ -55,18 +57,18 @@ export class ValidateUserAccountsComponent implements OnInit {
   }
 
   // convert CryptoJS WordArray to ArrayBuffer
-private wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
-  // convert wordArray to Latin1 string (1 char = 1 byte)
-  const latin1 = CryptoJS.enc.Latin1.stringify(wordArray);
+  private wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
+    // convert wordArray to Latin1 string (1 char = 1 byte)
+    const latin1 = CryptoJS.enc.Latin1.stringify(wordArray);
 
-  // Turn string into Uint8Array
-  const u8 = new Uint8Array(latin1.length);
-  for (let i = 0; i < latin1.length; i++) {
-    u8[i] = latin1.charCodeAt(i) & 0xff;
+    // Turn string into Uint8Array
+    const u8 = new Uint8Array(latin1.length);
+    for (let i = 0; i < latin1.length; i++) {
+      u8[i] = latin1.charCodeAt(i) & 0xff;
+    }
+
+    return u8.buffer;
   }
-
-  return u8.buffer;
-}
 
   isLikelyBase64(s: string): boolean {
     if (!s || typeof s !== 'string') return false;
@@ -161,7 +163,7 @@ private wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
       const vehicles = data.vehicles || [];
 
       if (vehicles.length > 0) {
-        vehicles[0] = { ...vehicles[0], status: 'approved' }; 
+        vehicles[0] = { ...vehicles[0], status: 'approved' };
       }
 
       await updateDoc(userDoc, {
@@ -173,13 +175,10 @@ private wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
         this.pendingUsers = this.pendingUsers.filter(u => u.id !== user.id);
       });
 
-      await fetch('http://localhost:3000/sendNotification/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toEmail: userEmail,
-        })
-      });
+      await this.http.post<any>(
+        'http://localhost:3000/sendNotification/approve',
+        { toEmail: userEmail }
+      ).toPromise();
 
       alert('The car owner user has been approved and an email notification sent.');
     } catch (error) {
@@ -196,7 +195,7 @@ private wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
       const vehicles = data.vehicles || [];
 
       if (vehicles.length > 0) {
-        vehicles[0] = { ...vehicles[0], status: 'rejected' }; 
+        vehicles[0] = { ...vehicles[0], status: 'rejected' };
       }
 
       updateDoc(userDoc, {
@@ -209,14 +208,13 @@ private wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
 
       });
 
-      await fetch('http://localhost:3000/sendNotification/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await this.http.post<any>(
+        'http://localhost:3000/sendNotification/reject',
+        {
           toEmail: userEmail,
           rejectionReason: reason
-        })
-      });
+        }
+      ).toPromise();
 
       alert('The car owner user has been rejected and an email notification sent.');
     } catch (error) {

@@ -4,16 +4,18 @@ import { Firestore, collection, getDocs, doc, updateDoc } from '@angular/fire/fi
 import { FormsModule } from '@angular/forms';
 import { environment } from '../../../../environments/environment';
 import * as CryptoJS from 'crypto-js';
+import { HttpClient, HttpClientModule } from '@angular/common/http';
 
 @Component({
   selector: 'app-validate-service-center-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   templateUrl: './validate-service-center-admin.component.html',
   styleUrls: ['./validate-service-center-admin.component.css']
 })
 export class ValidateServiceCenterAdminComponent implements OnInit {
   private firestore = inject(Firestore);
+  private http = inject(HttpClient);
   private secretKey = environment.encryptionKey;
 
   pendingServiceCenters: any[] = [];
@@ -138,13 +140,11 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
         'verification.rejectionReason': ''
       });
 
-      await fetch('http://localhost:3000/sendNotification/approve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          toEmail: adminEmail,
-        })
-      });
+      await this.http.post<any>(
+        'http://localhost:3000/sendNotification/approve',
+        { toEmail: adminEmail }
+      ).toPromise();
+
       alert('The service center has been approved and an email notification sent.');
       this.loadingServiceCenterAction = null;
       this.loadingServiceCenterActionType = null;
@@ -177,14 +177,13 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
         'verification.rejectionReason': this.rejectionReason
       });
 
-      await fetch('http://localhost:3000/sendNotification/reject', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await this.http.post<any>(
+        'http://localhost:3000/sendNotification/reject',
+        {
           toEmail: this.selectedAdminEmail,
           rejectionReason: this.rejectionReason
-        })
-      });
+        }
+      ).toPromise();
 
       alert('The service center has been rejected and an email notification sent.');
       this.selectedRejectId = null;

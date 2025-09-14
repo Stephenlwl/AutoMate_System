@@ -1,5 +1,5 @@
-<h3 class="mb-4 fw-bold text-primary">
-  <i class="bi bi-building me-2"></i> Service Center Details
+<h3 class="mb-1 mt-2">
+  <span class=" text-primary"><i class="bi bi-building me-2"></i></span> Service Center Details
 </h3>
 
 <form [formGroup]="serviceForm" (ngSubmit)="save()" class="row g-4">
@@ -123,21 +123,29 @@
         </div>
         <div class="card-body">
           <div formArrayName="operatingHours" class="p-3 rounded bg-light">
+
             <div *ngFor="let day of operatingHoursArray.controls; let i = index" [formGroupName]="i"
               class="d-flex align-items-center justify-content-between mb-2 border-bottom pb-2">
               <div class="fw-semibold" style="width: 120px;">{{ day.get('day')?.value }}</div>
+
               <div class="form-check me-3">
                 <input type="checkbox" class="form-check-input" formControlName="isClosed" id="closed-{{i}}">
                 <label class="form-check-label small text-muted" for="closed-{{i}}">Closed</label>
               </div>
-              <div class="d-flex align-items-center gap-2 flex-grow-1">
+
+              <!-- Time Pickers -->
+              <div class="d-flex align-items-center flex-grow-1 gap-2">
                 <input type="time" class="form-control" formControlName="open" [disabled]="day.get('isClosed')?.value"
-                  style="max-width: 150px;">
+                  [ngClass]="{'is-invalid': day.get('open')?.invalid && day.get('open')?.touched,
+                      'is-valid': day.get('open')?.valid && day.get('open')?.touched}" style="max-width: 150px;">
                 <span class="text-muted small">to</span>
                 <input type="time" class="form-control" formControlName="close" [disabled]="day.get('isClosed')?.value"
-                  style="max-width: 150px;">
+                  [ngClass]="{'is-invalid': day.get('close')?.invalid && day.get('close')?.touched,
+                      'is-valid': day.get('close')?.valid && day.get('close')?.touched}" style="max-width: 150px;">
               </div>
+
             </div>
+
           </div>
         </div>
       </div>

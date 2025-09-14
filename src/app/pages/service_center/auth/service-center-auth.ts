@@ -24,15 +24,15 @@ export class AuthService {
     }
 
     getEmail(): string | null {
-        return this.getAdmin()?.email || null;
+        return this.adminData?.email || null;
     }
 
     getServiceCenterName(): string | null {
-        return this.getAdmin()?.serviceCenterName || null;
+        return this.adminData?.serviceCenterName || null;
     }
 
     isLoggedIn(): boolean {
-        return !!this.getAdmin();
+        return !!this.adminData;
     }
 
     logout() {

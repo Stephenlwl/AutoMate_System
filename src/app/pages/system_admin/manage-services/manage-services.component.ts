@@ -1,15 +1,19 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormControl } from '@angular/forms';
-import { Firestore, collection, collectionData, addDoc, doc, setDoc, deleteDoc } from '@angular/fire/firestore';
+import { Firestore, collection, collectionData, addDoc, doc, setDoc, deleteDoc, query, where } from '@angular/fire/firestore';
 import { Observable, combineLatest, map, startWith } from 'rxjs';
 import { NgxPaginationModule } from 'ngx-pagination';
+import { firstValueFrom } from 'rxjs';
 
 export interface Category {
   id?: string;
   name: string;
   description?: string;
   active: boolean;
+  status?: string;
+  createdBy?: string;
+  createdAt?: any;
 }
 
 export interface Service {
@@ -19,6 +23,27 @@ export interface Service {
   description?: string;
   active: boolean;
   categoryName?: string;
+  status?: string;
+}
+
+export interface PendingCategories {
+  id?: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  status?: string;
+  createdBy?: string;
+  createdAt?: any;
+}
+
+export interface PendingService {
+  id?: string;
+  categoryId: string;
+  name: string;
+  categoryName: string;
+  description?: string;
+  active: boolean;
+  status?: string;
 }
 
 @Component({
@@ -42,6 +67,8 @@ export class ManageServicesComponent implements OnInit {
   filteredServices$!: Observable<Service[]>;
   categories$!: Observable<Category[]>;
   services$!: Observable<Service[]>;
+  pendingCategories$!: Observable<Category[]>;
+  pendingServices$!: Observable<Service[]>;
 
   selectedCategoryId: string | null = null;
   editingCategory: Category | null = null;
@@ -57,6 +84,8 @@ export class ManageServicesComponent implements OnInit {
     this.loadCategories();
     this.loadServices();
     this.loadServicesOverview();
+    this.loadCategoryRequests();
+    this.loadServiceRequests();
   }
 
   private initForms() {
@@ -65,6 +94,7 @@ export class ManageServicesComponent implements OnInit {
       name: ['', Validators.required],
       description: [''],
       active: [true],
+      status: ['approved'],
     });
 
     this.serviceForm = this.fb.group({
@@ -73,6 +103,7 @@ export class ManageServicesComponent implements OnInit {
       name: ['', Validators.required],
       description: [''],
       active: [true],
+      status: ['approved'],
     });
   }
 
@@ -111,7 +142,8 @@ export class ManageServicesComponent implements OnInit {
   private loadCategories() {
     try {
       const categoriesRef = collection(this.firestore, 'services_categories');
-      this.categories$ = collectionData(categoriesRef, { idField: 'id' }) as Observable<Category[]>;
+      const q = query(categoriesRef, where('status', '==', 'approved'));
+      this.categories$ = collectionData(q, { idField: 'id' }) as Observable<Category[]>;
     } catch (error) {
       console.error('Error loading categories:', error);
       this.errorMessage = 'Failed to load categories';
@@ -121,7 +153,8 @@ export class ManageServicesComponent implements OnInit {
   private loadServices() {
     try {
       const servicesRef = collection(this.firestore, 'services');
-      this.services$ = collectionData(servicesRef, { idField: 'id' }) as Observable<Service[]>;
+      const q = query(servicesRef, where('status', '==', 'approved'));
+      this.services$ = collectionData(q, { idField: 'id' }) as Observable<Service[]>;
     } catch (error) {
       console.error('Error loading services:', error);
       this.errorMessage = 'Failed to load services';
@@ -161,10 +194,9 @@ export class ManageServicesComponent implements OnInit {
 
   async deleteCategory(id: string) {
     try {
-      const hasServices = await this.services$
-        .pipe(map(services => services.some(s => s.categoryId === id)))
-        .toPromise();
-
+      const hasServices = await firstValueFrom(
+        this.services$.pipe(map(services => services.some(s => s.categoryId === id)))
+      );
       if (hasServices) {
         alert('This category still has services. Please reassign or delete those first.');
         return;
@@ -242,5 +274,85 @@ export class ManageServicesComponent implements OnInit {
     const categoryId = this.serviceForm.get('categoryId')?.value;
     if (!categoryId) return []; // if no category selected, return empty
     return allServices.filter(s => s.categoryId === categoryId);
+  }
+
+  // Load pending requests
+  loadCategoryRequests() {
+    const ref = collection(this.firestore, 'services_categories_request');
+    const q = query(ref, where('status', '==', 'pending'));
+    this.pendingCategories$ = collectionData(q, { idField: 'id' }) as Observable<Category[]>;
+  }
+
+  loadServiceRequests() {
+    const ref = collection(this.firestore, 'services_request');
+    const q = query(ref, where('status', '==', 'pending'));
+    this.pendingServices$ = collectionData(q, { idField: 'id' }) as Observable<Service[]>;
+
+    const categoriesRef = collection(this.firestore, 'services_categories');
+    const catq = query(categoriesRef, where('status', '==', 'approved'), where('active', '==', true));
+    // merging service requests with category names based on the cat id
+    this.pendingServices$ = combineLatest([
+      collectionData(q, { idField: 'id' }) as Observable<Service[]>,
+      collectionData(catq, { idField: 'id' }) as Observable<Category[]>
+    ]).pipe(
+      map(([services, categories]) => {
+        return services.map(service => ({
+          ...service,
+          categoryName: categories.find(c => c.id === service.categoryId)?.name || 'Unknown Category'
+        }));
+      })
+    );
+  }
+
+  // Approve category request
+  async approveCategoryRequest(request: Category) {
+    try {
+      await addDoc(collection(this.firestore, 'services_categories'), {
+        name: request.name,
+        description: request.description,
+        active: true,
+        status: 'approved'
+      });
+
+      // Mark the request as approved
+      await setDoc(doc(this.firestore, 'services_categories_request', request.id!), { status: 'approved' }, { merge: true });
+    } catch (err: any) {
+      console.error('Error approving category request:', err);
+    }
+  }
+
+  // Reject category request
+  async rejectCategoryRequest(request: Category) {
+    try {
+      await setDoc(doc(this.firestore, 'services_categories_request', request.id!), { status: 'rejected' }, { merge: true });
+    } catch (err: any) {
+      console.error('Error rejecting category request:', err);
+    }
+  }
+
+  // Approve service request
+  async approveServiceRequest(request: Service) {
+    try {
+      await addDoc(collection(this.firestore, 'services'), {
+        categoryId: request.categoryId,
+        name: request.name,
+        description: request.description,
+        active: true,
+        status: 'approved'
+      });
+
+      await setDoc(doc(this.firestore, 'services_request', request.id!), { status: 'approved' }, { merge: true });
+    } catch (err: any) {
+      console.error('Error approving service request:', err);
+    }
+  }
+
+  // Reject service request
+  async rejectServiceRequest(request: Service) {
+    try {
+      await setDoc(doc(this.firestore, 'services_request', request.id!), { status: 'rejected' }, { merge: true });
+    } catch (err: any) {
+      console.error('Error rejecting service request:', err);
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
-import { LoginComponent } from './auth/login/login.component';
-import { SignupComponent } from './auth/signup/signup.component';
+import { SystemAdminAuthGuard } from './pages/system_admin/auth/system-admin-auth-guard';
+import { LoginComponent } from './pages/system_admin/system-admin-login/system-admin-login.component';
+import { SignupComponent } from './pages/system_admin/system-admin-signup/system-admin-signup.component';
 import { DashboardComponent } from './pages/system_admin/dashboard/dashboard.component';
 import { LayoutComponent } from './pages/system_admin/layout/layout.component'; 
 import { ValidateUserAccountsComponent } from './pages/system_admin/validate-user-accounts/validate-user-accounts.component';
@@ -38,7 +39,7 @@ export const routes: Routes = [
   {
     path: 'systemAdmin',
     component: LayoutComponent,
-    // canActivate: [ServiceCenterAuthGuard],
+    canActivate: [SystemAdminAuthGuard],
     children: [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'validate-user-accounts', component: ValidateUserAccountsComponent },

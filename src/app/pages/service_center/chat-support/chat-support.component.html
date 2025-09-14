@@ -1,228 +1,258 @@
-<div class="service-center-chat container-fluid min-vh-100 d-flex flex-column p-0">
+<div class="chat-header bg-white shadow-sm border-bottom p-2">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h3 class="h3 mb-0">
+        <span class=" text-primary"><i class="bi bi-chat me-2"></i></span> Chat with Customers and Admin Support
+      </h3>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-primary" (click)="showNewChatModal = true">
+        <i class="bi bi-plus me-2"></i>New Customer Chat
+      </button>
+      <button class="btn btn-outline-primary" (click)="startAdminChat()">
+        <i class="bi bi-headset me-2"></i>Contact Admin Support
+      </button>
+    </div>
+  </div>
+</div>
 
-  <div class="chat-header bg-white shadow-sm border-bottom p-3">
-    <div class="d-flex justify-content-between align-items-center">
-      <div>
-        <h3 class="h3 mb-0 text-primary">
-          <i class="bi bi-chat me-2"></i>Chat with Customers and Admin Support
-        </h3>
+<!-- Main Chat Container -->
+<div class="chat-container d-flex flex-grow-1 overflow-hidden">
+  <!-- Channel List Sidebar -->
+  <div class="channels-sidebar bg-light border-end d-flex flex-column" style="width: 350px; min-width: 350px;">
+    <!-- Sidebar Header -->
+    <div class="sidebar-header p-3 border-bottom">
+      <h3 class="h5 mb-3">
+        <i class="bi bi-chat-list me-2 text-primary"></i>Chat List
+      </h3>
+      <div class="filter-tabs nav nav-pills nav-fill">
+        <button class="nav-link" [class.active]="selectedFilter === 'all'" (click)="filterChannels('all')">
+          All
+        </button>
+        <button class="nav-link" [class.active]="selectedFilter === 'user'" (click)="filterChannels('user')">
+          Customers
+        </button>
+        <button class="nav-link" [class.active]="selectedFilter === 'service_center'"
+          (click)="filterChannels('service_center')">
+          Admin Support
+        </button>
       </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-primary" (click)="showNewChatModal = true">
-          <i class="bi bi-plus me-2"></i>New Customer Chat
-        </button>
-        <button class="btn btn-outline-primary" (click)="startAdminChat()">
-          <i class="bi bi-headset me-2"></i>Contact Admin Support
-        </button>
+    </div>
+
+    <!-- Conversations -->
+    <div class="channels-list" style="height: calc(100vh - 200px); overflow-y: auto;">
+      <div *ngFor="let channel of filteredChannels" class="channel-item p-3 border-bottom cursor-pointer"
+        [class.bg-white]="selectedChannel?.id === channel.id" [class.bg-light]="selectedChannel?.id !== channel.id"
+        [class.unread]="channel.unread_count && channel.unread_count > 0" (click)="selectChannel(channel.id)">
+        
+        <div class="d-flex align-items-start gap-3">
+          <div class="channel-avatar flex-shrink-0">
+            <div class="rounded-circle text-white d-flex align-items-center justify-content-center"
+              style="width: 40px; height: 40px; background-color: #FF6B00;">
+              <i [class]="getChannelIcon(channel.type)"></i>
+            </div>
+          </div>
+          <div class="channel-info flex-grow-1">
+            <div class="d-flex justify-content-between align-items-start">
+              <h6 class="channel-name mb-1 text-truncate" style="max-width: 200px;">
+                {{ channel.name}}
+              </h6>
+              <div class="channel-status">
+                <span *ngIf="channel.unread_count && channel.unread_count > 0" class="badge bg-danger rounded-pill">
+                  {{ channel.unread_count }}
+                </span>
+              </div>
+            </div>
+            <div class="channel-details small text-muted mb-1">
+              <span *ngIf="channel.customer_info" class="customer-name text-truncate d-block">
+                {{ channel.customer_info.name }}
+              </span>
+              <span class="channel-type badge bg-secondary me-1">
+                {{ getChannelTypeLabel(channel.type) }}
+              </span>
+            </div>
+            <div class="last-message-time small text-muted">
+              <i class="far fa-clock me-1"></i>
+              {{ formatTime(channel.last_message_at) }}
+            </div>
+            <button class="btn btn-sm btn-outline-danger delete-btn ms-2"
+              (click)="confirmDeleteChannel(channel.id, $event)" title="Delete Channel">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="filteredChannels.length === 0" class="text-center p-5 text-muted">
+        <i class="bi bi-inbox fa-2x mb-3"></i>
+        <p>No conversations found</p>
       </div>
     </div>
   </div>
 
-  <!-- Main Chat Container -->
-  <div class="chat-container d-flex flex-grow-1 overflow-hidden">
-    <!-- Channel List Sidebar -->
-    <div class="channels-sidebar bg-light border-end d-flex flex-column" style="width: 350px; min-width: 350px;">
-      <!-- Sidebar Header -->
-      <div class="sidebar-header p-3 border-bottom">
-        <h3 class="h5 mb-3">
-          <i class="bi bi-chat-list me-2 text-primary"></i>Chat List
-        </h3>
-        <div class="filter-tabs nav nav-pills nav-fill">
-          <button class="nav-link" [class.active]="selectedFilter === 'all'" (click)="filterChannels('all')">
-            All
-          </button>
-          <button class="nav-link" [class.active]="selectedFilter === 'user'" (click)="filterChannels('user')">
-            Customers
-          </button>
-          <button class="nav-link" [class.active]="selectedFilter === 'service_center'" (click)="filterChannels('service_center')">
-            Admin Support
-          </button>
+  <!-- Chat Area -->
+  <div class="chat-area flex-grow-1 d-flex flex-column">
+    <!-- No Chat Selected -->
+    <div *ngIf="!selectedChannel"
+      class="no-chat-selected d-flex flex-column align-items-center justify-content-center flex-grow-1">
+      <div class="text-center text-muted">
+        <i class="bi bi-chat fa-4x mb-4"></i>
+        <h3 class="h4 mb-2">Select a conversation</h3>
+        <p class="mb-4">Choose a conversation from the sidebar or start a new one</p>
+        <button class="btn btn-primary" (click)="showNewChatModal = true">
+          <i class="bi bi-plus me-2"></i>Start New Chat
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Window -->
+    <div *ngIf="selectedChannel && selectedChannelData" class="chat-window d-flex flex-column flex-grow-1">
+      <!-- Chat Header -->
+      <div class="chat-window-header bg-white border-bottom p-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="chat-info">
+            <h5 class="chat-title mb-1">
+              <i [class]="getChannelIcon(selectedChannelData.type) + ' me-2 text-primary'"></i>
+              {{ selectedChannelData.name }}
+            </h5>
+            <div class="chat-subtitle small text-muted">
+              <span *ngIf="selectedChannelData.customer_info">
+                <i class="bi bi-person me-1"></i>Customer: {{ selectedChannelData.customer_info.name }}
+              </span>
+            </div>
+          </div>
+          <div class="chat-actions">
+            <button class="btn btn-sm btn-outline-secondary" (click)="closeChat()" title="Close Chat">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Conversations -->
-      <div class="channels-list flex-grow-1 overflow-auto">
-        <div *ngFor="let channel of filteredChannels"
-             class="channel-item p-3 border-bottom cursor-pointer"
-             [class.bg-white]="selectedChannel?.id === channel.id"
-             [class.bg-light]="selectedChannel?.id !== channel.id"
-             [class.unread]="channel.unread_count && channel.unread_count > 0"
-             (click)="selectChannel(channel.id)">
-          <div class="d-flex align-items-start gap-3">
-            <div class="channel-avatar flex-shrink-0">
-              <div class="rounded-circle text-white d-flex align-items-center justify-content-center"
-                   style="width: 40px; height: 40px; background-color: #FF6B00;">
-                <i [class]="getChannelIcon(channel.type)"></i>
-              </div>
-            </div>
-            <div class="channel-info flex-grow-1">
-              <div class="d-flex justify-content-between align-items-start">
-                <h6 class="channel-name mb-1 text-truncate" style="max-width: 200px;">
-                  {{ channel.name}}
-                </h6>
-                <div class="channel-status">
-                  <span *ngIf="channel.unread_count && channel.unread_count > 0"
-                        class="badge bg-danger rounded-pill">
-                    {{ channel.unread_count }}
+      <!-- Messages -->
+      <div class="messages-container flex-grow-1 p-3 overflow-auto bg-light">
+        <div *ngFor="let message of messages" class="message-wrapper mb-3"
+          [class.text-end]="message.user?.id === currentUser?.id">
+          <div class="message-bubble d-inline-block max-w-75">
+            <div class="card border-0 shadow-sm" [class.bg-secondary]="message.user?.id === currentUser?.id"
+              [class.bg-white]="message.user?.id !== currentUser?.id">
+              <div class="card-body p-3">
+                <div class="message-content" [class.text-white]="message.user?.id === currentUser?.id">
+                  {{ message.text }}
+                </div>
+
+                 <div *ngIf="message.attachments?.length">
+                  <div *ngFor="let attachment of message.attachments" class="mt-2">
+                    <div *ngIf="attachment.type === 'image'" class="mt-2">
+                      <img [src]="attachment.asset_url" [alt]="attachment.title" class="img-fluid rounded" />
+                    </div>
+                    <div *ngIf="attachment.type !== 'image'" class="mt-2">
+                      <a [href]="attachment.asset_url" target="_blank">{{ attachment.title || 'File' }}</a>
+                    </div>
+
+                  </div>
+                </div>
+
+                <div class="message-meta small mt-2" [class.text-white-50]="message.user?.id === currentUser?.id"
+                  [class.text-muted]="message.user?.id !== currentUser?.id">
+                  <span class="message-author">{{ message.user?.name || 'Unknown' }}</span>
+                  <span class="message-time ms-2">
+                    {{ formatMessageTime(message.created_at) }}
                   </span>
                 </div>
               </div>
-              <div class="channel-details small text-muted mb-1">
-                <span *ngIf="channel.customer_info" class="customer-name text-truncate d-block">
-                  {{ channel.customer_info.name }}
-                </span>
-                <span class="channel-type badge bg-secondary me-1">
-                  {{ getChannelTypeLabel(channel.type) }}
-                </span>
-              </div>
-              <div class="last-message-time small text-muted">
-                <i class="far fa-clock me-1"></i>
-                {{ formatTime(channel.last_message_at) }}
-              </div>
-              <button class="btn btn-sm btn-outline-danger delete-btn ms-2"
-                  (click)="confirmDeleteChannel(channel.id, $event)" title="Delete Channel">
-                  Delete
-                </button> 
             </div>
           </div>
         </div>
 
-        <div *ngIf="filteredChannels.length === 0" class="text-center p-5 text-muted">
-          <i class="bi bi-inbox fa-2x mb-3"></i>
-          <p>No conversations found</p>
+        <div *ngIf="isTyping" class="typing-indicator d-flex align-items-center text-muted p-3">
+          <div class="typing-dots me-2">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+          <span>Typing...</span>
         </div>
       </div>
-    </div>
 
-    <!-- Chat Area -->
-    <div class="chat-area flex-grow-1 d-flex flex-column">
-      <!-- No Chat Selected -->
-      <div *ngIf="!selectedChannel"
-           class="no-chat-selected d-flex flex-column align-items-center justify-content-center flex-grow-1">
-        <div class="text-center text-muted">
-          <i class="bi bi-chat fa-4x mb-4"></i>
-          <h3 class="h4 mb-2">Select a conversation</h3>
-          <p class="mb-4">Choose a conversation from the sidebar or start a new one</p>
-          <button class="btn btn-primary" (click)="showNewChatModal = true">
-            <i class="bi bi-plus me-2"></i>Start New Chat
+      <!-- input -->
+      <div class="message-input-container bg-white border-top p-3">
+        <div class="input-wrapper d-flex gap-2 align-items-center">
+          <!-- Hidden file input -->
+          <input type="file" #fileInput hidden (change)="onFileSelected($event)" />
+
+          <!-- Attach file button -->
+          <button class="btn btn-outline-secondary" title="Attach File" (click)="fileInput.click()">
+            <i class="bi bi-paperclip"></i>
+          </button>
+
+          <!-- Text input for message -->
+          <input type="text" [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type your message..."
+            class="form-control form-control-sm flex-grow-1" />
+
+          <!-- Send button -->
+          <button class="btn btn-primary btn-sm px-2" (click)="sendMessage()" [disabled]="!newMessage.trim()">
+            <i class="bi bi-send"></i>
           </button>
         </div>
-      </div>
 
-      <!-- Chat Window -->
-      <div *ngIf="selectedChannel && selectedChannelData" class="chat-window d-flex flex-column flex-grow-1">
-        <!-- Chat Header -->
-        <div class="chat-window-header bg-white border-bottom p-3">
-          <div class="d-flex justify-content-between align-items-center">
-            <div class="chat-info">
-              <h5 class="chat-title mb-1">
-                <i [class]="getChannelIcon(selectedChannelData.type) + ' me-2 text-primary'"></i>
-                {{ selectedChannelData.name }}
-              </h5>
-              <div class="chat-subtitle small text-muted">
-                <span *ngIf="selectedChannelData.customer_info">
-                  <i class="bi bi-person me-1"></i>Customer: {{ selectedChannelData.customer_info.name }}
-                </span>
-              </div>
-            </div>
-            <div class="chat-actions">
-              <button class="btn btn-sm btn-outline-secondary" (click)="closeChat()" title="Close Chat">
-                <i class="bi bi-x"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Messages -->
-        <div class="messages-container flex-grow-1 p-3 overflow-auto bg-light">
-          <div *ngFor="let message of messages"
-               class="message-wrapper mb-3"
-               [class.text-end]="message.user?.id === currentUser?.id">
-            <div class="message-bubble d-inline-block max-w-75">
-              <div class="card border-0 shadow-sm"
-                   [class.bg-primary]="message.user?.id === currentUser?.id"
-                   [class.bg-white]="message.user?.id !== currentUser?.id">
-                <div class="card-body p-3">
-                  <div class="message-content"
-                       [class.text-white]="message.user?.id === currentUser?.id">
-                    {{ message.text }}
-                  </div>
-                  <div class="message-meta small mt-2"
-                       [class.text-white-50]="message.user?.id === currentUser?.id"
-                       [class.text-muted]="message.user?.id !== currentUser?.id">
-                    <span class="message-author">{{ message.user?.name || 'Unknown' }}</span>
-                    <span class="message-time ms-2">
-                      {{ formatMessageTime(message.created_at) }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <!-- Quick responses -->
+        <div class="quick-responses mt-3" *ngIf="showQuickResponses">
+          <div class="d-flex align-items-center mb-2">
+            <h6 class="small text-muted mb-0 me-3">Quick Responses:</h6>
+            <button class="btn btn-sm btn-outline-success" (click)="addQuickResponse()">
+              <i class="bi bi-plus-circle me-1"></i> Add Own Quick Response
+            </button>
           </div>
 
-          <div *ngIf="isTyping" class="typing-indicator d-flex align-items-center text-muted p-3">
-            <div class="typing-dots me-2">
-              <span class="dot"></span>
-              <span class="dot"></span>
-              <span class="dot"></span>
-            </div>
-            <span>Typing...</span>
-          </div>
-        </div>
-
-        <!-- input -->
-        <div class="message-input-container bg-white border-top p-3">
-          <div class="input-wrapper d-flex gap-2">
-            <input type="text"
-                   [(ngModel)]="newMessage"
-                   (keyup.enter)="sendMessage()"
-                   placeholder="Type your message..."
-                   class="form-control form-control-sm">
-            <button class="btn btn-primary btn-lg px-4"
-                    (click)="sendMessage()"
-                    [disabled]="!newMessage.trim()">
-              <i class="bi bi-send"></i>
+          <div class="d-flex flex-wrap gap-2">
+            <button *ngFor="let response of quickResponses"
+              class="quick-response-btn btn btn-outline-primary btn-sm text-start"
+              (click)="useQuickResponse(response.text)">
+              {{ response.text }}
             </button>
           </div>
         </div>
       </div>
+
     </div>
   </div>
+</div>
 
-  <!-- New Chat Modal -->
-  <div class="modal-backdrop" *ngIf="showNewChatModal" style="display: block; background-color: rgba(0,0,0,0.5);">
-    <div class="modal d-block" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header bg-primary text-white">
-            <h5 class="modal-title">
-              <i class="bi bi-plus-circle me-2"></i>Start New Customer Chat
-            </h5>
-            <button type="button" class="btn-close btn-close-white" (click)="showNewChatModal = false"></button>
+<!-- New Chat Modal -->
+<div class="modal-backdrop" *ngIf="showNewChatModal" style="display: block; background-color: rgba(0,0,0,0.5);">
+  <div class="modal d-block" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">
+            <i class="bi bi-plus-circle me-2"></i>Start New Customer Chat
+          </h5>
+          <button type="button" class="btn-close btn-close-white" (click)="showNewChatModal = false"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Customer ID</label>
+            <input type="text" class="form-control" [(ngModel)]="newChatCustomerId" placeholder="Enter customer ID">
           </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label class="form-label">Customer ID</label>
-              <input type="text" class="form-control" [(ngModel)]="newChatCustomerId" placeholder="Enter customer ID">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Customer Name</label>
-              <input type="text" class="form-control" [(ngModel)]="newChatCustomerName" placeholder="Enter customer name">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Service Request ID (Optional)</label>
-              <input type="text" class="form-control" [(ngModel)]="newChatServiceRequestId" placeholder="Enter service request ID">
-            </div>
+          <div class="mb-3">
+            <label class="form-label">Customer Name</label>
+            <input type="text" class="form-control" [(ngModel)]="newChatCustomerName" placeholder="Enter customer name">
           </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" (click)="showNewChatModal = false">
-              Cancel
-            </button>
-            <button type="button" class="btn btn-primary" (click)="startNewCustomerChat()"
-                    [disabled]="!newChatCustomerId || !newChatCustomerName">
-              Start Chat
-            </button>
+          <div class="mb-3">
+            <label class="form-label">Service Request ID (Optional)</label>
+            <input type="text" class="form-control" [(ngModel)]="newChatServiceRequestId"
+              placeholder="Enter service request ID">
           </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="showNewChatModal = false">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary" (click)="startNewCustomerChat()"
+            [disabled]="!newChatCustomerId || !newChatCustomerName">
+            Start Chat
+          </button>
         </div>
       </div>
     </div>

@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { AdminChatService, ChannelData } from '../admin-chat.service';
 import { Channel } from 'stream-chat';
 import { Subscription } from 'rxjs';
+import { Firestore, collection, addDoc, updateDoc, deleteDoc, doc, collectionData, query, where } from '@angular/fire/firestore';
+import { AdminService } from '../auth/system-admin-auth';
 
 @Component({
   selector: 'app-manage-chat',
@@ -18,6 +20,8 @@ export class ManageChatComponent implements OnInit, OnDestroy {
   selectedChannel: Channel | null = null;
   selectedChannelData: ChannelData | null = null;
   messages: any[] = [];
+  systemAdminId: string | null = null;
+  systemAdminName: string | null = null;
   newMessage = '';
   selectedFilter = 'all';
   isTyping = false;
@@ -28,17 +32,18 @@ export class ManageChatComponent implements OnInit, OnDestroy {
 
   private subscriptions: Subscription[] = [];
 
-  quickResponses = [
-    "Thank you for contacting support. How can I help you today?",
-    "I understand your concern. Let me look into this for you.",
-    "Can you provide more details about the issue?",
-    "I'll escalate this to our technical team.",
-    "Your issue has been resolved. Is there anything else I can help with?"
-  ];
+  quickResponses: any[] = [];
 
-  constructor(private adminChatService: AdminChatService) { }
+  constructor(private adminChatService: AdminChatService, private firestore: Firestore, private adminService: AdminService) { }
 
   async ngOnInit() {
+    this.systemAdminId = this.adminService.getAdminId();
+    this.systemAdminName =this.adminService.getAdminName();
+    this.loadChannels();
+    this.loadQuickResponses();
+  }
+
+  async loadChannels() {
     const initialized = await this.adminChatService.initialize();
 
     if (initialized) {
@@ -69,6 +74,17 @@ export class ManageChatComponent implements OnInit, OnDestroy {
     } else {
       console.error('Failed to initialize admin chat service');
     }
+  }
+
+  loadQuickResponses() {
+    if (!this.systemAdminId) return;
+
+    const quickResponsesRef = collection(this.firestore, 'quick_responses');
+    const q = query(quickResponsesRef, where('uploadedUserId', '==', this.systemAdminId));
+
+    collectionData(q, { idField: 'id' }).subscribe(responses => {
+      this.quickResponses = responses;
+    });
   }
 
   ngOnDestroy() {
@@ -136,6 +152,60 @@ export class ManageChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  async onFileSelected(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (!this.selectedChannel) return;
+
+    try {
+      // upload the file
+      const { file: uploadedUrl } = await this.selectedChannel.sendFile(file, file.name);
+
+      // Send a message with the uploaded file as an attachment
+      await this.selectedChannel.sendMessage({
+        text: `File uploaded: ${file.name}`,
+        attachments: [
+          {
+            type: file.type.startsWith('image/') ? 'image' : 'file',
+            asset_url: uploadedUrl,
+            title: file.name
+          }
+        ]
+      });
+
+      console.log('File uploaded and message sent successfully');
+    } catch (error) {
+      console.error('Error uploading file to Stream:', error);
+    }
+  }
+
+  useQuickResponse(response: string) {
+    this.newMessage = response;
+  }
+
+  addQuickResponse() {
+    const text = prompt('Enter a new quick response:');
+    if (text) {
+      const quickResponsesRef = collection(this.firestore, 'quick_responses');
+      addDoc(quickResponsesRef, { uploadedUserId: this.systemAdminId, text, createdAt: new Date(), updatedAt: new Date(), createdBy: this.systemAdminName });
+    }
+  }
+
+  editQuickResponse(response: any) {
+    const newText = prompt('Edit quick response:', response.text);
+    if (newText !== null && newText.trim() !== '') {
+      const docRef = doc(this.firestore, 'quick_responses', response.id);
+      updateDoc(docRef, { text: newText });
+    }
+  }
+
+  deleteQuickResponse(id: string) {
+    if (confirm('Are you sure you want to delete this quick response?')) {
+      const docRef = doc(this.firestore, 'quick_responses', id);
+      deleteDoc(docRef);
+    }
+  }
+
   async sendMessage() {
     if (!this.newMessage?.trim() || !this.selectedChannel) return;
 
@@ -179,10 +249,6 @@ export class ManageChatComponent implements OnInit, OnDestroy {
     }
   }
 
-  useQuickResponse(response: string) {
-    this.newMessage = response;
-  }
-
   closeChat() {
     this.selectedChannel = null;
     this.selectedChannelData = null;
@@ -192,11 +258,11 @@ export class ManageChatComponent implements OnInit, OnDestroy {
   }
 
   getChannelIcon(type: string): string {
-  switch (type) {
-    case 'service_center': return 'bi bi-building';
-    case 'user': return 'bi bi-person';
-    default: return 'bi bi-chat';
-  }
+    switch (type) {
+      case 'service_center': return 'bi bi-building';
+      case 'user': return 'bi bi-person';
+      default: return 'bi bi-chat';
+    }
   }
 
   getChannelTypeLabel(type: string): string {

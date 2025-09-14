@@ -1,10 +1,11 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { Firestore, collection, addDoc, getDocs, getDoc, where, query, deleteDoc, doc, setDoc } from '@angular/fire/firestore';
+import { Firestore, collection, addDoc, getDocs, getDoc, where, query, deleteDoc, doc, setDoc, serverTimestamp, updateDoc } from '@angular/fire/firestore';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { AuthService } from '../auth/service-center-auth';
 import { Modal } from 'bootstrap';
+import { Observable } from 'rxjs';
 
 // define on the presets year range
 type YearPreset = 'latest5' | 'all';
@@ -71,6 +72,33 @@ interface EnrichedServiceOffer extends ServiceOffer {
   carFitments?: CarFitments;
 }
 
+export interface ServicePackage {
+  id?: string;
+  name: string;
+  description?: string;
+  services: PackageService[];
+  createdAt?: any;
+  createdBy?: string;
+  updatedAt?: any;
+}
+
+export interface PackageService {
+  serviceId: string;
+  serviceName: string;
+  categoryId?: string;
+  categoryName?: string;
+}
+
+export interface Category {
+  id?: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  status?: string;
+  createdBy?: string;
+  createdAt?: any;
+}
+
 @Component({
   selector: 'app-manage-services',
   standalone: true,
@@ -92,7 +120,7 @@ export class ServiceCenterServiceComponent implements OnInit {
   private auth = inject(AuthService);
 
   //declare tab
-  tab: 'service' | 'tier' = 'service';
+  tab: 'service' | 'tier' | 'requestService' | 'setupPackage' = 'service';
   serviceCenterId!: string;
   serviceCenterName!: string;
   viewCategories: any[] = [];
@@ -145,7 +173,7 @@ export class ServiceCenterServiceComponent implements OnInit {
     duration?: number
   } = {};
 
-  // services and category from firestore
+  // tab services and category from firestore
   serviceForm!: FormGroup;
   serviceOffered: any[] = [];
   serviceCategories: any[] = [];
@@ -185,7 +213,7 @@ export class ServiceCenterServiceComponent implements OnInit {
     duration: null as number | null
   };
 
-  // tiers from firestore
+  // tab tiers from firestore
   tierForm!: FormGroup;
   savedTiers: any[] = [];
   selectedTier: any = null;
@@ -209,9 +237,32 @@ export class ServiceCenterServiceComponent implements OnInit {
   expandModel: { [model: string]: boolean } = {};
   yearRangeForMake: { [make: string]: { start?: number; end?: number } } = {};
 
+  // tab request new category or service
+  categories$!: Observable<Category[]>;
+  newCategoryName: string = '';
+  newCategoryDescription: string = '';
+  newServiceName: string = '';
+  newServiceDescription: string = '';
+  selectedCategoryId: string = '';
+
+  // tab setup package
+  savedPackages: ServicePackage[] = [];
+  packageForm = {
+    name: '',
+    description: '',
+    services: [] as { categoryId: string, categoryName: string, serviceId: string, serviceName: string }[]
+  };
+  packagePick: { categoryId: string; serviceId: string } = { categoryId: '', serviceId: '' }; // for temporary dropdown selection
+  editingPackageId: string | null = null;
+  editDescription: string = '';
+
   loading = false;
   errorMessage = '';
   infoMessage = '';
+  requestCatLoading = false;
+  requestSvcLoading = false;
+  savePackageLoading = false;
+  loadingSavedPackages = false;
 
   ngOnInit() {
     this.initServiceTab();
@@ -226,11 +277,14 @@ export class ServiceCenterServiceComponent implements OnInit {
 
     this.loadSavedTiers();
     this.fetchMakes();
+
+    this.loadSavedPackages();
+
   }
 
   async initServiceTab() {
     this.loading = true;
-    const categorySnapshot = await getDocs(query(collection(this.firestore, 'services_categories')));
+    const categorySnapshot = await getDocs(query(collection(this.firestore, 'services_categories'), where('active', '==', true), where('status', '==', 'approved')));
     this.categories = categorySnapshot.docs.map(category => ({ id: category.id, ...category.data() }));
 
     // preload services which grouped by category
@@ -240,7 +294,8 @@ export class ServiceCenterServiceComponent implements OnInit {
         query(
           collection(this.firestore, 'services'),
           where('categoryId', '==', category['id']),
-          where('active', '==', true)
+          where('active', '==', true),
+          where('status', '==', 'approved')
         )
       );
       this.servicesByCategory[category['id']] = serviceSnapshot.docs.map(service => ({ id: service.id, ...service.data() }));
@@ -296,21 +351,41 @@ export class ServiceCenterServiceComponent implements OnInit {
       for (const offer of offers) {
         const enrichedOffer: EnrichedServiceOffer = { ...offer };
 
+
         // Related service
         if (offer.serviceId) {
-          const serviceSnap = await getDoc(doc(this.firestore, 'services', offer.serviceId));
-          if (serviceSnap.exists()) {
-            const data = serviceSnap.data() as { name: string;[key: string]: any };
-            enrichedOffer.service = { id: serviceSnap.id, ...data };
+          const serviceRef = collection(this.firestore, 'services');
+          const q = query(
+            serviceRef,
+            where('__name__', '==', offer.serviceId),
+            where('active', '==', true),
+            where('status', '==', 'approved')
+          );
+
+          const serviceSnap = await getDocs(q);
+          if (!serviceSnap.empty) {
+            const docSnap = serviceSnap.docs[0];
+            const data = docSnap.data() as { name: string;[key: string]: any };
+            enrichedOffer.service = { id: docSnap.id, ...data };
           }
         }
 
         // Related category
         if (offer.categoryId && typeof offer.categoryId === 'string' && offer.categoryId.trim() !== '') {
-          const categorySnap = await getDoc(doc(this.firestore, 'services_categories', offer.categoryId));
-          if (categorySnap.exists()) {
-            const data = categorySnap.data() as { name: string;[key: string]: any };
-            enrichedOffer.category = { id: categorySnap.id, ...data };
+
+          const categoryRef = collection(this.firestore, 'services_categories');
+          const q = query(
+            categoryRef,
+            where('__name__', '==', offer.categoryId),
+            where('active', '==', true),
+            where('status', '==', 'approved')
+          );
+          const categorySnap = await getDocs(q);
+
+          if (!categorySnap.empty) {
+            const docSnap = categorySnap.docs[0];
+            const data = docSnap.data() as { name: string;[key: string]: any };
+            enrichedOffer.category = { id: docSnap.id, ...data };
           }
         }
 
@@ -1969,6 +2044,238 @@ export class ServiceCenterServiceComponent implements OnInit {
   async updateSvcTierSelection() {
     const tierSnap = await getDocs(query(collection(this.firestore, 'service_center_service_tiers'), where('serviceCenterId', '==', this.serviceCenterId)));
     this.serviceTiers = tierSnap.docs.map(tier => ({ id: tier.id, ...tier.data() }));
+  }
+
+  // request service tab
+  private toUpperCase(text: string): string {
+    return text
+      .toLowerCase()
+      .split(' ')
+      .filter(word => word.trim() !== '') // remove double spaces
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  async requestCategory(categoryName: string, categoryDescription: string, serviceCenterId: string) {
+    this.requestCatLoading = true;
+    if (!categoryName) {
+      alert('Category name is required.');
+      this.requestCatLoading = false;
+      return;
+    }
+    try {
+      await addDoc(collection(this.firestore, 'services_categories_request'), {
+        name: this.toUpperCase(categoryName),
+        description: categoryDescription,
+        active: false,
+        status: 'pending',
+        createdBy: serviceCenterId,
+        createdAt: serverTimestamp(),
+      });
+      alert('Category request submitted successfully!');
+      this.newCategoryName = '';
+      this.newCategoryDescription = '';
+    } catch (err: any) {
+      console.error('Error requesting category:', err);
+      alert('Failed to submit category request');
+    } finally {
+      this.requestCatLoading = false;
+    }
+  }
+
+  async requestService(categoryId: string, serviceName: string, serviceDescription: string, serviceCenterId: string) {
+    this.requestSvcLoading = true;
+
+    if (!serviceName) {
+      alert('Service name is required.');
+      this.requestSvcLoading = false;
+      return;
+    }
+    if (!categoryId) {
+      alert('Please select a category for the service.');
+      this.requestSvcLoading = false;
+      return;
+    }
+
+    try {
+      await addDoc(collection(this.firestore, 'services_request'), {
+        categoryId,
+        name: this.toUpperCase(serviceName),
+        description: serviceDescription,
+        active: false,
+        status: 'pending',
+        createdBy: serviceCenterId,
+        createdAt: serverTimestamp(),
+      });
+      alert('Service request submitted successfully!');
+      this.newServiceName = '';
+      this.newServiceDescription = '';
+      this.selectedCategoryId = '';
+    } catch (err: any) {
+      console.error('Error requesting service:', err);
+      alert('Failed to submit service request');
+    } finally {
+      this.requestSvcLoading = false;
+    }
+  }
+
+  // setup package tab
+  async loadSavedPackages() {
+    try {
+      this.loadingSavedPackages = true;
+
+      const savedPackageRef = collection(this.firestore, 'service_packages');
+      const q = query(savedPackageRef, where('serviceCenterId', '==', this.serviceCenterId));
+      const savedPackageSnap = await getDocs(q);
+
+      const packages: any[] = [];
+
+      for (const docSnap of savedPackageSnap.docs) {
+        const pkgData = docSnap.data() as any;
+
+        // Resolve services with names + categories
+        const enrichedServices: any[] = [];
+        if (pkgData.services && pkgData.services.length) {
+          for (const svc of pkgData.services) {
+            if (!svc.serviceId) continue;
+
+            const serviceRef = doc(this.firestore, 'services', svc.serviceId);
+            const serviceSnap = await getDoc(serviceRef);
+
+            if (serviceSnap.exists()) {
+              const serviceData = serviceSnap.data() as any;
+
+              // get category name
+              let categoryName = '';
+              if (serviceData.categoryId) {
+                const categoryRef = doc(this.firestore, 'services_categories', serviceData.categoryId);
+                const categorySnap = await getDoc(categoryRef);
+                if (categorySnap.exists()) {
+                  categoryName = (categorySnap.data() as any).name;
+                }
+              }
+
+              enrichedServices.push({
+                serviceId: svc.serviceId,
+                serviceName: serviceData.name,
+                categoryId: serviceData.categoryId,
+                categoryName,
+              });
+            }
+          }
+        }
+
+        packages.push({
+          id: docSnap.id,
+          ...pkgData,
+          services: enrichedServices,
+        });
+      }
+
+      this.savedPackages = packages;
+    } catch (err) {
+      console.error('Error loading saved packages:', err);
+    } finally {
+      this.loadingSavedPackages = false;
+    }
+  }
+
+  editPackage(pkg: ServicePackage) {
+    if (!pkg.id) return;
+
+    this.editingPackageId = pkg.id;
+    this.editDescription = pkg.description || '';
+  }
+
+  async saveEditedPackage() {
+    if (!this.editingPackageId) return;
+
+    const pkgRef = doc(this.firestore, 'service_packages', this.editingPackageId);
+
+    await updateDoc(pkgRef, {
+      description: this.editDescription,
+      updatedAt: serverTimestamp(),
+    });
+
+    this.editingPackageId = null;
+    this.editDescription = '';
+
+    await this.loadSavedPackages();
+  }
+
+  cancelEditPackage() {
+    this.editingPackageId = null;
+    this.editDescription = '';
+  }
+
+  async deletePackage(pkg: ServicePackage) {
+    if (!pkg.id) return;
+
+    if (confirm(`Are you sure you want to delete package "${pkg.name}"?`)) {
+      try {
+        await deleteDoc(doc(this.firestore, 'service_packages', pkg.id));
+        console.log('Package deleted successfully');
+      } catch (err) {
+        console.error('Error deleting package:', err);
+      }
+    }
+  }
+
+  onPackagePickCategory() {
+    this.packagePick.serviceId = '';
+  }
+
+  addServiceToPackage() {
+    if (!this.packagePick.categoryId || !this.packagePick.serviceId) return;
+
+    const category = this.categories.find(c => c.id === this.packagePick.categoryId);
+    const service = this.servicesByCategory[this.packagePick.categoryId].find(s => s.id === this.packagePick.serviceId);
+
+    // deduplicates
+    const alreadyExists = this.packageForm.services.some(p => p.serviceId === service.id);
+    if (alreadyExists) return;
+
+    this.packageForm.services.push({
+      categoryId: category.id,
+      categoryName: category.name,
+      serviceId: service.id,
+      serviceName: service.name
+    });
+
+    // reset picker
+    this.packagePick = { categoryId: category.id, serviceId: '' };
+  }
+
+  // Remove service
+  removeServiceFromPackage(index: number) {
+    this.packageForm.services.splice(index, 1);
+  }
+
+  async savePackage() {
+    this.savePackageLoading = true;
+
+    if (!this.packageForm.name || this.packageForm.services.length === 0) {
+      alert('Please provide a package name and at least one service.');
+      this.savePackageLoading = false;
+      return;
+    }
+
+    try {
+      await addDoc(collection(this.firestore, 'service_packages'), {
+        ...this.packageForm,
+        serviceCenterId: this.serviceCenterId,
+        createdAt: new Date(),
+        active: true
+      });
+      alert('Service Package created successfully!');
+      // reset form
+      this.packageForm = { name: '', description: '', services: [] };
+    } catch (error) {
+      console.error('Error creating service package:', error);
+      alert('Failed to create service package');
+    } finally {
+      this.savePackageLoading = false;
+    }
   }
 
   // fitments of make model and year filter

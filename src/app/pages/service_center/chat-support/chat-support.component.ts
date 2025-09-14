@@ -1,9 +1,11 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ServiceCenterChatService, ChannelData, ChatUser } from '../service-center-chat.service';
 import { Channel } from 'stream-chat';
 import { Subscription } from 'rxjs';
+import { Firestore, collection, addDoc, updateDoc, deleteDoc, doc, collectionData, query, where } from '@angular/fire/firestore';
+import { AuthService } from '../auth/service-center-auth';
 
 @Component({
   selector: 'app-service-center-chat',
@@ -13,6 +15,8 @@ import { Subscription } from 'rxjs';
   styleUrls: ['./chat-support.component.css']
 })
 export class ServiceCenterChatComponent implements OnInit, OnDestroy {
+  serviceCenterId: string = '';
+  serviceCenterName: string = '';
   channels: ChannelData[] = [];
   filteredChannels: ChannelData[] = [];
   selectedChannel: Channel | null = null;
@@ -26,55 +30,74 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
   channelToDelete: string | null = null;
   isDeleting = false;
   currentUser: ChatUser | null = null;
-  
+
   // new chat modal
   showNewChatModal = false;
   newChatCustomerId = '';
   newChatCustomerName = '';
   newChatServiceRequestId = '';
-  
+  quickResponses: any[] = [];
   private subscriptions: Subscription[] = [];
+  private auth = inject(AuthService);
 
-  constructor(private chatService: ServiceCenterChatService) {}
+  constructor(private chatService: ServiceCenterChatService, private firestore: Firestore, private authService: AuthService) { }
 
   async ngOnInit() {
-  // initialize the chat service
-  const initialized = await this.chatService.initializeServiceCenter();
-  
-  if (initialized) {
-    // subscribe to current user
-    this.subscriptions.push(
-      this.chatService.currentUser$.subscribe(user => {
-        this.currentUser = user;
-      })
-    );
-    
-    // subscribe to channels
-    this.subscriptions.push(
-      this.chatService.channels$.subscribe(channels => {
-        this.channels = channels;
-        this.filterChannels(this.selectedFilter);
-      })
-    );
-    
-    // subscribe to selected channel
-    this.subscriptions.push(
-      this.chatService.selectedChannel$.subscribe(channel => {
-        this.selectedChannel = channel;
-        if (channel) {
-          this.selectedChannelData = this.channels.find(c => c.id === channel.id) || null;
-          this.loadMessages();
-          this.setupChannelListeners();
-        } else {
-          this.selectedChannelData = null;
-          this.messages = [];
-        }
-      })
-    );
-  } else {
-    console.error('Failed to initialize service center chat service');
+    this.serviceCenterId = this.auth.getAdmin().id;
+    this.serviceCenterName = this.auth.getAdmin().name;
+    // initialize the chat service
+    this.loadChannels();
+    this.loadQuickResponses();
   }
-}
+
+  async loadChannels() {
+    const initialized = await this.chatService.initializeServiceCenter();
+
+    if (initialized) {
+      // subscribe to current user
+      this.subscriptions.push(
+        this.chatService.currentUser$.subscribe(user => {
+          this.currentUser = user;
+        })
+      );
+
+      // subscribe to channels
+      this.subscriptions.push(
+        this.chatService.channels$.subscribe(channels => {
+          this.channels = channels;
+          this.filterChannels(this.selectedFilter);
+        })
+      );
+
+      // subscribe to selected channel
+      this.subscriptions.push(
+        this.chatService.selectedChannel$.subscribe(channel => {
+          this.selectedChannel = channel;
+          if (channel) {
+            this.selectedChannelData = this.channels.find(c => c.id === channel.id) || null;
+            this.loadMessages();
+            this.setupChannelListeners();
+          } else {
+            this.selectedChannelData = null;
+            this.messages = [];
+          }
+        })
+      );
+    } else {
+      console.error('Failed to initialize service center chat service');
+    }
+  }
+
+  loadQuickResponses() {
+    if (!this.serviceCenterId) return;
+
+    const quickResponsesRef = collection(this.firestore, 'quick_responses');
+    const q = query(quickResponsesRef, where('uploadedUserId', '==', this.serviceCenterId));
+
+    collectionData(q, { idField: 'id' }).subscribe(responses => {
+      this.quickResponses = responses;
+    });
+  }
 
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
@@ -91,13 +114,13 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
 
   filterChannels(type: string) {
     this.selectedFilter = type;
-    
+
     if (type === 'all') {
       this.filteredChannels = [...this.channels];
     } else {
       this.filteredChannels = this.channels.filter(c => c.host_by === type);
     }
-    
+
     // sort by last message
     this.filteredChannels.sort((a, b) => {
       const aTime = new Date(a.last_message_at || 0).getTime();
@@ -106,9 +129,58 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  async onFileSelected(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (!this.selectedChannel) return;
+
+    try {
+      // upload the file
+      const { file: uploadedUrl } = await this.selectedChannel.sendFile(file, file.name);
+
+      // Send a message with the uploaded file as an attachment
+      await this.selectedChannel.sendMessage({
+        text: `File uploaded: ${file.name}`,
+        attachments: [
+          {
+            type: file.type.startsWith('image/') ? 'image' : 'file',
+            asset_url: uploadedUrl,
+            title: file.name
+          }
+        ]
+      });
+
+      console.log('File uploaded and message sent successfully');
+    } catch (error) {
+      console.error('Error uploading file to Stream:', error);
+    }
+  }
 
   useQuickResponse(response: string) {
     this.newMessage = response;
+  }
+
+  addQuickResponse() {
+    const text = prompt('Enter a new quick response:');
+    if (text) {
+      const quickResponsesRef = collection(this.firestore, 'quick_responses');
+      addDoc(quickResponsesRef, { uploadedUserId: this.serviceCenterId, text, createdAt: new Date(), updatedAt: new Date(), createdBy: this.serviceCenterName });
+    }
+  }
+
+  editQuickResponse(response: any) {
+    const newText = prompt('Edit quick response:', response.text);
+    if (newText !== null && newText.trim() !== '') {
+      const docRef = doc(this.firestore, 'quick_responses', response.id);
+      updateDoc(docRef, { text: newText });
+    }
+  }
+
+  deleteQuickResponse(id: string) {
+    if (confirm('Are you sure you want to delete this quick response?')) {
+      const docRef = doc(this.firestore, 'quick_responses', id);
+      deleteDoc(docRef);
+    }
   }
 
   closeChat() {
@@ -120,7 +192,7 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
   // start a new chat with a customer
   async startNewCustomerChat() {
     if (!this.newChatCustomerId || !this.newChatCustomerName) return;
-    
+
     try {
       // Use the chatService method
       const channel = await this.chatService.startCustomerChat(
@@ -128,19 +200,19 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
         this.newChatCustomerName,
         this.newChatServiceRequestId
       );
-      
+
       this.showNewChatModal = false;
       this.newChatCustomerId = '';
       this.newChatCustomerName = '';
       this.newChatServiceRequestId = '';
-      
+
       // select the new channel
       const channelId = channel.id;
       if (!channelId) {
         console.error('Cannot select channel: Channel ID is undefined');
         return;
       }
-      
+
       await this.selectChannel(channelId);
     } catch (error) {
       console.error('Error starting new customer chat:', error);
@@ -152,14 +224,14 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     try {
       // Use the chatService method
       const channel = await this.chatService.startAdminChat();
-      
+
       // Select the new channel
       const channelId = channel.id;
       if (!channelId) {
         console.error('Cannot select channel: Channel ID is undefined');
         return;
       }
-      
+
       await this.selectChannel(channelId);
     } catch (error) {
       console.error('Error starting admin chat:', error);
@@ -174,14 +246,14 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
   // Send message
   async sendMessage() {
     if (!this.newMessage?.trim() || !this.selectedChannel) return;
-    
+
     try {
       const channelId = this.selectedChannel.id;
       if (!channelId) {
         console.error('Cannot send message: Channel ID is undefined');
         return;
       }
-      
+
       // Use the chatService method
       await this.chatService.sendMessage(channelId, this.newMessage);
       this.newMessage = '';
@@ -190,7 +262,7 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     }
   }
 
-   confirmDeleteChannel(channelId: string, event?: Event) {
+  confirmDeleteChannel(channelId: string, event?: Event) {
     if (event) {
       event.stopPropagation(); // for preventing channel selection
     }
@@ -221,7 +293,7 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
   // Load messages
   private loadMessages() {
     if (!this.selectedChannel) return;
-    
+
     this.selectedChannel.query({
       messages: { limit: 50 }
     }).then(() => {
@@ -232,21 +304,21 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
   // Setup channel listeners
   private setupChannelListeners() {
     if (!this.selectedChannel) return;
-    
+
     // Listen for new messages
     this.selectedChannel.on('message.new', (event: any) => {
       if (event.message) {
         this.messages.push(event.message);
       }
     });
-    
+
     // Listen for typing indicators
     this.selectedChannel.on('typing.start', (event: any) => {
       if (event.user?.id !== this.currentUser?.id) {
         this.isTyping = true;
       }
     });
-    
+
     this.selectedChannel.on('typing.stop', (event: any) => {
       if (event.user?.id !== this.currentUser?.id) {
         this.isTyping = false;
@@ -272,15 +344,15 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
 
   formatTime(dateString: string): string {
     if (!dateString) return 'No messages';
-    
+
     const date = new Date(dateString);
     const now = new Date();
     const diff = now.getTime() - date.getTime();
-    
+
     if (diff < 60000) return 'Just now';
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    
+
     return date.toLocaleDateString();
   }
 

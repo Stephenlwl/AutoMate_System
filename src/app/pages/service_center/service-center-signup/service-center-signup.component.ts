@@ -161,17 +161,13 @@ export class ServiceCenterSignupComponent {
       }
 
       try {
-        const response = await fetch('http://localhost:3000/sendOtpEmail/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toEmail: adminEmail
-          })
-        });
+        const data = await this.http.post<any>(
+          'http://localhost:3000/sendOtpEmail/send',
+          { toEmail: adminEmail }
+        ).toPromise();
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to send OTP");
+        if (!data?.success) {
+          throw new Error(data?.error || "Failed to send OTP");
         } else {
           this.form.get('otp')?.enable();
           this.otpExpiryTime = Date.now() + 60 * 1000;
@@ -181,6 +177,7 @@ export class ServiceCenterSignupComponent {
           this.infoMessage = 'OTP sent to your email. Please check your inbox.';
           this.errorMessage = '';
         }
+
       } catch (error) {
         this.errorMessage = 'Failed to send OTP. Please try again.';
         console.error("Error sending OTP:", error);
@@ -225,13 +222,10 @@ export class ServiceCenterSignupComponent {
     const email = this.form.get('email')?.value;
 
     try {
-      const res = await fetch('http://localhost:3000/sendOtpEmail/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ toEmail: email, otpInput: otpValue })
-      });
-
-      const data = await res.json();
+      const data = await this.http.post<any>(
+        'http://localhost:3000/sendOtpEmail/verify',
+        { toEmail: email, otpInput: otpValue }
+      ).toPromise();
 
       if (data.success) {
         this.isEmailVerified = true;

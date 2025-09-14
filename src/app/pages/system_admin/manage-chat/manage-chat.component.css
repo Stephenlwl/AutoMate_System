@@ -1,7 +1,3 @@
-.admin-dashboard {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
 .cursor-pointer {
   cursor: pointer;
 }
@@ -107,8 +103,17 @@
   }
 }
 
+.messages-container {
+  height: 100%;              
+  max-height: calc(100vh - 200px); 
+  overflow-y: auto;           
+  overflow-x: hidden;       
+  background-color: #f8f9fa;
+  flex-grow: 1;              
+}
+
 .message-bubble .card {
-  border-radius: 18px;
+  border-radius: 5px;
 }
 
 .message-bubble .card.bg-primary {
