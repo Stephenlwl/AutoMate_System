@@ -6,11 +6,15 @@
 
   <!-- Tabs -->
   <ul class="nav nav-tabs mb-3">
-    <li class="nav-item"><a class="nav-link" [class.active]="tab==='service'" (click)="tab='service'">Service Offers</a></li>
+    <li class="nav-item"><a class="nav-link" [class.active]="tab==='service'" (click)="tab='service'">Service Offers</a>
+    </li>
     <li class="nav-item"><a class="nav-link" [class.active]="tab==='tier'" (click)="tab='tier'">Car Tiers</a></li>
     <li class="nav-item"><a class="nav-link" [class.active]="tab==='requestService'"
         (click)="tab='requestService'">Request New Service/Service Category</a></li>
-    <li class="nav-item"><a class="nav-link" [class.active]="tab==='setupPackage'" (click)="tab='setupPackage'">Service Packages</a></li>
+    <li class="nav-item"><a class="nav-link" [class.active]="tab==='setupPackage'" (click)="tab='setupPackage'">Service
+        Packages</a></li>
+    <li class="nav-item"><a class="nav-link" [class.active]="tab==='newVehicleRequestList'"
+        (click)="tab='newVehicleRequestList'">Vehicle Requesting List</a></li>
   </ul>
 
   <!-- Service Management Tab -->
@@ -18,12 +22,24 @@
     <h5 class="mb-3">Service Management</h5>
     <div class="text-muted small mb-3">
       <i class="bi bi-info-circle me-2"></i> If you found that a service is not appearing under the selected category or
-      doesn't have that category, you can request under the <strong><i>Request New Service/Service Category tab</i></strong>.
+      doesn't have that category, you can request under the <strong><i>Request New Service/Service Category
+          tab</i></strong>.
     </div>
     <!-- category service and tier selection -->
     <div class="card shadow-sm mb-4">
       <div class="card-body row g-3 align-items-end">
-        <div class="col-md-4">
+        <!-- Package selection -->
+        <div class="col-md-3">
+          <label class="form-label small text-muted">Package</label>
+          <select class="form-select" [(ngModel)]="pick.packageId" (change)="onPickPackage()">
+            <option value="" disabled selected>Select Package</option>
+            <ng-container *ngFor="let p of savedPackages">
+              <option [value]="p.id">{{ p.name }}</option>
+            </ng-container>
+          </select>
+        </div>
+
+        <div class="col-md-3">
           <label class="form-label small text-muted">Category</label>
           <select class="form-select" [(ngModel)]="pick.categoryId" (change)="onPickCategory()">
             <option value="" disabled selected>Select Category</option>
@@ -33,7 +49,7 @@
           </select>
         </div>
 
-        <div class="col-md-5">
+        <div class="col-md-3">
           <label class="form-label small text-muted">Service</label>
           <select class="form-select" [(ngModel)]="pick.serviceId" (change)="getServiceOfferDescription()">
             <option value="" disabled selected>Select Service</option>
@@ -57,10 +73,10 @@
 
     <div class="card shadow-sm mb-4">
       <div class="card-body row g-3 align-items-end">
-        <div class="col-md-4">
+        <div class="col-md-8">
           <label class="form-label small text-muted">Service Description (default)</label>
-          <textarea class="form-control" rows="3" placeholder="Enter Service Description" [value]="serviceDescription"
-            [ngModel]="serviceDescription">
+          <textarea class="form-control" rows="3" placeholder="Enter Service Description"
+            [(ngModel)]="serviceDescription">
       </textarea>
         </div>
       </div>
@@ -458,6 +474,14 @@
 
       <div class="row g-2 align-items-center mb-3">
         <div class="col-auto">
+          <label class="small text-muted">Filter by Service Packages</label>
+          <select class="form-select" [(ngModel)]="filterPackage" (ngModelChange)="applyFilters()">
+            <option value="">All Packages</option>
+            <option *ngFor="let p of allPackages" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+
+        <div class="col-auto">
           <label class="small text-muted">Filter by Category</label>
           <select class="form-select" [(ngModel)]="filterCategory" (ngModelChange)="applyFilters()">
             <option value="">All Categories</option>
@@ -513,7 +537,7 @@
               <div class="d-flex align-items-start">
                 <div class="flex-grow-1">
                   <div class="d-flex gap-3 align-items-baseline">
-                    <h5 class="mb-0">{{ offer.service?.name || 'Unknown service' }}</h5>
+                    <h5 class="mb-0">{{ offer.service?.name || offer.package?.name || 'Unknown service' }}</h5>
                     <small class="text-muted">• {{ offer.category?.name || '-' }}</small>
                     <span class="badge ms-2" [ngClass]="offer.active ? 'bg-success' : 'bg-secondary'">
                       {{ offer.active ? 'Active' : 'Disabled' }}
@@ -1171,14 +1195,14 @@
 
     <!-- Saved tiers -->
     <div class="row g-3 mt-4">
+      <div *ngIf="savedTiers.length !== 0" class="text-muted">
+        <i class="bi bi-info-circle me-2"></i> Click on a tier to edit or delete it.
+      </div>
       <div class="col-12 col-md-6 col-lg-4" *ngFor="let t of savedTiers">
         <div class="card h-100 shadow-sm border-0">
           <div class="card-header bg-dark text-white fw-bold d-flex justify-content-between align-items-center">
             <span><i class="bi bi-layers me-2"></i>{{ t.tierName }}</span>
             <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-outline-light" (click)="duplicateTier(t)">
-                <i class="bi bi-files"></i> Duplicate
-              </button>
               <button class="btn btn-sm btn-outline-light" (click)="openDetails(t)">
                 <i class="bi bi-eye"></i>
               </button>
@@ -1243,7 +1267,7 @@
     </div>
 
     <!-- Request New Service -->
-    <div class="card shadow-sm">
+    <div class="card mb-4 shadow-sm">
       <div class="card-header bg-secondary text-white">Request New Service</div>
       <div class="card-body">
         <form class="row g-3 align-items-end">
@@ -1280,6 +1304,150 @@
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Service Categories Requests Section -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="bi bi-tags me-2"></i>Service Categories Requests
+        </h5>
+        <div class="text-muted small">
+          Total {{ newServiceCategoriesRequests.length }} requests
+        </div>
+      </div>
+      <div class="card-body">
+        <div *ngIf="newServiceCategoriesRequests.length === 0" class="text-center text-muted py-5">
+          <i class="bi bi-inbox me-2" style="font-size: 2rem;"></i>
+          <div>No service category requests made yet.</div>
+        </div>
+
+        <div *ngIf="newServiceCategoriesRequests.length > 0" class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Date Requested</th>
+                <th>Status</th>
+                <th>Rejected Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let categoryRequest of paginatedServiceCategories">
+                <td>
+                  <strong>{{ categoryRequest.name }}</strong>
+                </td>
+                <td>
+                  {{ categoryRequest.description || 'No description' }}
+                </td>
+                <td>
+                  {{ formatDate(categoryRequest.createdAt) }}
+                </td>
+                <td>
+                  <span [class]="getStatusBadgeClass(categoryRequest.status)">
+                    {{ getStatusText(categoryRequest.status) }}
+                  </span>
+                </td>
+                <td>
+                  <span *ngIf="categoryRequest.status === 'rejected'">
+                    {{ categoryRequest.rejectedReason || 'No reason provided' }}
+                  </span>
+                  <span *ngIf="categoryRequest.status !== 'rejected'">-</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <nav *ngIf="newServiceCategoriesRequests.length > categoryRequestPageSize" class="mt-3">
+            <ul class="pagination justify-content-center">
+              <li class="page-item" [class.disabled]="currentPageCategories === 1">
+                <button class="page-link" (click)="goToPageCategories(currentPageCategories - 1)">Previous</button>
+              </li>
+
+              <li class="page-item" *ngFor="let p of [].constructor(totalPagesCategories); let i = index"
+                [class.active]="currentPageCategories === i + 1">
+                <button class="page-link" (click)="goToPageCategories(i + 1)">{{ i + 1 }}</button>
+              </li>
+
+              <li class="page-item" [class.disabled]="currentPageCategories === totalPagesCategories">
+                <button class="page-link" (click)="goToPageCategories(currentPageCategories + 1)">Next</button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+
+    <!-- Services Requests Section -->
+    <div class="card">
+      <div class="card-header">
+        <h5 class="card-title mb-0">
+          <i class="bi bi-tools me-2"></i>Services Requests
+        </h5>
+        <div class="text-muted small">
+          Total {{ newServicesRequests.length }} requests
+        </div>
+      </div>
+      <div class="card-body">
+        <div *ngIf="newServicesRequests.length === 0" class="text-center text-muted py-5">
+          <i class="bi bi-inbox me-2" style="font-size: 2rem;"></i>
+          <div>No service requests made yet.</div>
+        </div>
+
+        <div *ngIf="newServicesRequests.length > 0" class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Date Requested</th>
+                <th>Status</th>
+                <th>Rejected Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let serviceRequest of paginatedServices">
+                <td>
+                  <strong>{{ serviceRequest.name }}</strong>
+                </td>
+                <td>
+                  {{ serviceRequest.description || 'No description' }}
+                </td>
+                <td>
+                  {{ formatDate(serviceRequest.createdAt) }}
+                </td>
+                <td>
+                  <span [class]="getStatusBadgeClass(serviceRequest.status)">
+                    {{ getStatusText(serviceRequest.status) }}
+                  </span>
+                </td>
+                <td>
+                  <span *ngIf="serviceRequest.status === 'rejected'">
+                    {{ serviceRequest.rejectedReason || 'No reason provided' }}
+                  </span>
+                  <span *ngIf="serviceRequest.status !== 'rejected'">-</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <nav *ngIf="newServicesRequests.length > serviceRequestPageSize" class="mt-3">
+            <ul class="pagination justify-content-center">
+              <li class="page-item" [class.disabled]="currentPageServices === 1">
+                <button class="page-link" (click)="goToPageServices(currentPageServices - 1)">Previous</button>
+              </li>
+
+              <li class="page-item" *ngFor="let p of [].constructor(totalPagesServices); let i = index"
+                [class.active]="currentPageServices === i + 1">
+                <button class="page-link" (click)="goToPageServices(i + 1)">{{ i + 1 }}</button>
+              </li>
+
+              <li class="page-item" [class.disabled]="currentPageServices === totalPagesServices">
+                <button class="page-link" (click)="goToPageServices(currentPageServices + 1)">Next</button>
+              </li>
+            </ul>
+          </nav>
+        </div>
       </div>
     </div>
   </div>
@@ -1457,72 +1625,145 @@
       </div>
 
     </div>
+  </div>
 
-    <!-- Details Modal -->
-    <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header bg-dark text-white">
-            <h5 class="modal-title">
-              <i class="bi bi-info-circle me-2"></i>Tier: {{ selectedTier?.tierName }}
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
+  <div *ngIf="tab==='newVehicleRequestList'">
+    <h5 class="mb-3 text-warning">
+      <i class="bi bi-hourglass-split me-2"></i> Vehicle Addition Requests List
+    </h5>
 
-          <div class="modal-body">
-            <table class="table table-bordered table-striped">
-              <tbody>
-                <tr>
-                  <th>Makes</th>
-                  <td>{{ selectedTier?.makes?.join(', ') }}</td>
-                </tr>
-                <tr>
-                  <th>Models</th>
-                  <td>
-                    <div *ngFor="let make of (selectedTier?.models | keyvalue)">
-                      <strong>{{ make.key }}:</strong> {{ formatValues(make.value) }}
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Years</th>
-                  <td>
-                    <div *ngFor="let yr of (selectedTier?.years | keyvalue)">
-                      <strong>{{ yr.key }}:</strong> {{ formatValues(yr.value) }}
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Fuel Types</th>
-                  <td>
-                    <div *ngFor="let fuel of (selectedTier?.fuelTypes | keyvalue)">
-                      <strong>{{ fuel.key }}:</strong> {{ formatValues(fuel.value) }}
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Displacements</th>
-                  <td>
-                    <div *ngFor="let d of (selectedTier?.displacements | keyvalue)">
-                      <strong>{{ d.key }}:</strong> {{ formatValues(d.value) }} L
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <th>Size Classes</th>
-                  <td>
-                    <div *ngFor="let s of (selectedTier?.sizeClasses | keyvalue)">
-                      <strong>{{ s.key }}:</strong> {{ formatValues(s.value) }}
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+    <div *ngIf="pendingRequests.length === 0" class="alert alert-info">
+      You have not made any requests at the moment.
+    </div>
 
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    <!-- Expandable Pending Panels -->
+    <div *ngFor="let req of pendingRequests" class="card shadow-sm mb-3 border-start">
+      <div class="card-header bg-light d-flex justify-content-between align-items-center py-3"
+       [style.border-left]="'4px solid ' + getStatusBorderColor(req.status)">
+        <div class="d-flex align-items-center gap-3">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-building me-2 text-warning fs-5"></i>
+            <h6 class="mb-0 fw-bold text-dark">{{ req.make || 'Unnamed Make' }}</h6>
           </div>
+          <div class="vr"></div>
+          <span class="d-flex align-items-center small text-muted">
+            <i class="bi bi-calendar3 me-1"></i>
+            {{ formatDate(req.requestedAt) }}
+          </span>
+          <div class="vr"></div>
+          <span class="badge" [ngClass]="getStatusBadgeClass(req.status)">
+            <i class="bi me-1" [ngClass]="getStatusIcon(req.status)"></i>
+            {{ req.status | titlecase }}
+          </span>
+          <div *ngIf="req.status === 'rejected'" class="d-flex align-items-center gap-3">
+            <span class="text-muted small">
+              <i class="bi bbi-x-circle me-1"></i> Rejected Reason: {{ req.rejectionReason || 'N/A' }}
+            </span>
+          </div>
+        </div>
+
+        <button class="btn btn-outline-secondary btn-sm" (click)="toggleMakePanel(req.id); $event.stopPropagation()">
+          <i class="bi me-1" [ngClass]="expandMake[req.id] ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+          {{ expandMake[req.id] ? 'Less' : 'More' }}
+        </button>
+      </div>
+
+      <div class="card-body" *ngIf="expandMake[req.id]">
+        <div class="mb-3">
+          <span class="fw-bold">{{ req.make }}</span>
+        </div>
+
+        <!-- Models -->
+        <div *ngFor="let m of req.model" class="p-3 rounded mb-2 shadow-sm border">
+          <h6 class="fw-bold">
+            {{ m.name }}
+            <span class="badge bg-info ms-2">{{ m.fitments.length }} variants</span>
+          </h6>
+
+          <!-- Fitments -->
+          <ul class="list-unstyled small ms-2">
+            <li *ngFor="let f of m.fitments"
+              class="d-flex justify-content-between align-items-center border-bottom py-1">
+              <span>
+                <i class="bi bi-calendar3 me-1 text-muted"></i> {{ f.year }} |
+                <i class="bi bi-fuel-pump me-1 text-muted"></i> {{ f.fuel }} |
+                <i class="bi bi-speedometer2 me-1 text-muted"></i> {{ f.displacement }} |
+                <i class="bi bi-grid-1x2 me-1 text-muted"></i> {{ f.sizeClass }}
+              </span>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+
+<!-- Details Modal -->
+<div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-dark text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-info-circle me-2"></i>Tier: {{ selectedTier?.tierName }}
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <table class="table table-bordered table-striped">
+          <tbody>
+            <tr>
+              <th>Makes</th>
+              <td>{{ selectedTier?.makes?.join(', ') }}</td>
+            </tr>
+            <tr>
+              <th>Models</th>
+              <td>
+                <div *ngFor="let make of (selectedTier?.models | keyvalue)">
+                  <strong>{{ make.key }}:</strong> {{ formatValues(make.value) }}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>Years</th>
+              <td>
+                <div *ngFor="let yr of (selectedTier?.years | keyvalue)">
+                  <strong>{{ yr.key }}:</strong> {{ formatValues(yr.value) }}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>Fuel Types</th>
+              <td>
+                <div *ngFor="let fuel of (selectedTier?.fuelTypes | keyvalue)">
+                  <strong>{{ fuel.key }}:</strong> {{ formatValues(fuel.value) }}
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>Displacements</th>
+              <td>
+                <div *ngFor="let d of (selectedTier?.displacements | keyvalue)">
+                  <strong>{{ d.key }}:</strong> {{ formatValues(d.value) }} L
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <th>Size Classes</th>
+              <td>
+                <div *ngFor="let s of (selectedTier?.sizeClasses | keyvalue)">
+                  <strong>{{ s.key }}:</strong> {{ formatValues(s.value) }}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

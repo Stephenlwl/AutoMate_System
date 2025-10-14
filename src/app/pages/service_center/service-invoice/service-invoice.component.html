@@ -1,0 +1,935 @@
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 fw-bold text-primary mb-1">
+                {{ mode === 'create' ? 'Create Service Invoice' : 'Service Invoice' }}
+            </h1>
+            <p class="text-muted mb-0">
+                {{ mode === 'create' ? 'Generate invoice for completed service' : 'Invoice details' }}
+            </p>
+        </div>
+        <div class="d-flex gap-2" *ngIf="mode === 'view' && invoice">
+            <button class="btn btn-success" (click)="printInvoice()">
+                <i class="bi bi-printer me-1"></i>Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-muted mt-2">
+            {{ mode === 'create' ? 'Loading booking details...' : 'Loading invoice details...' }}
+        </p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="error && !loading" class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        {{ error }}
+    </div>
+
+    <!-- Create Invoice Form -->
+    <div *ngIf="mode === 'create' && booking && !loading" class="row">
+        <div class="col-12">
+            <!-- Invoice Preview Header -->
+            <div class="card border-2 mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="fw-bold text-primary mb-2">INVOICE</h4>
+                            <p class="mb-1"><strong>Invoice No:</strong> {{ generateInvoiceNumber() }}</p>
+                            <p class="mb-1"><strong>Date:</strong> {{ getCurrentDate() }}</p>
+                            <p class="mb-0"><strong>Booking ID:</strong> {{ booking.id }}</p>
+                        </div>
+                        <div class="col-md-6 text-end" *ngIf="serviceCenterInfo">
+                            <h5 class="fw-bold text-dark">{{ serviceCenterInfo.serviceCenterInfo.name }}</h5>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo?.serviceCenterInfo?.address?.addressLine1 }}
+                            </p>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo.serviceCenterInfo.address.addressLine2 }}
+                            </p>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.postalCode }}
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.city }},
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.state }}
+                            </p>
+                            <p class="mb-1 small"><strong>Tel: </strong>{{
+                                serviceCenterInfo.serviceCenterInfo.serviceCenterPhoneNo }}</p>
+                            <p class="mb-0 small" *ngIf="serviceCenterInfo.adminInfo.email"><strong>Email: </strong>{{
+                                serviceCenterInfo.adminInfo.email }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer & Vehicle Information -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">
+                                <i class="bi bi-person me-1"></i>Customer Information
+                            </h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="mb-1"><strong>{{ booking.customer?.name || 'N/A' }}</strong></p>
+                            <p class="mb-1 text-muted">Tel: {{ booking.customer?.phone || 'N/A' }}</p>
+                            <p class="mb-0 text-muted">Email: {{ booking.customer?.email || 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">
+                                <i class="bi bi-car-front me-1"></i>Vehicle Information
+                            </h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="mb-1">
+                                <strong>{{ booking.vehicle?.make || 'N/A' }} {{ booking.vehicle?.model || 'N/A'
+                                    }}</strong>
+                                ({{ booking.vehicle?.year || 'N/A' }})
+                            </p>
+                            <p class="mb-1 text-muted">Plate No: {{ booking.vehicle?.plateNumber || 'N/A' }}</p>
+                            <p class="mb-1 text-muted">Chassis No: {{ booking.vehicle?.vin || 'N/A' }}</p>
+                            <p class="mb-1 text-muted">Last Updated Mileage: {{ booking.vehicle?.lastServiceMileage || 0
+                                }} km</p>
+                            <p class="mb-0 text-muted">
+                                Last Updated Mileage At: {{ getMileageUpdatedAt() }} </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Details with Labour & Parts Separation -->
+            <div class="card border mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="card-title mb-0 fw-bold">
+                        <i class="bi bi-list-check me-1"></i>Service Details
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="5%">No</th>
+                                    <th width="40%">Description</th>
+                                    <th width="10%" class="text-center">Qty</th>
+                                    <th width="20%" class="text-end">Unit Price (RM)</th>
+                                    <th width="20%" class="text-end">Amount (RM)</th>
+                                    <th width="5%" class="text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Labour Services Section -->
+                                <tr class="table-info">
+                                    <td colspan="6" class="fw-bold">LABOUR CHARGES</td>
+                                </tr>
+
+                                <!-- Booked Services Labour -->
+                                <tr *ngFor="let service of bookedServices; let i = index">
+                                    <td class="text-center">{{ i + 1 }}</td>
+                                    <td>
+                                        <div class="fw-medium">{{ service.serviceName }}</div>
+                                        <small class="text-muted">{{ service.description || 'Standard service'
+                                            }}</small>
+                                    </td>
+                                    <td class="text-center">1</td>
+                                    <td class="text-end">
+                                        <input type="number" class="form-control form-control-sm text-end"
+                                            [(ngModel)]="service.labourPrice" (change)="updateServiceTotal(service)"
+                                            step="0.01" min="0">
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        {{ formatCurrency(service.labourPrice || 0) }}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-danger" (click)="removeBookedService(i)"
+                                            title="Remove Service">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Package Services Labour -->
+                                <tr *ngFor="let pkg of packageServices; let i = index">
+                                    <td class="text-center">{{ bookedServices.length + i + 1 }}</td>
+                                    <td>
+                                        <div class="fw-medium">{{ pkg.packageName || pkg.name }}</div>
+                                        <small class="text-muted d-block" *ngIf="pkg.services">
+                                            Includes: {{ getPackageServiceNames(pkg.services) }}
+                                        </small>
+                                    </td>
+                                    <td class="text-center">1</td>
+                                    <td class="text-end">
+                                        <input type="number" class="form-control form-control-sm text-end"
+                                            [(ngModel)]="pkg.labourPrice" (change)="updatePackageTotal(pkg)" step="0.01"
+                                            min="0">
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        {{ formatCurrency(pkg.labourPrice || 0) }}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-danger" (click)="removePackageService(i)"
+                                            title="Remove Package">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Additional Services Labour -->
+                                <tr *ngFor="let service of additionalServices; let i = index">
+                                    <td class="text-center">{{ bookedServices.length + packageServices.length + i + 1 }}
+                                    </td>
+                                    <td>
+                                        <div class="fw-medium">{{ service.name }}</div>
+                                        <small class="text-muted">{{ service.description || 'Additional service'
+                                            }}</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="number" class="form-control form-control-sm text-center"
+                                            [(ngModel)]="service.quantity"
+                                            (change)="updateAdditionalServiceTotal(service)" min="1"
+                                            style="width: 60px;">
+                                    </td>
+                                    <td class="text-end">
+                                        <input type="number" class="form-control form-control-sm text-end"
+                                            [(ngModel)]="service.unitPrice"
+                                            (change)="updateAdditionalServiceTotal(service)" step="0.01" min="0">
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        {{ formatCurrency(service.totalPrice || 0) }}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-danger"
+                                            (click)="removeAdditionalService(i)" title="Remove Service">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Parts Section -->
+                                <tr class="table-warning" *ngIf="hasParts()">
+                                    <td colspan="6" class="fw-bold">PARTS & MATERIALS</td>
+                                </tr>
+
+                                <!-- Parts from Booked Services -->
+                                <ng-container *ngFor="let service of bookedServices; let sIndex = index">
+                                    <tr *ngFor="let part of service.parts; let pIndex = index">
+                                        <td class="text-center">{{ calculatePartsRowNumber(sIndex, pIndex) }}</td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm"
+                                                [(ngModel)]="part.name" placeholder="Enter part name"
+                                                (input)="updatePartTotal(part); updateServiceTotal(service)">
+                                            <small class="text-muted">Part for {{ service.serviceName }}</small>
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="number" class="form-control form-control-sm text-center"
+                                                [(ngModel)]="part.quantity" [placeholder]="1"
+                                                (change)="updatePartTotal(part); updateServiceTotal(service)" min="1"
+                                                style="width: 60px;">
+                                        </td>
+                                        <td class="text-end">
+                                            <input type="number" class="form-control form-control-sm text-end"
+                                                *ngIf="service.partPrice>0" [(ngModel)]="service.partPrice"
+                                                (change)="updateServiceTotal(part)" step="0.01" min="0">
+                                            <input type="number" class="form-control form-control-sm text-end"
+                                                *ngIf="service.partPriceMin>0" [(ngModel)]="service.partPriceMin"
+                                                (change)="updateServiceTotal(part)" step="0.01" min="0">
+                                        </td>
+                                        <td class="text-end fw-bold">
+                                            {{ formatCurrency(part.totalPrice || 0) }}
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                (click)="removePartFromService(service, pIndex)" title="Remove Part">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </ng-container>
+
+                                <!-- Package Services Parts -->
+                                <tr *ngFor="let pkg of packageServices; let i = index">
+                                    <td class="text-center">{{ calculatePackagePartsRowNumber(i) }}</td>
+                                    <td>
+                                        <div class="fw-medium">{{ pkg.packageName || pkg.name }}</div>
+                                    </td>
+                                    <td class="text-center">1</td>
+                                    <td class="text-end">
+                                        <input type="number" class="form-control form-control-sm text-end"
+                                            *ngIf="pkg.partPrice>0" [(ngModel)]="pkg.partPrice"
+                                            (change)="updatePackageTotal(pkg)" step="0.01" min="0">
+                                        <input type="number" class="form-control form-control-sm text-end"
+                                            *ngIf="pkg.partPriceMin>0" [(ngModel)]="pkg.partPriceMin"
+                                            (change)="updatePackageTotal(pkg)" step="0.01" min="0">
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        {{ formatCurrency(getPackagePartPrice(pkg)) }}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-danger" (click)="removePackageService(i)"
+                                            title="Remove Package">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Parts from Additional Services -->
+                                <ng-container *ngFor="let service of additionalServices; let aIndex = index">
+                                    <tr *ngFor="let part of service.parts; let pIndex = index">
+                                        <td class="text-center">{{ calculateAdditionalPartsRowNumber(aIndex, pIndex) }}
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control form-control-sm"
+                                                [(ngModel)]="part.name" placeholder="Enter part name"
+                                                (input)="updateAdditionalServiceTotal(service)">
+                                            <small class="text-muted">Part for {{ service.name }}</small>
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="number" class="form-control form-control-sm text-center"
+                                                [(ngModel)]="part.quantity"
+                                                (change)="updateAdditionalServicePartTotal(part); updateAdditionalServiceTotal(service)"
+                                                min="1" style="width: 60px;">
+                                        </td>
+                                        <td class="text-end">
+                                            <input type="number" class="form-control form-control-sm text-end"
+                                                [(ngModel)]="part.unitPrice"
+                                                (change)="updateAdditionalServicePartTotal(part); updateAdditionalServiceTotal(service)"
+                                                step="0.01" min="0">
+                                        </td>
+                                        <td class="text-end fw-bold">
+                                            {{ formatCurrency(part.totalPrice || 0) }}
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                (click)="removePartFromAdditionalService(service, pIndex)"
+                                                title="Remove Part">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </ng-container>
+
+                                <!-- Standalone Parts (without service association) -->
+                                <tr *ngFor="let part of standaloneParts; let i = index">
+                                    <td class="text-center">{{ calculateStandalonePartsRowNumber(i) }}</td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm" [(ngModel)]="part.name"
+                                            placeholder="Enter part name" (input)="updateStandalonePartTotal(part)">
+                                        <small class="text-muted">Additional Part</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="number" class="form-control form-control-sm text-center"
+                                            [(ngModel)]="part.quantity" (change)="updateStandalonePartTotal(part)"
+                                            min="1" style="width: 60px;">
+                                    </td>
+                                    <td class="text-end">
+                                        <input type="number" class="form-control form-control-sm text-end"
+                                            [(ngModel)]="part.unitPrice" (change)="updateStandalonePartTotal(part)"
+                                            step="0.01" min="0">
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        {{ formatCurrency(part.totalPrice || 0) }}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-danger" (click)="removeStandalonePart(i)"
+                                            title="Remove Part">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Parts & Services Section -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Add Parts</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Part Name</label>
+                                <input type="text" class="form-control" [(ngModel)]="newPartName"
+                                    placeholder="Enter part name">
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <label class="form-label">Quantity</label>
+                                    <input type="number" class="form-control" [(ngModel)]="newPartQuantity" min="1"
+                                        value="1">
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Unit Price (RM)</label>
+                                    <input type="number" class="form-control" [(ngModel)]="newPartUnitPrice" step="0.01"
+                                        min="0">
+                                </div>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary" (click)="addStandalonePart()"
+                                    [disabled]="!newPartName || !newPartQuantity || !newPartUnitPrice">
+                                    <i class="bi bi-plus-circle me-1"></i>Add Standalone Part
+                                </button>
+                                <small class="text-muted text-center">
+                                    Use this to add parts not associated with any specific service
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Add Additional Services</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Select Additional Service</label>
+                                <select class="form-select" [(ngModel)]="newAdditionalService">
+                                    <option value="">Select Service</option>
+                                    <option *ngFor="let s of serviceOffers" [ngValue]="s">
+                                        {{ s.name }}
+                                    </option>
+                                </select>
+                                <small class="text-muted" *ngIf="newAdditionalService?.description">
+                                    {{ newAdditionalService.description }}
+                                </small>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-success" (click)="addAdditionalService()"
+                                    [disabled]="!newAdditionalService">
+                                    <i class="bi bi-plus-circle me-1"></i>Add Service
+                                </button>
+                                <small class="text-muted text-center">
+                                    Services will be added to Labour Charges section
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tax & Total Section -->
+            <div class="card border mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="card-title mb-0 fw-bold">Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <!-- Tax Configuration -->
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="taxToggle"
+                                        [(ngModel)]="enableTax" (change)="onTaxToggleChange()">
+                                    <label class="form-check-label fw-semibold" for="taxToggle">
+                                        Apply SST (8%)
+                                    </label>
+                                </div>
+                                <small class="text-muted">
+                                    Service Tax (SST) will be calculated at 8% of the subtotal amount
+                                </small>
+                            </div>
+
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-primary mb-2">Vehicle Mileage</h6>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Current Mileage</span>
+                                    <input type="number" class="form-control" [(ngModel)]="afterServiceMileage"
+                                        (ngModelChange)="validateMileage()" min="0"
+                                        placeholder="Enter mileage after service">
+                                    <span class="input-group-text">km</span>
+                                </div>
+                                <small class="text-muted">
+                                    This is the updated mileage recorded after completing the service.
+                                </small>
+                                <div *ngIf="mileageError" class="text-danger small mt-1">
+                                    {{ mileageError }}
+                                </div>
+                            </div>
+                            <!-- Service Maintenance -->
+                            <div class="mb-3">
+                                <h6 class="fw-bold text-primary mb-2">Service Maintenance Intervals</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Service Type</th>
+                                                <th class="text-center">Next Service Mileage</th>
+                                                <th class="text-center">Next Service Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr *ngFor="let maintenance of serviceMaintenances">
+                                                <td>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox"
+                                                            [(ngModel)]="maintenance.updated"
+                                                            [id]="'maintenance-' + maintenance.serviceType">
+                                                        <label class="form-check-label fw-medium"
+                                                            [for]="'maintenance-' + maintenance.serviceType">
+                                                            {{ getMaintenanceDisplayName(maintenance.serviceType) }}
+                                                        </label>
+                                                    </div>
+                                                </td>
+                                                <td class="text-center">
+                                                    <div class="input-group input-group-sm" *ngIf="maintenance.updated">
+                                                        <input type="number" class="form-control"
+                                                            [(ngModel)]="maintenance.nextServiceMileage" min="0">
+                                                        <span class="input-group-text">km</span>
+                                                    </div>
+                                                    <span *ngIf="!maintenance.updated">{{ maintenance.nextServiceMileage
+                                                        || 'N/A' }} km</span>
+                                                </td>
+                                                <td class="text-center">
+                                                    <input type="date" class="form-control form-control-sm"
+                                                        [(ngModel)]="maintenance.nextServiceDate"
+                                                        *ngIf="maintenance.updated">
+                                                    <span *ngIf="!maintenance.updated">
+                                                        {{ maintenance.nextServiceDate ? (maintenance.nextServiceDate |
+                                                        date:'dd/MM/yyyy') : 'N/A' }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="p-3 border rounded mt-3 mb-3">
+                                    <h6 class="fw-bold text-dark mb-3">
+                                        <i class="bi bi-shield-check me-2"></i>Warranty Information
+                                    </h6>
+
+                                    <!-- Labour Warranty -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Labour Warranty Period</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control"
+                                                    [(ngModel)]="labourWarrantyDays" name="labourWarrantyDays" min="0"
+                                                    max="365" [value]="labourWarrantyDays">
+                                                <span class="input-group-text">days</span>
+                                            </div>
+                                            <div class="form-text">Set 0 for no labour warranty</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Labour Warranty Notes</label>
+                                            <input type="text" class="form-control" [(ngModel)]="labourWarrantyNotes"
+                                                name="labourWarrantyNotes" placeholder="e.g., Covers workmanship only">
+                                        </div>
+                                    </div>
+
+                                    <!-- Parts Warranty -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">Parts Warranty Period</label>
+                                            <div class="input-group">
+                                                <input type="number" class="form-control"
+                                                    [(ngModel)]="partsWarrantyDays" name="partsWarrantyDays" min="0"
+                                                    max="730" [value]="partsWarrantyDays">
+                                                <span class="input-group-text">days</span>
+                                            </div>
+                                            <div class="form-text">Set 0 for no parts warranty</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Parts Warranty Notes</label>
+                                            <input type="text" class="form-control" [(ngModel)]="partsWarrantyNotes"
+                                                name="partsWarrantyNotes" placeholder="e.g., Original parts only">
+                                        </div>
+                                    </div>
+
+                                    <!-- General Warranty Terms -->
+                                    <div class="mb-3">
+                                        <label class="form-label">General Warranty Terms</label>
+                                        <textarea class="form-control" [(ngModel)]="generalWarrantyTerms"
+                                            name="generalWarrantyTerms" rows="3"
+                                            placeholder="Enter general warranty terms and conditions..."></textarea>
+                                        <div class="form-text">Separate terms with new lines for better formatting</div>
+                                    </div>
+
+                                    <!-- Warranty Exclusions -->
+                                    <div class="mb-3">
+                                        <label class="form-label">Warranty Exclusions</label>
+                                        <textarea class="form-control" [(ngModel)]="warrantyExclusions"
+                                            name="warrantyExclusions" rows="2"
+                                            placeholder="List warranty exclusions or void conditions..."></textarea>
+                                    </div>
+
+                                    <!-- Quick Preset Buttons -->
+                                    <div class="mb-3">
+                                        <label class="form-label small text-muted">Quick Presets:</label>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                (click)="setStandardWarranty()">
+                                                Standard (30/90 days)
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                (click)="setExtendedWarranty()">
+                                                Extended (60/180 days)
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                (click)="setNoWarranty()">
+                                                No Warranty
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Warranty Preview -->
+                                    <div class="border rounded p-3 bg-light" *ngIf="showWarrantyPreview()">
+                                        <h6 class="fw-bold text-dark mb-2">Warranty Preview</h6>
+                                        <div class="small">
+                                            <div *ngIf="labourWarrantyDays > 0" class="mb-1">
+                                                <strong>Labour:</strong> {{ labourWarrantyDays }} days - {{
+                                                labourWarrantyNotes || 'Standard workmanship warranty' }}
+                                            </div>
+                                            <div *ngIf="partsWarrantyDays > 0" class="mb-1">
+                                                <strong>Parts:</strong> {{ partsWarrantyDays }} days - {{
+                                                partsWarrantyNotes || 'Standard parts warranty' }}
+                                            </div>
+                                            <div *ngIf="generalWarrantyTerms" class="mb-1">
+                                                <strong>Terms:</strong> {{ generalWarrantyTerms }}
+                                            </div>
+                                            <div *ngIf="warrantyExclusions" class="mb-0">
+                                                <strong>Exclusions:</strong> {{ warrantyExclusions }}
+                                            </div>
+                                            <div *ngIf="!labourWarrantyDays && !partsWarrantyDays" class="text-muted">
+                                                No warranty provided
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <!-- Total Calculation -->
+                            <div class="border rounded p-3 bg-light">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Subtotal (Labour):</span>
+                                    <span class="fw-bold">{{ formatCurrency(calculateLabourSubtotal()) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Subtotal (Parts):</span>
+                                    <span class="fw-bold">{{ formatCurrency(calculatePartsSubtotal()) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                                    <span>Total Before Tax:</span>
+                                    <span class="fw-bold">{{ formatCurrency(calculateSubtotal()) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2" *ngIf="enableTax">
+                                    <span>SST (8%):</span>
+                                    <span class="fw-bold text-danger">{{ formatCurrency(calculateTaxAmount()) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between border-top pt-2">
+                                    <h5 class="fw-bold">GRAND TOTAL:</h5>
+                                    <h5 class="fw-bold text-success">{{ formatCurrency(calculateTotal()) }}</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <button type="button" class="btn btn-outline-secondary" (click)="goBack()">
+                    <i class="bi bi-x-circle me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-success" (click)="generateInvoice()">
+                    <i class="bi bi-check-lg me-1"></i>Generate Invoice
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Invoice Details -->
+    <div *ngIf="mode === 'view' && invoice && !loading" class="row">
+        <div class="col-12">
+            <!-- Invoice Header -->
+            <div class="card border-2 mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="fw-bold text-primary mb-2">INVOICE</h4>
+                            <p class="mb-1"><strong>Invoice No:</strong> {{ invoice.invoiceId || invoice.id }}</p>
+                            <p class="mb-1"><strong>Date:</strong> {{ formatDate(invoice.createdAt) }}</p>
+                            <p class="mb-0"><strong>Booking ID:</strong> {{ invoice.serviceBookingId }}</p>
+                        </div>
+                        <div class="col-md-6 text-end" *ngIf="serviceCenterInfo">
+                            <h5 class="fw-bold text-dark">{{ serviceCenterInfo.serviceCenterInfo.name }}</h5>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo?.serviceCenterInfo?.address?.addressLine1 }}
+                            </p>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo.serviceCenterInfo.address.addressLine2 }}
+                            </p>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.postalCode }}
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.city }},
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.state }}
+                            </p>
+                            <p class="mb-1 small"><strong>Tel: </strong>{{
+                                serviceCenterInfo.serviceCenterInfo.serviceCenterPhoneNo }}</p>
+                            <p class="mb-0 small" *ngIf="serviceCenterInfo.adminInfo.email"><strong>Email: </strong>{{
+                                serviceCenterInfo.adminInfo.email }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer & Vehicle Information -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Customer Information</h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="mb-1"><strong>{{ invoice.customerInfo?.name || 'N/A' }}</strong></p>
+                            <p class="mb-1 text-muted">Tel: {{ invoice.customerInfo?.phone || 'N/A' }}</p>
+                            <p class="mb-0 text-muted">Email: {{ invoice.customerInfo?.email || 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Vehicle Information</h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="mb-1">
+                                <strong>{{ invoice.vehicleInfo?.make || 'N/A' }} {{ invoice.vehicleInfo?.model || 'N/A'
+                                    }}</strong>
+                                ({{ invoice.vehicleInfo?.year || 'N/A' }})
+                            </p>
+                            <p class="mb-1 text-muted">Plate No: {{ invoice.vehicleInfo?.plateNumber || 'N/A' }}</p>
+                            <p class="mb-1 text-muted">Chassis No: {{ invoice.vehicleInfo?.vin || 'N/A' }}</p>
+                            <p class="mb-1 text-muted">Mileage Updated At: {{ getMileageUpdatedAt() }}</p>
+                            <p class="mb-0 text-muted">After Service Mileage: {{ invoice.mileage?.afterService || 0 }}
+                                km</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Services Breakdown -->
+            <div class="card border mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="card-title mb-0 fw-bold">Service Details</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="5%">No</th>
+                                    <th width="45%">Description</th>
+                                    <th width="10%" class="text-center">Qty</th>
+                                    <th width="20%" class="text-end">Unit Price (RM)</th>
+                                    <th width="20%" class="text-end">Amount (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Labour Section -->
+                                <tr class="table-info" *ngIf="getLabourItems().length > 0">
+                                    <td colspan="5" class="fw-bold">LABOUR CHARGES</td>
+                                </tr>
+
+                                <!-- Labour items -->
+                                <tr *ngFor="let item of getLabourItems(); let i = index">
+                                    <td class="text-center">{{ i + 1 }}</td>
+                                    <td>{{ item.description }}</td>
+                                    <td class="text-center">{{ item.quantity || 1 }}</td>
+                                    <td class="text-end">{{ formatCurrency(item.unitPrice) }}</td>
+                                    <td class="text-end fw-bold">{{ formatCurrency(item.amount) }}</td>
+                                </tr>
+
+                                <!-- No labour items message -->
+                                <tr *ngIf="getLabourItems().length === 0">
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        No labour charges
+                                    </td>
+                                </tr>
+
+                                <!-- Parts Section -->
+                                <tr class="table-warning" *ngIf="hasPartsInInvoice()">
+                                    <td colspan="5" class="fw-bold">PARTS & MATERIALS</td>
+                                </tr>
+
+                                <!-- Parts items -->
+                                <tr *ngFor="let item of getPartsItems(); let i = index">
+                                    <td class="text-center">{{ getLabourItems().length + i + 1 }}</td>
+                                    <td>{{ item.description }}</td>
+                                    <td class="text-center">{{ item.quantity || 1 }}</td>
+                                    <td class="text-end">{{ formatCurrency(item.unitPrice) }}</td>
+                                    <td class="text-end fw-bold">{{ formatCurrency(item.amount) }}</td>
+                                </tr>
+
+                                <!-- No parts items message -->
+                                <tr *ngIf="!hasPartsInInvoice()">
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        No parts or materials
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total & Payment Information -->
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Notes & Terms -->
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Terms & Conditions</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="p-4 border-bottom"
+                                *ngIf="invoice.warranty && (invoice.warranty.labour.days > 0 || invoice.warranty.parts.days > 0)">
+                                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2">WARRANTY INFORMATION</h6>
+                                <div class="row">
+                                    <div class="col-12">
+                                        <!-- Labour Warranty -->
+                                        <div class="d-flex mb-2" *ngIf="invoice.warranty.labour.days > 0">
+                                            <i class="bi bi-shield-check text-success me-2 mt-1"></i>
+                                            <div>
+                                                <strong class="text-dark">Labour Warranty: </strong>
+                                                {{ invoice.warranty.labour.days }} days (until {{
+                                                formatDate(invoice.warranty.labour.endDate) }})
+                                                <div *ngIf="invoice.warranty.labour.notes" class="text-muted small">
+                                                    {{ invoice.warranty.labour.notes }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Parts Warranty -->
+                                        <div class="d-flex mb-2" *ngIf="invoice.warranty.parts.days > 0">
+                                            <i class="bi bi-shield-check text-success me-2 mt-1"></i>
+                                            <div>
+                                                <strong class="text-dark">Parts Warranty: </strong>
+                                                {{ invoice.warranty.parts.days }} days (until {{
+                                                formatDate(invoice.warranty.parts.endDate)
+                                                }})
+                                                <div *ngIf="invoice.warranty.parts.notes" class="text-muted small">
+                                                    {{ invoice.warranty.parts.notes }}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- General Terms -->
+                                        <div class="d-flex mb-2" *ngIf="invoice.warranty.generalTerms">
+                                            <i class="bi bi-exclamation-circle text-warning me-2 mt-1"></i>
+                                            <div>
+                                                <strong class="text-dark">Terms: </strong>
+                                                <span
+                                                    [innerHTML]="formatWarrantyText(invoice.warranty.generalTerms)"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Exclusions -->
+                                        <div class="d-flex" *ngIf="invoice.warranty.exclusions">
+                                            <i class="bi bi-exclamation-triangle text-danger me-2 mt-1"></i>
+                                            <div>
+                                                <strong class="text-dark">Exclusions: </strong>
+                                                <span
+                                                    [innerHTML]="formatWarrantyText(invoice.warranty.exclusions)"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- No Warranty Message -->
+                                        <div *ngIf="invoice.warranty.labour.days === 0 && invoice.warranty.parts.days === 0"
+                                            class="text-center text-muted py-2">
+                                            <i class="bi bi-info-circle me-2"></i>
+                                            No warranty provided for this service
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Service Maintenance -->
+                    <div class="card border mt-3"
+                        *ngIf="invoice.serviceMaintenances && invoice.serviceMaintenances.length > 0">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Next Service Reminder</h6>
+                        </div>
+                        <div class="card-body">
+                            <div *ngFor="let maintenance of invoice.serviceMaintenances" class="mb-2">
+                                <div class="fw-medium text-capitalize">{{ maintenance.serviceType?.replace('_', ' ') }}
+                                </div>
+                                <small class="text-muted">
+                                    Next service at {{ maintenance.nextServiceMileage }} km or by {{
+                                    formatDate(maintenance.nextServiceDate) }}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <!-- Totals -->
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Invoice Summary</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Labour Subtotal:</span>
+                                <span class="fw-bold">{{ formatCurrency(invoice.labourSubtotal || 0) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Parts Subtotal:</span>
+                                <span class="fw-bold">{{ formatCurrency(invoice.partsSubtotal || 0) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                                <span>Subtotal:</span>
+                                <span class="fw-bold">{{ formatCurrency(invoice.subtotal) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2" *ngIf="invoice.taxAmount > 0">
+                                <span>SST (8%):</span>
+                                <span class="fw-bold text-danger">{{ formatCurrency(invoice.taxAmount) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between border-top pt-2 mb-3">
+                                <h5 class="fw-bold">TOTAL:</h5>
+                                <h5 class="fw-bold text-success">{{ formatCurrency(invoice.totalAmount) }}</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center mt-4 pt-3 border-top">
+                <p class="text-muted small mb-1">Thank you for your business</p>
+                <p class="text-muted small">This is an official invoice for services rendered</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="mode === 'view' && !invoice && !loading && !error" class="text-center py-5">
+        <div class="mb-3">
+            <i class="bi bi-receipt display-4 text-muted"></i>
+        </div>
+        <h5 class="text-muted">No Invoice Found</h5>
+        <p class="text-muted">The requested invoice could not be found</p>
+        <button class="btn btn-primary" (click)="goBack()">
+            <i class="bi bi-arrow-left me-1"></i>Back to Bookings
+        </button>
+    </div>
+</div>

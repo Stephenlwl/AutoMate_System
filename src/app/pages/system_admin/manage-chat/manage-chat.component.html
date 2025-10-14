@@ -43,6 +43,7 @@
 
         <div class="d-flex align-items-start gap-3">
           <div class="channel-avatar flex-shrink-0">
+
             <div class="rounded-circle d-flex align-items-center justify-content-center"
               [class]="getChannelAvatarClass(channel.host_by)" style="width: 45px; height: 45px;">
               <i [class]="getChannelIcon(channel.host_by) + ' bi-fw'"></i>
@@ -113,34 +114,67 @@
               </span>
             </div>
           </div>
-          <div class="chat-actions d-flex gap-2">
-            <button class="btn btn-sm btn-outline-primary" title="Call Customer">
-              <i class="bi bi-telephone"></i>
-            </button>
-          </div>
         </div>
       </div>
 
-      <!-- Messages Area -->
       <div class="messages-container flex-grow-1 p-4">
         <div *ngFor="let message of messages" class="message-wrapper mb-3"
           [class.text-end]="message.user?.id === 'admin-support'">
 
           <div class="message-bubble d-inline-block max-w-75">
             <div class="card border-0 shadow-sm" [class.bg-secondary]="message.user?.id === 'admin-support'"
-              [class.bg-white]="message.user?.id !== 'admin-support'">
+              [class.bg-light]="message.user?.id !== 'admin-support'">
               <div class="card-body p-3">
-                <div class="message-content" [class.text-white]="message.user?.id === 'admin-support'">
+                <!-- Text content -->
+                <div class="message-content mb-2" [class.text-white]="message.user?.id === 'admin-support'"
+                  [class.text-dark]="message.user?.id !== 'admin-support'">
                   {{ message.text }}
                 </div>
 
-                <div *ngIf="message.attachments?.length">
-                  <div *ngFor="let attachment of message.attachments" class="mt-2">
-                    <div *ngIf="attachment.type === 'image'" class="mt-2">
-                      <img [src]="attachment.asset_url" [alt]="attachment.title" class="img-fluid rounded" />
+                <!-- Attachments -->
+                <div *ngIf="message.attachments?.length" class="attachments-container">
+                  <div *ngFor="let attachment of message.attachments" class="attachment-item">
+
+                    <!-- Image attachments -->
+                    <div *ngIf="isImageAttachment(attachment)" class="image-attachment">
+                      <div class="image-container position-relative rounded border"
+                        [class.border-secondary]="message.user?.id === 'admin-support'"
+                        [class.border-secondary]="message.user?.id !== 'admin-support'">
+                        <img [src]="getAttachmentUrl(attachment)" [alt]="attachment.title || 'Image'"
+                          class="img-fluid rounded" loading="lazy" (click)="openImageModal(attachment)" />
+                        <div class="image-overlay" (click)="openImageModal(attachment)">
+                          <i class="bi bi-zoom-in text-white"></i>
+                        </div>
+                      </div>
+                      <div *ngIf="attachment.title" class="image-caption small text-muted mt-1 px-1">
+                        {{ attachment.title }}
+                      </div>
                     </div>
-                    <div *ngIf="attachment.type !== 'image'" class="mt-2">
-                      <a [href]="attachment.asset_url" target="_blank">{{ attachment.title || 'File' }}</a>
+
+                    <!-- File attachments -->
+                    <div *ngIf="!isImageAttachment(attachment)" class="file-attachment mt-2">
+                      <div class="d-flex align-items-center p-3 rounded"
+                        [class.bg-secondary]="message.user?.id === 'admin-support'"
+                        [class.bg-white]="message.user?.id !== 'admin-support'"
+                        [class.text-white]="message.user?.id === 'admin-support'"
+                        [class.border]="message.user?.id !== 'admin-support'">
+                        <i class="bi bi-file-earmark-fill me-3"
+                          [class.text-white]="message.user?.id === 'admin-support'"></i>
+                        <div class="flex-grow-1">
+                          <a [href]="getAttachmentUrl(attachment)" target="_blank" class="text-decoration-none d-block"
+                            [class.text-white]="message.user?.id === 'admin-support'"
+                            [class.text-dark]="message.user?.id !== 'admin-support'">
+                            <strong>{{ attachment.title || 'Download file' }}</strong>
+                          </a>
+                          <div *ngIf="attachment.file_size" class="small mt-1"
+                            [class.text-white-50]="message.user?.id === 'admin-support'"
+                            [class.text-muted]="message.user?.id !== 'admin-support'">
+                            {{ formatFileSize(attachment.file_size) }}
+                          </div>
+                        </div>
+                        <i class="bi bi-download ms-2" [class.text-white]="message.user?.id === 'admin-support'"
+                          [class.text-muted]="message.user?.id !== 'admin-support'"></i>
+                      </div>
                     </div>
 
                   </div>
@@ -148,12 +182,33 @@
 
                 <div class="message-meta small mt-2" [class.text-white-50]="message.user?.id === 'admin-support'"
                   [class.text-muted]="message.user?.id !== 'admin-support'">
-                  <span class="message-author">{{ message.user?.name || 'Unknown' }}</span>
+                  <span class="message-author fw-medium">{{ message.user?.name || 'Unknown' }}</span>
                   <span class="message-time ms-2">
-                    <i class="far fa-clock me-1"></i>
+                    <i class="bi bi-clock me-1"></i>
                     {{ formatMessageTime(message.created_at) }}
                   </span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="showImageModal && selectedImage" class="image-modal-backdrop" (click)="closeImageModal()">
+          <div class="modal-container" (click)="$event.stopPropagation()">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h6 class="modal-title">Image Preview</h6>
+                <button type="button" class="close-btn" (click)="closeImageModal()">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+              <div class="modal-body">
+                <img [src]="selectedImage" alt="Preview" class="modal-image" />
+              </div>
+              <div class="modal-footer">
+                <button class="btn btn-sm btn-outline-light" (click)="closeImageModal()">
+                  <i class="bi bi-x-circle me-1"></i>Close
+                </button>
               </div>
             </div>
           </div>

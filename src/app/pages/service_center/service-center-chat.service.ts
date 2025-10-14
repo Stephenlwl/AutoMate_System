@@ -4,6 +4,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { BehaviorSubject, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { AuthService } from './auth/service-center-auth';
+import { Firestore, doc, getDoc } from '@angular/fire/firestore';
 
 interface CustomUserResponse extends UserResponse {
   center_id?: string;
@@ -22,10 +23,12 @@ export interface ChannelData {
     id: string;
     name: string;
     email?: string;
+    avatar?: string;
   };
   center_info?: {
     id: string;
     name: string;
+    avatar?: string;
   };
   service_type?: string;
   emergency_info?: {
@@ -33,6 +36,7 @@ export interface ChannelData {
     reported_at: string;
   };
   unread_count?: number;
+  image?: string;
 }
 
 @Injectable({
@@ -46,21 +50,24 @@ export class ServiceCenterChatService {
   private currentUserSubject = new BehaviorSubject<ChatUser | null>(null);
 
   private authService = inject(AuthService);
+  private firestore = inject(Firestore);
 
   public channels$ = this.channelsSubject.asObservable();
   public selectedChannel$ = this.selectedChannelSubject.asObservable();
   public currentUser$ = this.currentUserSubject.asObservable();
 
-  constructor(private http: HttpClient) { }
+  // Service center properties
+  private serviceCenterId = this.authService.getServiceCenterId();
+  private serviceCenterName = this.authService.getServiceCenterName() || 'Service Center';
+  private serviceCenterAvatar: string | null = null;
 
-  adminData = this.authService.getAdmin();
-  centerId = this.adminData.id;
-  serviceCenterId = this.centerId;
-  serviceCenterName = this.adminData.serviceCenterName || 'Service Center';
+  constructor(private http: HttpClient) { }
 
   // initialize for service center
   async initializeServiceCenter(): Promise<boolean> {
     try {
+      // Load service center avatar from Firestore first
+      await this.loadServiceCenterAvatar();
 
       const tokenResponse = await this.http.post<any>(
         `${this.baseUrl}/service-center/token`,
@@ -68,7 +75,8 @@ export class ServiceCenterChatService {
           userId: this.serviceCenterId,
           name: this.serviceCenterName,
           role: 'service_center',
-          centerId: this.centerId
+          centerId: this.serviceCenterId,
+          avatar: this.serviceCenterAvatar
         }
       ).pipe(
         catchError(this.handleError.bind(this))
@@ -87,8 +95,8 @@ export class ServiceCenterChatService {
         name: this.serviceCenterName,
         custom_type: 'service_center',
         role: 'service_center',
-        image: 'https://i.imgur.com/fR9Jz14.png',
-        center_id: this.centerId
+        image: this.serviceCenterAvatar || undefined,
+        center_id: this.serviceCenterId
       } as CustomUserResponse;
 
       await this.client.connectUser(user, tokenResponse.token);
@@ -96,7 +104,8 @@ export class ServiceCenterChatService {
       this.currentUserSubject.next({
         id: this.serviceCenterId,
         name: this.serviceCenterName,
-        role: 'service_center'
+        role: 'service_center',
+        image: this.serviceCenterAvatar || undefined
       });
 
       console.log('User connected to Stream Chat');
@@ -108,6 +117,68 @@ export class ServiceCenterChatService {
       console.error('Service center chat initialization error:', error);
       return false;
     }
+  }
+
+  // Load service center avatar from Firestore
+  private async loadServiceCenterAvatar(): Promise<void> {
+    try {
+      if (!this.serviceCenterId) {
+        console.warn('Service center ID not available');
+        this.serviceCenterAvatar = this.generateDefaultAvatar(this.serviceCenterName, 'service_center');
+        return;
+      }
+
+      const serviceCenterDocRef = doc(this.firestore, 'service_centers', this.serviceCenterId);
+      const serviceCenterDoc = await getDoc(serviceCenterDocRef);
+
+      if (serviceCenterDoc.exists()) {
+        const data = serviceCenterDoc.data();
+        const photoUrl = data?.['serviceCenterPhoto'] as string;
+
+        if (photoUrl && photoUrl.trim() !== '') {
+          // Handle base64 images
+          if (photoUrl.startsWith('data:image')) {
+            this.serviceCenterAvatar = photoUrl;
+          } 
+          // Handle network images
+          else if (photoUrl.startsWith('http')) {
+            this.serviceCenterAvatar = photoUrl;
+          } else {
+            // If it's not a valid URL or base64, use default avatar
+            this.serviceCenterAvatar = this.generateDefaultAvatar(this.serviceCenterName, 'service_center');
+          }
+        } else {
+          // No photo available, use default avatar
+          this.serviceCenterAvatar = this.generateDefaultAvatar(this.serviceCenterName, 'service_center');
+        }
+      } else {
+        // Document doesn't exist, use default avatar
+        console.warn('Service center document not found:', this.serviceCenterId);
+        this.serviceCenterAvatar = this.generateDefaultAvatar(this.serviceCenterName, 'service_center');
+      }
+    } catch (error) {
+      console.error('Error loading service center avatar:', error);
+      // Fallback to default avatar on error
+      this.serviceCenterAvatar = this.generateDefaultAvatar(this.serviceCenterName, 'service_center');
+    }
+  }
+
+  // Get service center avatar (public method for external use)
+  getServiceCenterAvatar(): string {
+    return this.serviceCenterAvatar || this.generateDefaultAvatar(this.serviceCenterName, 'service_center');
+  }
+
+  private generateDefaultAvatar(name: string, type: string = 'default'): string {
+    const colors = {
+      'admin': '4A90E2',
+      'service_center': 'FF6B00', 
+      'user': '8E44AD',
+      'default': '6C757D'
+    };
+    
+    const color = colors[type as keyof typeof colors] || colors.default;
+    const encodedName = encodeURIComponent(name);
+    return `https://ui-avatars.com/api/?name=${encodedName}&background=${color}&color=fff&size=128&bold=true&length=1`;
   }
 
   private handleError(error: HttpErrorResponse) {
@@ -164,9 +235,13 @@ export class ServiceCenterChatService {
           name: data?.customer_info?.name || data?.name || 'Unknown',
           member_count: data?.member_count || 0,
           last_message_at: data?.last_message_at || new Date().toISOString(),
-          customer_info: data?.customer_info,
+          customer_info: {
+            ...data?.customer_info,
+            avatar: data?.customer_info?.avatar || this.generateCustomerAvatarUrl(data?.customer_info?.name || 'Customer')
+          },
           service_request: data?.service_request,
           unread_count: channel.countUnread(),
+          image: data?.image
         };
       });
 
@@ -194,9 +269,11 @@ export class ServiceCenterChatService {
         members: [currentUser.id, 'admin-support'],
         host_by: 'service_center',
         created_by_id: currentUser.id,
+        image: this.getServiceCenterAvatar(),
         service_center_info: {
           userId: this.serviceCenterId,
           name: this.serviceCenterName,
+          avatar: this.getServiceCenterAvatar()
         }
       };
 
@@ -222,15 +299,23 @@ export class ServiceCenterChatService {
       }
 
       const channelId = `service_${currentUser.id}_${customerId}`;
+      const customerAvatar = this.generateCustomerAvatarUrl(customerName);
 
       const channelData: any = {
         name: customerName, 
         type: 'service',
         members: [currentUser.id, customerId],
         created_by_id: currentUser.id,
+        image: this.getServiceCenterAvatar(),
         customer_info: {
           id: customerId,
-          name: customerName
+          name: customerName,
+          avatar: customerAvatar,
+        },
+        center_info: {
+          id: this.serviceCenterId,
+          name: this.serviceCenterName,
+          avatar: this.getServiceCenterAvatar()
         }
       };
 
@@ -246,6 +331,18 @@ export class ServiceCenterChatService {
       console.error('Error starting customer chat:', error);
       throw error;
     }
+  }
+
+  private generateCustomerAvatarUrl(customerName: string): string {
+    const colors = {
+      'admin': '4A90E2',
+      'service_center': 'FF6B00', 
+      'user': '8E44AD'
+    };
+    
+    const color = colors['user'];
+    const encodedName = encodeURIComponent(customerName);
+    return `https://ui-avatars.com/api/?name=${encodedName}&background=${color}&color=fff&size=128&bold=true&length=2`;
   }
 
   async selectChannel(channelId: string): Promise<void> {

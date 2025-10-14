@@ -1,5 +1,7 @@
 <div class="container mt-4">
-  <h3 class="mb-4 fw-bold text-primary"><i class="bi bi-person-circle"></i> Car Owner Account Validation</h3>
+  <h3 class="mb-4 fw-bold">
+    <span class=" text-primary"><i class="bi bi-person-circle"></i></span> Car Owner Account Validation
+  </h3>
   <hr>
   <!-- Tabs -->
   <ul class="nav nav-pills mb-4">
@@ -22,19 +24,19 @@
 
   <!-- Loading -->
   <div *ngIf="loading" class="text-center py-5">
-    <div class="spinner-border text-primary"></div>
-    <p class="mt-2">Loading Car Owner Accounts...</p>
+    <span class="spinner-border spinner-border-sm text-primary"></span> Loading Car Owner Accounts...
   </div>
 
   <!-- Table -->
   <div *ngIf="!loading">
-    <table class="table table-hover align-middle">
-      <thead class="table-primary">
+    <table class="table table-bordered table-hover align-middle">
+      <thead class="table-secondary">
         <tr>
           <th>Name</th>
           <th>Email</th>
-          <th>Vehicle</th>
-          <th>Plate</th>
+          <th>Vehicle Details</th>
+          <th>Plate Number</th>
+          <th>VIN</th>
           <th>Status</th>
           <th>Documents</th>
           <th>Actions</th>
@@ -44,8 +46,16 @@
         <tr *ngFor="let user of getUsersByTab()">
           <td class="fw-semibold">{{ user.name }}</td>
           <td>{{ user.email }}</td>
-          <td>{{ user.vehicles[0]?.brand }} {{ user.vehicles[0]?.model }} ({{ user.vehicles[0]?.year }})</td>
-          <td>{{ user.vehicles[0]?.plate_number }}</td>
+          <td>
+            <strong>{{ user.vehicles[0]?.make }} {{ user.vehicles[0]?.model }}</strong><br>
+            <small class="text-muted">
+              Year: {{ user.vehicles[0]?.year }} |
+              Fuel: {{ user.vehicles[0]?.fuelType || 'N/A' }} |
+              Engine: {{ user.vehicles[0]?.displacement || 'N/A' }}
+            </small>
+          </td>
+          <td>{{ user.vehicles[0]?.plateNumber }}</td>
+          <td><code>{{ user.vehicles[0]?.vin || 'N/A' }}</code></td>
           <td>
             <span class="badge" [ngClass]="{
                 'bg-warning text-dark': user.verification?.status==='pending',
@@ -54,6 +64,9 @@
               }">
               {{ user.verification?.status | titlecase }}
             </span>
+            <ng-container *ngIf="user.verification?.status==='rejected'">
+              <br><small class="text-muted">Reason: {{ user.verification?.rejectionReason }}</small>
+            </ng-container>
           </td>
           <td>
             <button class="btn btn-sm btn-outline-primary me-2"
@@ -63,7 +76,7 @@
               Selfie
             </button>
             <button class="btn btn-sm btn-outline-info me-2"
-              (click)="openPreview(user.documents?.vocUrl, user.documents?.vocIv, user.documents?.vocType, 'VOC', user.vehicles[0]?.vin)">VOC</button>
+              (click)="openPreview(user.vehicles[0]?.vocUrl, user.vehicles[0]?.vocIv, user.vehicles[0]?.vocType, 'VOC', user.vehicles[0]?.vin)">VOC</button>
           </td>
           <td>
             <ng-container *ngIf="user.verification?.status==='pending'">
@@ -75,13 +88,15 @@
               </button>
             </ng-container>
             <ng-container *ngIf="user.verification?.status==='rejected'">
-              <i class="bi bi-exclamation-circle text-danger"></i>
-              <small class="text-muted">Reason: {{ user.verification?.rejectionReason }}</small>
             </ng-container>
           </td>
         </tr>
       </tbody>
     </table>
+    <div *ngIf="getUsersByTab().length === 0" class="text-center py-5">
+      <i class="bi bi-person-circle text-muted" style="font-size: 3rem;"></i>
+      <p class="text-muted mt-3">No user accounts found for this category.</p>
+    </div>
   </div>
 
   <!-- Modal Preview -->

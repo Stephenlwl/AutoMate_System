@@ -163,7 +163,7 @@ export class ValidateUserAccountsComponent implements OnInit {
       const vehicles = data.vehicles || [];
 
       if (vehicles.length > 0) {
-        vehicles[0] = { ...vehicles[0], status: 'approved' };
+        vehicles[0] = { ...vehicles[0], status: 'approved', approvedAt: new Date() };
       }
 
       await updateDoc(userDoc, {

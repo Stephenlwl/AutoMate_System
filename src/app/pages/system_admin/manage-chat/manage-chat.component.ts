@@ -1,11 +1,56 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AdminChatService, ChannelData } from '../admin-chat.service';
+import { AdminChatService } from '../admin-chat.service';
 import { Channel } from 'stream-chat';
 import { Subscription } from 'rxjs';
-import { Firestore, collection, addDoc, updateDoc, deleteDoc, doc, collectionData, query, where } from '@angular/fire/firestore';
+import { Firestore, collection, addDoc, updateDoc, deleteDoc, doc, collectionData, query, where, getDocs, DocumentData } from '@angular/fire/firestore';
 import { AdminService } from '../auth/system-admin-auth';
+
+interface ServiceCenter {
+  id: string;
+  name: string;
+  isOnline: boolean;
+  responseTime: string;
+  serviceCenterPhoto?: string;
+}
+
+export interface ChannelData {
+  id: string;
+  type: string;
+  name: string;
+  member_count: number;
+  last_message_at: string;
+  host_by: string;
+  custom_type?: string;
+  customer_info?: {
+    id: string;
+    name: string;
+    email?: string;
+    avatar?: string;
+  };
+  center_info?: {
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+  service_type?: string;
+  emergency_info?: {
+    issue: string;
+    reported_at: string;
+  };
+  unread_count?: number;
+  image?: string;
+  
+  // Add the missing properties
+  service_center_id?: string;
+  member_avatar?: string;
+  extraData?: {
+    [key: string]: any;
+    image?: string;
+  };
+  last_message?: string;
+}
 
 @Component({
   selector: 'app-manage-chat',
@@ -29,16 +74,19 @@ export class ManageChatComponent implements OnInit, OnDestroy {
   showDeleteConfirm = false;
   channelToDelete: string | null = null;
   isDeleting = false;
-
+  selectedImage: string | null = null;
+  showImageModal = false;
   private subscriptions: Subscription[] = [];
 
   quickResponses: any[] = [];
+  private serviceCenters: Map<string, ServiceCenter> = new Map();
 
   constructor(private adminChatService: AdminChatService, private firestore: Firestore, private adminService: AdminService) { }
 
   async ngOnInit() {
     this.systemAdminId = this.adminService.getAdminId();
-    this.systemAdminName =this.adminService.getAdminName();
+    this.systemAdminName = this.adminService.getAdminName();
+    await this.loadServiceCenters(); // Load service centers first
     this.loadChannels();
     this.loadQuickResponses();
   }
@@ -87,6 +135,45 @@ export class ManageChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  private async loadServiceCenters() {
+    try {
+      const serviceCentersRef = collection(this.firestore, 'service_centers');
+      const q = query(serviceCentersRef, where('verification.status', '==', 'approved'));
+      const querySnapshot = await getDocs(q);
+
+      for (const doc of querySnapshot.docs) {
+        try {
+          const data = doc.data();
+
+          const serviceCenter: ServiceCenter = {
+            id: doc.id,
+            name: data['serviceCenterName']?.toString() || 'Service Center',
+            isOnline: data['isOnline'] || false,
+            responseTime: data['responseTime']?.toString() || 'Within 24 hours',
+            serviceCenterPhoto: data['serviceCenterPhoto']?.toString() || '',
+          };
+
+          this.serviceCenters.set(doc.id, serviceCenter);
+        } catch (error) {
+          console.error(`Error processing service center ${doc.id}:`, error);
+          // Create basic service center with available data (fallback)
+          const data = doc.data();
+          const fallbackServiceCenter: ServiceCenter = {
+            id: doc.id,
+            name: data['serviceCenterName']?.toString() || 'Service Center',
+            isOnline: false,
+            responseTime: data['responseTime']?.toString() || 'Within 24 hours',
+            serviceCenterPhoto: data['serviceCenterPhoto']?.toString() || '',
+          };
+          this.serviceCenters.set(doc.id, fallbackServiceCenter);
+        }
+      }
+      console.log(`Loaded ${this.serviceCenters.size} service centers`);
+    } catch (error) {
+      console.error('Error loading service centers:', error);
+    }
+  }
+
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.adminChatService.disconnect();
@@ -111,7 +198,6 @@ export class ManageChatComponent implements OnInit, OnDestroy {
       const bTime = new Date(b.last_message_at || 0).getTime();
       return bTime - aTime;
     });
-
   }
 
   async selectChannel(channelId: string) {
@@ -125,20 +211,92 @@ export class ManageChatComponent implements OnInit, OnDestroy {
       messages: { limit: 50 }
     }).then(() => {
       this.messages = [...(this.selectedChannel?.state.messages || []) as any];
+
+      // Process attachments for all loaded messages
+      this.messages.forEach(message => this.processMessageAttachments(message));
     });
+  }
+
+  private processMessageAttachments(message: any) {
+    if (message.attachments && message.attachments.length > 0) {
+      message.attachments.forEach((attachment: any) => {
+        // Ensure attachment has proper url
+        if (attachment.asset_url && !attachment.asset_url.startsWith('http')) {
+          // Handle relative url if needed
+          attachment.asset_url = this.getFullAttachmentUrl(attachment.asset_url);
+        }
+
+        // Detect attachment type if not provided
+        if (!attachment.type) {
+          attachment.type = this.detectAttachmentType(attachment);
+        }
+      });
+    }
+  }
+
+  isImageAttachment(attachment: any): boolean {
+    if (attachment.type === 'image') return true;
+
+    const url = attachment.asset_url || attachment.image_url || attachment.thumb_url;
+    if (!url) return false;
+
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+    const isImageUrl = imageExtensions.some(ext =>
+      url.toLowerCase().includes(ext)
+    );
+
+    return isImageUrl || attachment.mime_type?.startsWith('image/');
+  }
+
+  getAttachmentUrl(attachment: any): string {
+    return attachment.asset_url || attachment.image_url || attachment.thumb_url || '';
+  }
+
+  private getFullAttachmentUrl(url: string): string {
+    if (url.startsWith('http')) {
+      return url;
+    }
+    return url;
+  }
+
+  private detectAttachmentType(attachment: any): string {
+    const url = this.getAttachmentUrl(attachment);
+
+    if (this.isImageAttachment(attachment)) {
+      return 'image';
+    }
+
+    return 'file';
+  }
+
+  formatFileSize(bytes: number): string {
+    if (!bytes) return '';
+
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  openImageModal(attachment: any) {
+    this.selectedImage = this.getAttachmentUrl(attachment);
+    this.showImageModal = true;
+  }
+
+  closeImageModal() {
+    this.selectedImage = null;
+    this.showImageModal = false;
   }
 
   private setupChannelListeners() {
     if (!this.selectedChannel) return;
 
-    // listen for new messages
     this.selectedChannel.on('message.new', (event: any) => {
       if (event.message) {
         this.messages.push(event.message);
+        this.processMessageAttachments(event.message);
       }
     });
 
-    // listen for typing indicators
     this.selectedChannel.on('typing.start', (event: any) => {
       if (event.user?.id !== 'admin-support') {
         this.isTyping = true;
@@ -257,6 +415,7 @@ export class ManageChatComponent implements OnInit, OnDestroy {
     this.adminChatService.selectedChannelSubject.next(null);
   }
 
+  
   getChannelIcon(type: string): string {
     switch (type) {
       case 'service_center': return 'bi bi-building';

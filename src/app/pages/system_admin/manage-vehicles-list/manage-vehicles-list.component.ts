@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { Firestore, collection, getDocs, addDoc, doc, updateDoc, deleteDoc, setDoc } from '@angular/fire/firestore';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { Modal } from 'bootstrap';
+import { Timestamp } from 'firebase/firestore';
+import { AdminService } from '../auth/system-admin-auth';
 
 interface Fitment {
   year: string;
@@ -55,8 +58,11 @@ export class ManageVehiclesListComponent implements OnInit {
   newModels: any[] = [];
   tab: 'current' | 'pending' | 'import' | 'add' = 'current';
   brandSelectionType: 'new' | 'existing' = 'existing';
+  rejectionReason: string = '';
+  selectedRequest: VehicleRequest | null = null;
+  private rejectionModal: any;
 
-  // UI State
+  // ui State
   expandMake: { [key: string]: boolean } = {};
   modelSearch: { [make: string]: string } = {};
   yearFilter: { [make: string]: string } = {};
@@ -68,6 +74,7 @@ export class ManageVehiclesListComponent implements OnInit {
 
   private firestore = inject(Firestore);
   private http = inject(HttpClient);
+  private auth = inject(AdminService);
 
   async ngOnInit() {
     await this.loadVehicles();
@@ -76,6 +83,10 @@ export class ManageVehiclesListComponent implements OnInit {
     this.fetchSizeClasses();
     await this.fetchApiMakes();
   }
+
+  ngAfterViewInit() {
+  this.rejectionModal = new Modal(document.getElementById('rejectionModal')!);
+}
 
   async loadVehicles() {
     const vehiclesRef = collection(this.firestore, 'vehicles_list');
@@ -351,7 +362,7 @@ export class ManageVehiclesListComponent implements OnInit {
         };
       })
       .filter(m => {
-        // keep model if: matches keyword AND has at least 1 fitment left
+        // keep model if matches keyword and has at least 1 fitment left
         const matchesModel = !searchInput || m.name.toLowerCase().includes(searchInput);
         return matchesModel && m.fitments.length > 0;
       });
@@ -427,7 +438,7 @@ export class ManageVehiclesListComponent implements OnInit {
           const existingModel = updatedModels.find(m => m.name.toLowerCase() === newModel.name.toLowerCase());
 
           if (existingModel) {
-            // Only add NEW fitments
+            // Only add new fitments
             for (const f of newModel.fitments) {
               const key = `${f.year}-${f.fuel}-${f.displacement}-${f.sizeClass}`;
               const exists = existingModel.fitments.some(
@@ -439,7 +450,7 @@ export class ManageVehiclesListComponent implements OnInit {
               }
             }
           } else {
-            // Whole model is new → add it
+            // Whole model is new add it
             updatedModels.push({
               ...newModel,
               fitments: newModel.fitments.map(f => ({ ...f, status: 'approved' }))
@@ -481,18 +492,49 @@ export class ManageVehiclesListComponent implements OnInit {
     }
   }
 
-  async rejectRequest(req: VehicleRequest) {
-    try {
-      if (req.id) {
-        await updateDoc(doc(this.firestore, 'vehicle_attribute_requests', req.id), { status: 'rejected' });
-      }
-      alert(`Rejected request for ${req.make}`);
-      await this.loadPendingRequests();
-    } catch (err) {
-      console.error(err);
-      alert('Failed to reject request.');
-    }
+  openRejectModal(req: VehicleRequest) {
+  this.selectedRequest = req;
+  this.rejectionReason = '';
+  this.rejectionModal.show();
+}
+
+ async confirmReject() {
+  if (!this.selectedRequest || !this.rejectionReason?.trim()) {
+    return;
   }
+
+  try {
+    if (this.selectedRequest.id) {
+      await updateDoc(doc(this.firestore, 'vehicle_attribute_requests', this.selectedRequest.id), { 
+        status: 'rejected',
+        rejectionReason: this.rejectionReason.trim(),
+        reviewedAt: Timestamp.now(),
+        reviewedBy: this.auth.getAdminName?.() || 'system'
+      });
+    }
+    
+    this.rejectionModal.hide();
+    
+    // Show success message
+    alert(`Request for ${this.selectedRequest.make} has been rejected.`);
+    
+    // Reload data
+    await this.loadPendingRequests();
+    
+  } catch (err) {
+    console.error('Error rejecting request:', err);
+    alert('Failed to reject request. Please try again.');
+  } finally {
+    this.selectedRequest = null;
+    this.rejectionReason = '';
+  }
+}
+
+cancelReject() {
+  this.selectedRequest = null;
+  this.rejectionReason = '';
+  this.rejectionModal.hide();
+}
 
   // under adding vehicle data to vehicle list tab3
   async openMakeDetails(make: string) {
@@ -678,7 +720,7 @@ export class ManageVehiclesListComponent implements OnInit {
 
           alert(`Added ${make} - ${model.name} (${fitment.year})`);
         } else {
-          // Model not found under this make → add with this fitment
+          // Model not found under this make to add with this fitment
           await updateDoc(doc(this.firestore, 'vehicles_list', existing.id!), {
             model: [...existing.model, { name: model.name, fitments: [fitment] }]
           });
@@ -686,7 +728,7 @@ export class ManageVehiclesListComponent implements OnInit {
           alert(`Added ${make} - ${model.name} (${fitment.year})`);
         }
       } else {
-        // No make → create new doc with this model + fitment
+        // No make to create new doc with this model + fitment
         await addDoc(collection(this.firestore, 'vehicles_list'), {
           make,
           model: [{ name: model.name, fitments: [fitment] }],

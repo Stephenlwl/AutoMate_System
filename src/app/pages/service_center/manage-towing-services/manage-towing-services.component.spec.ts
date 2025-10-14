@@ -1,18 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { ManageTowingServicesComponent } from './manage-towing-services.component';
+import { ServiceCenterTowingServicesComponent } from './manage-towing-services.component';
 
-describe('ManageTowingServicesComponent', () => {
-  let component: ManageTowingServicesComponent;
-  let fixture: ComponentFixture<ManageTowingServicesComponent>;
+describe('ServiceCenterTowingServicesComponent', () => {
+  let component: ServiceCenterTowingServicesComponent;
+  let fixture: ComponentFixture<ServiceCenterTowingServicesComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ManageTowingServicesComponent]
+      imports: [ServiceCenterTowingServicesComponent]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(ManageTowingServicesComponent);
+    fixture = TestBed.createComponent(ServiceCenterTowingServicesComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

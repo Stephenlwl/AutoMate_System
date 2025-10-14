@@ -1,0 +1,1045 @@
+<div class="container">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="h3 fw-bold text-primary mb-1">Service Appointments</h3>
+      <p class="text-muted mb-0">Manage service appointments and workflow</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary" (click)="refreshData()" [disabled]="isLoading('refresh')">
+        <i class="bi" [class]="isLoading('refresh') ? 'spinner-border spinner-border-sm' : 'bi-arrow-clockwise'"></i>
+        {{ isLoading('refresh') ? 'Refreshing...' : 'Refresh' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick Stats Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3" *ngFor="let stat of stats">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-3">
+          <div class="d-flex align-items-center">
+            <div class="flex-grow-1">
+              <h4 class="mb-0 fw-bold" [ngClass]="stat.textClass">{{ stat.count }}</h4>
+              <small class="text-muted">{{ stat.label }}</small>
+            </div>
+            <div class="flex-shrink-0">
+              <div class="p-2 rounded" [ngClass]="stat.bgClass">
+                <i class="bi" [class]="stat.icon"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters Card -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+      <h5 class="card-title mb-0">Filters & Search</h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Status Filter</label>
+          <select class="form-select" [(ngModel)]="statusFilter" (change)="onStatusFilterChange()">
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="assigned">Assigned</option>
+            <option value="in_progress">In Progress</option>
+            <option value="ready_to_collect">Ready for Collection</option>
+            <option value="completed">Completed</option>
+            <option value="declined">Declined</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">From Date</label>
+          <input type="date" class="form-control" [(ngModel)]="dateFrom" (change)="onDateFilterChange()">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">To Date</label>
+          <input type="date" class="form-control" [(ngModel)]="dateTo" (change)="onDateFilterChange()">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Search</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light">
+              <i class="bi bi-search text-muted"></i>
+            </span>
+            <input type="text" class="form-control" placeholder="Customer, vehicle, or service..."
+              [(ngModel)]="searchTerm" (input)="onSearch()">
+          </div>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">&nbsp;</label>
+          <div class="d-grid">
+            <button class="btn btn-outline-secondary" (click)="clearFilters()">
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Filter Buttons -->
+      <div class="mt-3 pt-3 border-top">
+        <div class="d-flex flex-wrap gap-2">
+          <small class="text-muted me-2 align-self-center">Quick Filters:</small>
+          <button class="btn btn-sm btn-outline-primary" (click)="setQuickFilter('today')">
+            <i class="bi bi-calendar-day"></i> Today
+          </button>
+          <button class="btn btn-sm btn-outline-success" (click)="setQuickFilter('tomorrow')">
+            <i class="bi bi-calendar-plus"></i> Tomorrow
+          </button>
+          <button class="btn btn-sm btn-outline-info" (click)="setQuickFilter('this_week')">
+            <i class="bi bi-calendar-week"></i> This Week
+          </button>
+          <button class="btn btn-sm btn-outline-warning" (click)="setQuickFilter('pending_assign')">
+            <i class="bi bi-person-plus"></i> Need Assignment
+          </button>
+          <button class="btn btn-sm btn-outline-danger" (click)="setQuickFilter('ready_to_collect')">
+            <i class="bi bi-car-front"></i> Ready to Collect
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bookings Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3">
+      <h5 class="card-title mb-0">Service Appointments ({{ filteredBookings.length }})</h5>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th width="200">Customer & Vehicle</th>
+            <th width="180">Service Details</th>
+            <th width="120">Date & Time</th>
+            <th width="100">Amount</th>
+            <th width="120">Status</th>
+            <th width="150">Assignment</th>
+            <th width="200" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let booking of filteredBookings; trackBy: trackByBookingId"
+            [ngClass]="{'table-warning': isUrgent(booking)}">
+
+            <!-- Customer & Vehicle -->
+            <td>
+              <div class="d-flex align-items-start">
+                <div class="flex-shrink-0">
+                  <div class="bg-light rounded p-2 me-2">
+                    <i class="bi bi-person-circle text-primary"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1">
+                  <strong class="d-block">{{ booking.customer?.name || 'Unknown Customer' }}</strong>
+                  <small class="text-muted d-block">
+                    <i class="bi bi-car-front me-1"></i>
+                    {{ booking.vehicle?.make }} {{ booking.vehicle?.model }} {{ booking.vehicle?.year }}
+                  </small>
+                  <small class="text-muted d-block">Fuel: {{ booking.vehicle?.fuelType || 'N/A' }}</small>
+                  <small class="text-muted d-block">Displacement: {{ booking.vehicle?.displacement || 'N/A' }}</small>
+                  <small class="text-muted d-block">Size Class: {{ booking.vehicle?.sizeClass || 'N/A' }}</small>
+                  <small class="text-muted d-block">Plate: {{ booking.vehicle?.plateNumber || 'N/A' }}</small>
+                  <small class="text-muted">
+                    <i class="bi bi-speedometer2 me-1"></i>
+                    {{ booking.currentMileage || 'N/A' }} km
+                  </small>
+                </div>
+              </div>
+            </td>
+
+            <!-- Service Details -->
+            <td>
+              <div class="mb-2">
+                <strong class="text-primary">Services:</strong>
+                <div *ngFor="let service of booking.services" class="small">
+                  <i class="bi bi-wrench me-1 text-muted"></i> {{ service.serviceName }}
+                </div>
+                <div *ngFor="let pkg of booking.packages" class="small text-success">
+                  <i class="bi bi-box-seam me-1"></i> {{ pkg.packageName }}
+                </div>
+              </div>
+              <span class="badge" [ngClass]="getUrgencyBadgeClass(booking.urgencyLevel)">
+                <i class="bi" [class]="getUrgencyIcon(booking.urgencyLevel)"></i>
+                {{ booking.urgencyLevel }} Priority
+              </span>
+            </td>
+
+            <!-- Date & Time -->
+            <td>
+              <div class="text-nowrap">
+                <strong>{{ formatDate(booking.scheduledDate) }}</strong>
+                <div class="text-muted small">{{ booking.scheduledTime }}</div>
+                <div class="text-muted small" *ngIf="isToday(booking.scheduledDate)">
+                  <span class="badge bg-info">Today</span>
+                </div>
+              </div>
+            </td>
+
+            <td>
+              <div class="text-end">
+                <!-- Final Amount -->
+                <div *ngIf="booking.invoiceId" class="d-flex flex-column align-items-end">
+                  <span class="fw-bold text-success">
+                    {{ formatCurrency(booking.invoice?.totalAmount || booking.totalEstAmount) }}
+                  </span>
+                  <span class="badge bg-success small mt-1">Final</span>
+                </div>
+
+                <!-- Estimated Amount -->
+                <div *ngIf="!booking.invoiceId" class="d-flex flex-column align-items-end">
+                  <span class="fw-bold text-warning">
+                    {{ booking.totalEstAmountRange || formatCurrency( booking.totalEstAmount) }}
+                  </span>
+                  <span class="badge bg-warning text-dark small mt-1">Est.</span>
+                </div>
+              </div>
+            </td>
+
+            <!-- Status -->
+            <td>
+              <span class="badge d-inline-flex align-items-center {{ getStatusBadgeClass(booking.status) }}">
+                <i class="bi {{ getStatusIcon(booking.status) }} me-1"></i>
+                {{ getStatusText(booking.status) }}
+              </span>
+            </td>
+
+            <!-- Assignment -->
+            <td>
+              <ng-container *ngIf="booking.technician; else noAssign">
+                <div class="d-flex align-items-start">
+                  <div class="flex-shrink-0">
+                    <i class="bi bi-person-badge text-primary"></i>
+                  </div>
+                  <div class="flex-grow-1 ms-2">
+                    <div class="fw-medium">{{ booking.technician.name }}</div>
+                    <small *ngIf="booking.bay" class="text-muted">
+                      <i class="bi bi-geo-alt"></i> {{ booking.bay.name }}
+                    </small>
+                  </div>
+                </div>
+              </ng-container>
+              <ng-template #noAssign>
+                <span class="text-muted">
+                  <i class="bi bi-dash-circle"></i> Not assigned
+                </span>
+              </ng-template>
+            </td>
+
+            <!-- Actions -->
+            <td>
+              <div class="d-flex flex-wrap gap-1 justify-content-center">
+                <!-- Pending -->
+                <button *ngIf="booking.status === 'pending'" class="btn btn-success btn-sm" (click)="confirm(booking)"
+                  [disabled]="isLoading('confirm', booking.id)" title="Confirm Appointment">
+                  <i class="bi"
+                    [class]="isLoading('confirm', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-check-lg'"></i>
+                  {{ isLoading('confirm', booking.id) ? '...' : 'Confirm' }}
+                </button>
+
+                <button *ngIf="booking.status === 'pending'" class="btn btn-outline-danger btn-sm"
+                  (click)="decline(booking)" [disabled]="isLoading('decline', booking.id)" title="Decline Appointment">
+                  <i class="bi"
+                    [class]="isLoading('decline', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-x-lg'"></i>
+                  {{ isLoading('decline', booking.id) ? '...' : 'Decline' }}
+                </button>
+
+                <!-- Confirmed -->
+                <button *ngIf="booking.status === 'confirmed'" class="btn btn-primary btn-sm"
+                  (click)="openAssignModal(booking)" [disabled]="isLoading('assign', booking.id)"
+                  title="Assign Technician & Bay">
+                  <i class="bi"
+                    [class]="isLoading('assign', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-person-plus'"></i>
+                  {{ isLoading('assign', booking.id) ? '...' : 'Assign' }}
+                </button>
+
+                <!-- Assigned -->
+                <button *ngIf="booking.status === 'assigned'" class="btn btn-info btn-sm"
+                  (click)="markInProgress(booking)" [disabled]="isLoading('inProgress', booking.id)"
+                  title="Start Service">
+                  <i class="bi"
+                    [class]="isLoading('inProgress', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-play-circle'"></i>
+                  {{ isLoading('inProgress', booking.id) ? '...' : 'Start' }}
+                </button>
+
+                <!-- In Progress -->
+                <button *ngIf="booking.status === 'in_progress'" class="btn btn-warning btn-sm"
+                  (click)="markReadyForCollection(booking)" [disabled]="isLoading('ready', booking.id)"
+                  title="Mark as Ready for Collection">
+                  <i class="bi"
+                    [class]="isLoading('ready', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-check2-circle'"></i>
+                  {{ isLoading('ready', booking.id) ? '...' : 'Ready' }}
+                </button>
+
+                <!-- Ready to Collect -->
+                <button *ngIf="booking.status === 'ready_to_collect'" class="btn btn-warning btn-sm"
+                  (click)="openInvoice(booking)" [disabled]="isLoading('invoice', booking.id)" title="Generate Invoice">
+                  <i class="bi"
+                    [class]="isLoading('invoice', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-receipt'"></i>
+                  {{ isLoading('invoice', booking.id) ? '...' : 'Invoice' }}
+                </button>
+
+
+                <button *ngIf="booking.status === 'invoice_generated' || booking.status === 'completed'"
+                  class="btn btn-outline-success btn-sm" (click)="openInvoice(booking)" title="View Invoice">
+                  <i class="bi  bi-file-earmark-text"></i> View Invoice
+                </button>
+
+                <!-- Invoice Generated -->
+                <button *ngIf="booking.status === 'invoice_generated' && booking.payment?.status !== 'paid'"
+                  class="btn btn-dark btn-sm" (click)="makePayment(booking)" title="Make Payment">
+                  <i class="bi bi-cash-coin"></i> Make Payment
+                </button>
+
+                <!-- Completed -->
+                <button *ngIf="booking.status === 'completed' && booking.payment?.status === 'paid'"
+                  class="btn btn-outline-info btn-sm" (click)="viewReceipt(booking)" title="View Receipt">
+                  <i class="bi bi-file-earmark-text"></i> View Receipt
+                </button>
+
+                <!-- Always available -->
+                <button class="btn btn-outline-secondary btn-sm" (click)="viewDetails(booking)" title="View Details">
+                  <i class="bi bi-eye"></i> View
+                </button>
+
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="filteredBookings.length === 0 && !loading" class="text-center py-5">
+      <div class="mb-3">
+        <i class="bi bi-calendar-x display-4 text-muted"></i>
+      </div>
+      <h5 class="text-muted">No bookings found</h5>
+      <p class="text-muted">Try adjusting your filters or search criteria</p>
+      <button class="btn btn-primary" (click)="clearFilters()">
+        Clear Filters
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-muted mt-2">Loading appointments...</p>
+    </div>
+  </div>
+
+  <!-- Load More -->
+  <div *ngIf="hasMoreData && !loading" class="text-center mt-4">
+    <button class="btn btn-outline-primary" [disabled]="loadingMore" (click)="loadMoreBookings()">
+      <i class="bi bi-arrow-down" *ngIf="!loadingMore"></i>
+      {{ loadingMore ? 'Loading...' : 'Load More Appointments' }}
+    </button>
+  </div>
+</div>
+
+<!-- Assign Modal -->
+<div class="modal fade" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true"
+  #assignModal>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="assignModalLabel">
+          <i class="bi bi-person-plus me-2"></i>Assign Technician & Bay
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <small>
+            <i class="bi bi-info-circle me-1"></i>
+            Assigning will move the appointment to "Assigned" status
+          </small>
+        </div>
+
+        <form>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Select Technician</label>
+            <select class="form-select" [(ngModel)]="selectedTechnician" name="technician">
+              <option value="">Choose a technician...</option>
+              <option *ngFor="let tech of technicians" [value]="tech.id">
+                {{ tech.name }}
+              </option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Select Service Bay</label>
+            <select class="form-select" [(ngModel)]="selectedBay" name="bay">
+              <option value="">Choose a service bay...</option>
+              <option *ngFor="let bay of bays" [value]="bay.id">
+                {{ bay.name }} - {{ bay.notes || 'No description' }}
+              </option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Additional Notes (Optional)</label>
+            <textarea class="form-control" rows="2" placeholder="Any special instructions..."
+              [(ngModel)]="assignmentNotes" name="notes"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="saveAssignment()"
+          [disabled]="!selectedTechnician || !selectedBay">
+          <i class="bi bi-check-lg me-1"></i>Save Assignment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- View Details Modal -->
+<div class="modal fade" id="viewDetailsModal" tabindex="-1" aria-labelledby="viewDetailsModalLabel" aria-hidden="true"
+  #viewDetailsModal>
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title" id="viewDetailsModalLabel">
+          <i class="bi bi-eye me-2"></i>Appointment Details - {{ selectedBooking?.vehicle?.plateNumber || 'N/A' }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Status & Basic Info Header -->
+        <div class="row mb-4">
+          <div class="col-md-8">
+            <div class="d-flex align-items-center gap-3">
+              <span class="badge d-inline-flex align-items-center {{ getStatusBadgeClass(selectedBooking?.status) }}">
+                <i class="bi {{ getStatusIcon(selectedBooking?.status) }} me-1"></i>
+                {{ getStatusText(selectedBooking?.status) }}
+              </span>
+              <span class="badge bg-secondary" *ngIf="selectedBooking?.urgencyLevel">
+                <i class="bi {{ getUrgencyIcon(selectedBooking?.urgencyLevel) }} me-1"></i>
+                {{ selectedBooking?.urgencyLevel }} Priority
+              </span>
+              <span class="text-muted">Booking ID: {{ selectedBooking?.id }}</span>
+            </div>
+          </div>
+          <div class="col-md-4 text-end">
+            <small class="text-muted">
+              Created: {{ formatDate(selectedBooking?.createdAt) }} at {{ selectedBooking?.createdAt?.toDate() |
+              date:'HH:mm' }}
+            </small>
+          </div>
+        </div>
+
+        <!-- Customer & Vehicle Information -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-person me-1"></i>Customer Information
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-2">
+                  <strong class="d-block">{{ selectedBooking?.customer?.name || 'N/A' }}</strong>
+                  <small class="text-muted">Customer ID: {{ selectedBooking?.userId }}</small>
+                </div>
+                <div class="row small">
+                  <div class="col-12 mb-1">
+                    <i class="bi bi-telephone me-2 text-muted"></i>
+                    {{ selectedBooking?.customer?.phone || 'N/A' }}
+                  </div>
+                  <div class="col-12 mb-1">
+                    <i class="bi bi-envelope me-2 text-muted"></i>
+                    {{ selectedBooking?.customer?.email || 'N/A' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-car-front me-1"></i>Vehicle Information
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-2">
+                  <strong class="d-block">{{ selectedBooking?.vehicle?.make || 'N/A' }} {{
+                    selectedBooking?.vehicle?.model || 'N/A' }}</strong>
+                  <small class="text-muted">Year: {{ selectedBooking?.vehicle?.year || 'N/A' }}</small>
+                </div>
+                <div class="row small">
+                  <div class="col-12 mb-1">
+                    <i class="bi bi-upc-scan me-2 text-muted"></i>
+                    Plate: {{ selectedBooking?.vehicle?.plateNumber || 'N/A' }}
+                  </div>
+                  <div class="col-12 mb-1">
+                    <i class="bi bi-card-text me-2 text-muted"></i>
+                    VIN: {{ selectedBooking?.vehicle?.vin || 'N/A' }}
+                  </div>
+                  <div class="col-12">
+                    <i class="bi bi-speedometer2 me-2 text-muted"></i>
+                    Current Mileage: {{ selectedBooking?.currentMileage || 'N/A' }} km
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Service Details -->
+        <div class="card mb-4">
+          <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0 fw-bold">
+              <i class="bi bi-calendar-check me-1"></i>Service Details
+            </h6>
+            <span class="badge bg-primary">
+              {{ (selectedBooking?.services?.length || 0) + (selectedBooking?.packages?.length || 0) }} items
+            </span>
+          </div>
+          <div class="card-body">
+            <!-- Scheduled Date & Time -->
+            <div class="row mb-3">
+              <div class="col-md-4">
+                <strong>Scheduled Date:</strong> {{ formatDate(selectedBooking?.scheduledDate) }}
+              </div>
+              <div class="col-md-8">
+                <strong>Scheduled Time From: </strong> {{ selectedBooking?.scheduledTime || 'N/A' }} 
+                <strong>Est. Duration: </strong> {{ selectedBooking?.estimatedDuration || 'N/A' }} mins
+              </div>
+            </div>
+
+            <!-- Services -->
+            <div *ngIf="selectedBooking?.services?.length" class="mb-3">
+              <h6 class="fw-bold text-primary mb-2">
+                <i class="bi bi-wrench me-1"></i>Services
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Service Name</th>
+                      <th class="text-end">Labour Fee</th>
+                      <th class="text-end">Part Fee</th>
+                      <th class="text-end">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let service of selectedBooking?.services">
+                      <td>{{ service.serviceName }}</td>
+                      <td class="text-end">{{ getLabourPriceDisplay(service) }}</td>
+                      <td class="text-end">{{ getPartPriceDisplay(service) }}</td>
+                      <td class="text-end fw-bold">{{ getTotalPriceDisplay(service) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Packages -->
+            <div *ngIf="selectedBooking?.packages?.length" class="mb-3">
+              <h6 class="fw-bold text-success mb-2">
+                <i class="bi bi-box-seam me-1"></i>Packages
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Package Name</th>
+                      <th class="text-end">Labour Fee</th>
+                      <th class="text-end">Part Fee</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let pkg of selectedBooking?.packages">
+                      <td>{{ pkg.packageName || pkg.name }} |
+                        <div *ngIf="pkg.services?.length">
+                          <p class="fw-semibold text-muted mb-2">Included Services:</p>
+                          <ul class="list-group list-group-flush">
+                            <li
+                              class="list-group-item d-flex justify-content-between align-items-center py-1 px-0 border-0"
+                              *ngFor="let service of pkg.services">
+                              <span>
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                {{ service.serviceName || service.name }}
+                              </span>
+                              <small class="text-muted">Included</small>
+                            </li>
+                          </ul>
+                        </div>
+                        <div *ngIf="!pkg.services?.length" class="text-muted">
+                          <i class="bi bi-info-circle me-1"></i>No service details available for this package
+                        </div>
+                      </td>
+                      <td class="text-end">{{ getLabourPriceDisplay(pkg) }}</td>
+                      <td class="text-end">{{ getPartPriceDisplay(pkg) }}</td>
+                      <td class="text-end">{{ getTotalPriceDisplay(pkg) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Total Amount -->
+            <div class="alert alert-light border">
+              <div class="alert alert-light border">
+               <div class="d-flex justify-content-between align-items-center">
+                <strong class="text-muted">Subtotal:</strong>
+                <strong class="text-danger fs-5">{{ selectedBooking?.subtotalRange ||
+                  formatCurrency(selectedBooking?.subtotal) }}</strong>
+              </div>
+               <div class="d-flex justify-content-between align-items-center">
+                <strong class="text-muted">SST (8%):</strong>
+                <strong class="text-danger fs-5">{{ selectedBooking?.sstRange ||
+                  formatCurrency(selectedBooking?.sst) }}</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <strong class="text-muted">Estimated Total Amount:</strong>
+                <strong class="text-primary fs-5">{{ selectedBooking?.totalEstAmountRange ||
+                  formatCurrency(selectedBooking?.totalEstAmount) }}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Assignment Information -->
+        <div class="card mb-4" *ngIf="selectedBooking?.technician || selectedBooking?.bay">
+          <div class="card-header bg-light">
+            <h6 class="card-title mb-0 fw-bold">
+              <i class="bi bi-person-gear me-1"></i>Assignment Information
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6">
+                <h6 class="fw-semibold text-muted mb-2">Technician</h6>
+                <div class="d-flex align-items-center mb-2" *ngIf="selectedBooking?.technician">
+                  <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+                    <i class="bi bi-person-badge text-primary"></i>
+                  </div>
+                  <div>
+                    <strong class="d-block">{{ selectedBooking?.technician?.name }}</strong>
+                  </div>
+                </div>
+                <p class="text-muted mb-0" *ngIf="!selectedBooking?.technician">
+                  <i class="bi bi-dash-circle me-1"></i>Not assigned
+                </p>
+              </div>
+              <div class="col-md-6">
+                <h6 class="fw-semibold text-muted mb-2">Service Bay</h6>
+                <div class="d-flex align-items-center mb-2" *ngIf="selectedBooking?.bay">
+                  <div class="bg-success bg-opacity-10 rounded p-2 me-3">
+                    <i class="bi bi-geo-alt text-success"></i>
+                  </div>
+                  <div>
+                    <strong class="d-block">{{ selectedBooking?.bay?.name }}</strong>
+                    <small class="text-muted">{{ selectedBooking?.bay?.notes || 'No Description' }}</small>
+                  </div>
+                </div>
+                <p class="text-muted mb-0" *ngIf="!selectedBooking?.bay">
+                  <i class="bi bi-dash-circle me-1"></i>Not assigned
+                </p>
+              </div>
+            </div>
+
+            <!-- Bay Reservation Info -->
+            <div *ngIf="selectedBooking?.bayReservedInfo" class="mt-3 p-3 bg-light rounded">
+              <h6 class="fw-semibold text-muted mb-2">Reservation Details</h6>
+              <div class="row small">
+                <div class="col-md-4" *ngIf="selectedBooking?.scheduledTime">
+                  <strong>Start Time:</strong><br>
+                  {{ selectedBooking?.scheduledDate }} - {{ selectedBooking?.scheduledTime }}
+                </div>
+                <div class="col-md-4" *ngIf="selectedBooking?.technician">
+                  <strong>Assigned Technician:</strong><br>
+                  {{ selectedBooking?.technician }}
+                </div>
+                <div class="col-md-4" *ngIf="selectedBooking?.bay">
+                  <strong>Assigned Bay:</strong><br>
+                  {{ selectedBooking?.bay }}
+                </div>
+              </div>
+              <div class="mt-2" *ngIf="selectedBooking?.additionalNotes">
+                <strong>Notes:</strong> {{ selectedBooking?.additionalNotes }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Invoice & Payment Information -->
+        <div class="card mb-4" *ngIf="selectedBooking?.invoiceId || selectedBooking?.invoice">
+          <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h6 class="card-title mb-0 fw-bold">
+              <i class="bi bi-receipt me-1"></i>Invoice & Payment
+            </h6>
+            <span class="badge" [ngClass]="{
+      'bg-success': selectedBooking?.invoice?.payment?.status === 'paid',
+      'bg-warning': selectedBooking?.invoice?.payment?.status === 'pending' || selectedBooking?.invoice?.payment?.status === 'unpaid',
+      'bg-danger': selectedBooking?.invoice?.payment?.status === 'failed',
+      'bg-info': selectedBooking?.invoice?.status === 'generated',
+      'bg-primary': selectedBooking?.invoice?.payment?.status === 'partial'
+    }">
+              {{ (selectedBooking?.invoice?.payment?.status || selectedBooking?.invoice?.status || 'generated') |
+              titlecase }}
+            </span>
+          </div>
+          <div class="card-body">
+
+            <!-- Quick Summary -->
+            <div class="row mb-4">
+              <div class="col-md-4">
+                <div class="border-end pe-3">
+                  <div class="text-muted small">Invoice No.</div>
+                  <div class="fw-bold">{{ selectedBooking?.invoice?.invoiceId || 'N/A' }}</div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="border-end pe-3">
+                  <div class="text-muted small">Invoice Date</div>
+                  <div class="fw-bold">{{ formatDate(selectedBooking?.invoice?.createdAt) }}</div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="text-muted small">Payment Method</div>
+                <div class="fw-bold">{{ (selectedBooking?.invoice?.payment?.method | titlecase) || 'Not Specified' }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Financial Summary -->
+            <div class="row mb-4">
+              <div class="col-md-3 text-center">
+                <div class="text-muted small">Labour</div>
+                <div class="fw-bold text-primary">{{ formatCurrency(selectedBooking?.invoice?.labourSubtotal || 0) }}
+                </div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="text-muted small">Parts</div>
+                <div class="fw-bold text-success">{{ formatCurrency(selectedBooking?.invoice?.partsSubtotal || 0) }}
+                </div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="text-muted small">Tax</div>
+                <div class="fw-bold text-danger">{{ formatCurrency(selectedBooking?.invoice?.taxAmount || 0) }}</div>
+              </div>
+              <div class="col-md-3 text-center">
+                <div class="text-muted small">Total</div>
+                <div class="fw-bold fs-5 text-muted">{{ formatCurrency(selectedBooking?.invoice?.totalAmount || 0) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment Status -->
+            <div class="alert alert-light border mb-4">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>Payment Status:</strong>
+                  <span class="badge ms-2" [ngClass]="{
+            'bg-success': selectedBooking?.invoice?.payment?.status === 'paid',
+            'bg-warning': selectedBooking?.invoice?.payment?.status === 'pending' || selectedBooking?.invoice?.payment?.status === 'unpaid',
+            'bg-danger': selectedBooking?.invoice?.payment?.status === 'failed',
+            'bg-primary': selectedBooking?.invoice?.payment?.status === 'partial'
+          }">
+                    {{ (selectedBooking?.invoice?.payment?.status | titlecase) || 'Unpaid' }}
+                  </span>
+                </div>
+                <div *ngIf="selectedBooking?.invoice?.payment?.paidAt">
+                  <strong>Paid On:</strong> {{ formatDate(selectedBooking?.invoice?.payment?.paidAt) }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Services Summary -->
+            <div class="row mb-3">
+              <div class="col-12">
+                <h6 class="fw-bold text-muted border-bottom pb-2">Services Summary</h6>
+
+                <!-- Booked Services -->
+                <div *ngIf="selectedBooking?.invoice?.bookedServices?.length" class="mb-2">
+                  <div class="d-flex justify-content-between">
+                    <span class="text-muted">
+                      <i class="bi bi-wrench me-1"></i>Booked Services ({{
+                      selectedBooking?.invoice?.bookedServices?.length }})
+                    </span>
+                    <span class="fw-bold">{{ formatCurrency(getBookedServicesTotal()) }}</span>
+                  </div>
+                </div>
+
+                <!-- Package Services -->
+                <div *ngIf="selectedBooking?.invoice?.packageServices?.length" class="mb-2">
+                  <div class="d-flex justify-content-between">
+                    <span class="text-muted">
+                      <i class="bi bi-box-seam me-1"></i>Package Services ({{
+                      selectedBooking?.invoice?.packageServices?.length }})
+                    </span>
+                    <span class="fw-bold">{{ formatCurrency(getPackageServicesTotal()) }}</span>
+                  </div>
+                </div>
+
+                <!-- Additional Services -->
+                <div *ngIf="selectedBooking?.invoice?.additionalServices?.length" class="mb-2">
+                  <div class="d-flex justify-content-between">
+                    <span class="text-muted">
+                      <i class="bi bi-plus-circle me-1"></i>Additional Services ({{
+                      selectedBooking?.invoice?.additionalServices?.length }})
+                    </span>
+                    <span class="fw-bold">{{ formatCurrency(getAdditionalServicesTotal()) }}</span>
+                  </div>
+                </div>
+
+                <!-- Standalone Parts -->
+                <div *ngIf="selectedBooking?.invoice?.standaloneParts?.length" class="mb-2">
+                  <div class="d-flex justify-content-between">
+                    <span class="text-muted">
+                      <i class="bi bi-gear me-1"></i>Standalone Parts ({{
+                      selectedBooking?.invoice?.standaloneParts?.length }})
+                    </span>
+                    <span class="fw-bold">{{ formatCurrency(getStandalonePartsTotal()) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mileage Information -->
+            <div class="row mb-3" *ngIf="selectedBooking?.invoice?.mileage">
+              <div class="col-12">
+                <h6 class="fw-bold text-muted border-bottom pb-2">Vehicle Mileage</h6>
+                <div class="row text-center">
+                  <div class="col-md-6">
+                    <div class="text-muted small">Before Service</div>
+                    <div class="fw-bold">{{ selectedBooking?.invoice?.mileage?.beforeService || 'N/A' }} km</div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="text-muted small">After Service</div>
+                    <div class="fw-bold">{{ selectedBooking?.invoice?.mileage?.afterService || 'N/A' }} km</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment Method Specific Details -->
+            <div *ngIf="selectedBooking?.invoice?.payment?.method" class="mt-3 p-3 bg-light rounded">
+              <h6 class="fw-bold text-muted mb-2">Payment Details</h6>
+              <div class="row">
+                <!-- Card Payment -->
+                <div *ngIf="selectedBooking?.invoice?.payment?.method === 'card'" class="col-12">
+                  <div class="row">
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.cardLastFour">
+                      <strong>Card Number:</strong><br>
+                      **** **** **** {{ selectedBooking?.invoice?.payment?.cardLastFour }}
+                    </div>
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.transactionId">
+                      <strong>Transaction ID:</strong><br>
+                      {{ selectedBooking?.invoice?.payment?.transactionId }}
+                    </div>
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.authorizationCode">
+                      <strong>Auth Code:</strong><br>
+                      {{ selectedBooking?.invoice?.payment?.authorizationCode }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- E-Wallet Payment -->
+                <div *ngIf="selectedBooking?.invoice?.payment?.method === 'ewallet'" class="col-12">
+                  <div class="row">
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.ewalletProvider">
+                      <strong>Provider:</strong><br>
+                      {{ selectedBooking?.invoice?.payment?.ewalletProvider }}
+                    </div>
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.ewalletTransactionId">
+                      <strong>Transaction ID:</strong><br>
+                      {{ selectedBooking?.invoice?.payment?.ewalletTransactionId }}
+                    </div>
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.ewalletPhone">
+                      <strong>Phone:</strong><br>
+                      {{ selectedBooking?.invoice?.payment?.ewalletPhone }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bank Transfer -->
+                <div *ngIf="selectedBooking?.invoice?.payment?.method === 'bank_transfer'" class="col-12">
+                  <div class="row">
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.bankName">
+                      <strong>Bank Name:</strong><br>
+                      {{ selectedBooking?.invoice?.payment?.bankName }}
+                    </div>
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.bankReference">
+                      <strong>Reference:</strong><br>
+                      {{ selectedBooking?.invoice?.payment?.bankReference }}
+                    </div>
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.bankTransactionDate">
+                      <strong>Transfer Date:</strong><br>
+                      {{ formatDate(selectedBooking?.invoice?.payment?.bankTransactionDate) }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cash Payment -->
+                <div *ngIf="selectedBooking?.invoice?.payment?.method === 'cash'" class="col-12">
+                  <div class="row">
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.cashTendered">
+                      <strong>Cash Tendered:</strong><br>
+                      {{ formatCurrency(selectedBooking?.invoice?.payment?.cashTendered) }}
+                    </div>
+                    <div class="col-md-4" *ngIf="selectedBooking?.invoice?.payment?.cashChange">
+                      <strong>Change:</strong><br>
+                      {{ formatCurrency(selectedBooking?.invoice?.payment?.cashChange) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Warranty Information -->
+            <div *ngIf="selectedBooking?.invoice?.warranty" class="mt-3">
+              <h6 class="fw-bold text-muted mb-2">Warranty Information</h6>
+              <div class="row">
+                <div class="col-md-6" *ngIf="selectedBooking?.invoice?.warranty?.labour">
+                  <div class="card h-100">
+                    <div class="card-header bg-light">
+                      <h6 class="card-title mb-0">Labour Warranty</h6>
+                    </div>
+                    <div class="card-body">
+                      <p><strong>Duration:</strong> {{ selectedBooking?.invoice?.warranty?.labour?.days }} days</p>
+                      <p><strong>Start Date:</strong> {{
+                        formatDate(selectedBooking?.invoice?.warranty?.labour?.startDate) }}</p>
+                      <p *ngIf="selectedBooking?.invoice?.warranty?.labour?.endDate">
+                        <strong>End Date:</strong> {{ formatDate(selectedBooking?.invoice?.warranty?.labour?.endDate) }}
+                      </p>
+                      <p *ngIf="selectedBooking?.invoice?.warranty?.labour?.notes">
+                        <strong>Notes:</strong> {{ selectedBooking?.invoice?.warranty?.labour?.notes }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6" *ngIf="selectedBooking?.invoice?.warranty?.parts">
+                  <div class="card h-100">
+                    <div class="card-header bg-light">
+                      <h6 class="card-title mb-0">Parts Warranty</h6>
+                    </div>
+                    <div class="card-body">
+                      <p><strong>Duration:</strong> {{ selectedBooking?.invoice?.warranty?.parts?.days }} days</p>
+                      <p><strong>Start Date:</strong> {{
+                        formatDate(selectedBooking?.invoice?.warranty?.parts?.startDate) }}</p>
+                      <p *ngIf="selectedBooking?.invoice?.warranty?.parts?.endDate">
+                        <strong>End Date:</strong> {{ formatDate(selectedBooking?.invoice?.warranty?.parts?.endDate) }}
+                      </p>
+                      <p *ngIf="selectedBooking?.invoice?.warranty?.parts?.notes">
+                        <strong>Notes:</strong> {{ selectedBooking?.invoice?.warranty?.parts?.notes }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment Notes -->
+            <div *ngIf="selectedBooking?.invoice?.payment?.notes" class="mt-2 p-2 bg-light rounded">
+              <strong>Payment Notes:</strong> {{ selectedBooking?.invoice?.payment?.notes }}
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-clock-history me-1"></i>Status History
+                </h6>
+              </div>
+              <div class="card-body">
+                <div *ngIf="selectedBooking?.statusHistory?.length > 0; else noHistory">
+                  <div *ngFor="let history of selectedBooking?.statusHistory" class="mb-3 pb-3 border-bottom">
+                    <div class="d-flex justify-content-between">
+                      <span class="badge {{ getStatusBadgeClass(history.status) }} small">
+                        {{ getStatusText(history.status) }}
+                      </span>
+                      <small class="text-muted">{{ formatDateTime(history.timestamp) }}</small>
+                    </div>
+                    <div class="small text-muted mt-1">
+                      <div>By: {{ history.updatedBy || 'System' }}</div>
+                      <div *ngIf="history.notes">{{ history.notes }}</div>
+                    </div>
+                  </div>
+                </div>
+                <ng-template #noHistory>
+                  <p class="text-muted mb-0">No status history available</p>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-calendar-event me-1"></i>Timestamps
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="small">
+                  <div class="mb-2">
+                    <strong>Requested:</strong> {{ formatDateTime(selectedBooking?.timestamps?.requestedAt) }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedBooking?.timestamps?.acceptedAt">
+                    <strong>Accepted:</strong> {{ formatDateTime(selectedBooking?.timestamps?.acceptedAt) }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedBooking?.timestamps?.dispatchedAt">
+                    <strong>Dispatched:</strong> {{ formatDateTime(selectedBooking?.timestamps?.dispatchedAt) }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedBooking?.timestamps?.driverAssignedAt">
+                    <strong>Driver Assigned:</strong> {{ formatDateTime(selectedBooking?.timestamps?.driverAssignedAt)
+                    }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedBooking?.timestamps?.arrivedAtLocationAt">
+                    <strong>Arrived at Location:</strong> {{
+                    formatDateTime(selectedBooking?.timestamps?.arrivedAtLocationAt) }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedBooking?.timestamps?.serviceStartedAt">
+                    <strong>Service Started:</strong> {{ formatDateTime(selectedBooking?.timestamps?.serviceStartedAt)
+                    }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedBooking?.timestamps?.completedAt">
+                    <strong>Completed:</strong> {{ formatDateTime(selectedBooking?.timestamps?.completedAt) }}
+                  </div>
+                  <div class="mb-0">
+                    <strong>Last Updated:</strong> {{ formatDateTime(selectedBooking?.updatedAt) }}
+                  </div>
+                  <div class="mt-2">
+                    <strong>Updated By:</strong> {{ selectedBooking?.statusUpdatedBy || 'N/A' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle me-1"></i>Close
+        </button>
+        <button type="button" class="btn btn-primary" *ngIf="canAssign(selectedBooking)"
+          (click)="openAssignModal(selectedBooking)">
+          <i class="bi bi-person-plus me-1"></i>Assign
+        </button>
+        <button type="button" class="btn btn-success" *ngIf="canComplete(selectedBooking)"
+          (click)="openInvoice(selectedBooking)">
+          <i class="bi bi-receipt me-1"></i>Create Invoice
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

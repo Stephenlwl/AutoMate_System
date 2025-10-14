@@ -24,17 +24,15 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
   messages: any[] = [];
   newMessage = '';
   selectedFilter = 'all';
-  isTyping = false;
+  isTyping: string | boolean = false;
   showQuickResponses = true;
   showDeleteConfirm = false;
   channelToDelete: string | null = null;
   isDeleting = false;
   currentUser: ChatUser | null = null;
+  selectedImage: string | null = null;
+  showImageModal = false;
 
-  // new chat modal
-  showNewChatModal = false;
-  newChatCustomerId = '';
-  newChatCustomerName = '';
   newChatServiceRequestId = '';
   quickResponses: any[] = [];
   private subscriptions: Subscription[] = [];
@@ -43,9 +41,8 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
   constructor(private chatService: ServiceCenterChatService, private firestore: Firestore, private authService: AuthService) { }
 
   async ngOnInit() {
-    this.serviceCenterId = this.auth.getAdmin().id;
-    this.serviceCenterName = this.auth.getAdmin().name;
-    // initialize the chat service
+    this.serviceCenterId = this.auth.getServiceCenterId();
+    this.serviceCenterName = this.auth.getServiceCenterName();
     this.loadChannels();
     this.loadQuickResponses();
   }
@@ -108,10 +105,6 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     return this.channels.length;
   }
 
-  get adminChannelsCount(): number {
-    return this.channels.filter(c => c.host_by === 'admin_support').length;
-  }
-
   filterChannels(type: string) {
     this.selectedFilter = type;
 
@@ -129,16 +122,122 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     });
   }
 
+  async selectChannel(channelId: string) {
+    await this.chatService.selectChannel(channelId);
+  }
+
+  private loadMessages() {
+    if (!this.selectedChannel) return;
+
+    this.selectedChannel.query({
+      messages: { limit: 50 }
+    }).then(() => {
+      this.messages = [...(this.selectedChannel?.state.messages || []) as any];
+      this.processMessageAttachments(this.messages);
+    });
+  }
+
+  private processMessageAttachments(messages: any[]) {
+    messages.forEach(message => {
+      if (message.attachments && message.attachments.length > 0) {
+        message.attachments.forEach((attachment: any) => {
+          if (attachment.asset_url && !attachment.asset_url.startsWith('http')) {
+            attachment.asset_url = this.getFullAttachmentUrl(attachment.asset_url);
+          }
+          if (!attachment.type) {
+            attachment.type = this.detectAttachmentType(attachment);
+          }
+        });
+      }
+    });
+  }
+
+  isImageAttachment(attachment: any): boolean {
+    if (attachment.type === 'image') return true;
+
+    const url = attachment.asset_url || attachment.image_url || attachment.thumb_url;
+    if (!url) return false;
+
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
+    const isImageUrl = imageExtensions.some(ext =>
+      url.toLowerCase().includes(ext)
+    );
+
+    return isImageUrl || attachment.mime_type?.startsWith('image/');
+  }
+
+  getAttachmentUrl(attachment: any): string {
+    return attachment.asset_url || attachment.image_url || attachment.thumb_url || '';
+  }
+
+  private getFullAttachmentUrl(url: string): string {
+    if (url.startsWith('http')) {
+      return url;
+    }
+    return url;
+  }
+
+  private detectAttachmentType(attachment: any): string {
+    const url = this.getAttachmentUrl(attachment);
+
+    if (this.isImageAttachment(attachment)) {
+      return 'image';
+    }
+
+    return 'file';
+  }
+
+  formatFileSize(bytes: number): string {
+    if (!bytes) return '';
+
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  openImageModal(attachment: any) {
+    this.selectedImage = this.getAttachmentUrl(attachment);
+    this.showImageModal = true;
+  }
+
+  closeImageModal() {
+    this.selectedImage = null;
+    this.showImageModal = false;
+  }
+
+  private setupChannelListeners() {
+    if (!this.selectedChannel) return;
+
+    // Listen for new messages
+    this.selectedChannel.on('message.new', (event: any) => {
+      if (event.message) {
+        this.messages.push(event.message);
+        this.processMessageAttachments([event.message]);
+      }
+    });
+
+    // Listen for typing indicators
+    this.selectedChannel.on('typing.start', (event: any) => {
+      if (event.user?.id !== this.currentUser?.id) {
+        this.isTyping = event.user?.id === 'admin-support' ? 'admin-support' : 'customer';
+      }
+    });
+
+    this.selectedChannel.on('typing.stop', (event: any) => {
+      if (event.user?.id !== this.currentUser?.id) {
+        this.isTyping = false;
+      }
+    });
+  }
+
   async onFileSelected(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
     if (!this.selectedChannel) return;
 
     try {
-      // upload the file
       const { file: uploadedUrl } = await this.selectedChannel.sendFile(file, file.name);
 
-      // Send a message with the uploaded file as an attachment
       await this.selectedChannel.sendMessage({
         text: `File uploaded: ${file.name}`,
         attachments: [
@@ -164,7 +263,13 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     const text = prompt('Enter a new quick response:');
     if (text) {
       const quickResponsesRef = collection(this.firestore, 'quick_responses');
-      addDoc(quickResponsesRef, { uploadedUserId: this.serviceCenterId, text, createdAt: new Date(), updatedAt: new Date(), createdBy: this.serviceCenterName });
+      addDoc(quickResponsesRef, {
+        uploadedUserId: this.serviceCenterId,
+        text,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: this.serviceCenterName
+      });
     }
   }
 
@@ -187,45 +292,14 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     this.selectedChannel = null;
     this.selectedChannelData = null;
     this.messages = [];
-  }
-
-  // start a new chat with a customer
-  async startNewCustomerChat() {
-    if (!this.newChatCustomerId || !this.newChatCustomerName) return;
-
-    try {
-      // Use the chatService method
-      const channel = await this.chatService.startCustomerChat(
-        this.newChatCustomerId,
-        this.newChatCustomerName,
-        this.newChatServiceRequestId
-      );
-
-      this.showNewChatModal = false;
-      this.newChatCustomerId = '';
-      this.newChatCustomerName = '';
-      this.newChatServiceRequestId = '';
-
-      // select the new channel
-      const channelId = channel.id;
-      if (!channelId) {
-        console.error('Cannot select channel: Channel ID is undefined');
-        return;
-      }
-
-      await this.selectChannel(channelId);
-    } catch (error) {
-      console.error('Error starting new customer chat:', error);
-    }
+    this.chatService.selectChannel(null as any);
   }
 
   // start chat with admin
   async startAdminChat() {
     try {
-      // Use the chatService method
       const channel = await this.chatService.startAdminChat();
 
-      // Select the new channel
       const channelId = channel.id;
       if (!channelId) {
         console.error('Cannot select channel: Channel ID is undefined');
@@ -236,11 +310,6 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error starting admin chat:', error);
     }
-  }
-
-  // Select a channel
-  async selectChannel(channelId: string) {
-    await this.chatService.selectChannel(channelId);
   }
 
   // Send message
@@ -254,7 +323,6 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
         return;
       }
 
-      // Use the chatService method
       await this.chatService.sendMessage(channelId, this.newMessage);
       this.newMessage = '';
     } catch (error) {
@@ -264,7 +332,7 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
 
   confirmDeleteChannel(channelId: string, event?: Event) {
     if (event) {
-      event.stopPropagation(); // for preventing channel selection
+      event.stopPropagation();
     }
     this.channelToDelete = channelId;
     this.showDeleteConfirm = true;
@@ -290,46 +358,41 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Load messages
-  private loadMessages() {
-    if (!this.selectedChannel) return;
+  getChannelAvatar(channel: ChannelData): string {
+    if (channel.host_by === 'user' && channel.customer_info?.avatar) {
+      return channel.customer_info.avatar;
+    } else if (channel.host_by === 'admin_support') {
+      return this.generateDefaultAvatar('Admin Support', 'admin');
+    } else if (channel.host_by === 'service_center' && channel.center_info?.avatar) {
+      return channel.center_info.avatar;
+    }
 
-    this.selectedChannel.query({
-      messages: { limit: 50 }
-    }).then(() => {
-      this.messages = [...(this.selectedChannel?.state.messages || []) as any];
-    });
+    return this.generateDefaultAvatar(channel.name || this.getChannelTypeLabel(channel.host_by), channel.host_by);
   }
 
-  // Setup channel listeners
-  private setupChannelListeners() {
-    if (!this.selectedChannel) return;
+  private generateDefaultAvatar(name: string, type: string = 'default'): string {
+    const colors = {
+      'admin': '4A90E2',
+      'service_center': 'FF6B00',
+      'user': '8E44AD',
+      'default': '6C757D'
+    };
 
-    // Listen for new messages
-    this.selectedChannel.on('message.new', (event: any) => {
-      if (event.message) {
-        this.messages.push(event.message);
-      }
-    });
+    const color = colors[type as keyof typeof colors] || colors.default;
+    const encodedName = encodeURIComponent(name);
+    return `https://ui-avatars.com/api/?name=${encodedName}&background=${color}&color=fff&size=128&bold=true&length=1`;
+  }
 
-    // Listen for typing indicators
-    this.selectedChannel.on('typing.start', (event: any) => {
-      if (event.user?.id !== this.currentUser?.id) {
-        this.isTyping = true;
-      }
-    });
-
-    this.selectedChannel.on('typing.stop', (event: any) => {
-      if (event.user?.id !== this.currentUser?.id) {
-        this.isTyping = false;
-      }
-    });
+  handleAvatarError(event: Event, channel: ChannelData) {
+    const img = event.target as HTMLImageElement;
+    img.src = this.generateDefaultAvatar(channel.name || this.getChannelTypeLabel(channel.host_by), channel.host_by);
   }
 
   getChannelIcon(type: string): string {
     switch (type) {
       case 'admin_support': return 'bi bi-headset';
-      case 'user': return 'bi bi-person-circle';
+      case 'user': return 'bi bi-person';
+      case 'service_center': return 'bi bi-building';
       default: return 'bi bi-chat';
     }
   }
@@ -338,7 +401,26 @@ export class ServiceCenterChatComponent implements OnInit, OnDestroy {
     switch (type) {
       case 'admin_support': return 'Admin Support';
       case 'user': return 'Customer';
+      case 'service_center': return 'Service Center';
       default: return 'Chat';
+    }
+  }
+
+  getChannelAvatarClass(type: string): string {
+    switch (type) {
+      case 'admin_support': return 'bg-support text-white';
+      case 'user': return 'bg-user text-white';
+      case 'service_center': return 'bg-service text-white';
+      default: return 'bg-default text-white';
+    }
+  }
+
+  getChannelBadgeClass(type: string): string {
+    switch (type) {
+      case 'admin_support': return 'badge-support';
+      case 'user': return 'badge-service';
+      case 'service_center': return 'badge-primary';
+      default: return 'badge-default';
     }
   }
 

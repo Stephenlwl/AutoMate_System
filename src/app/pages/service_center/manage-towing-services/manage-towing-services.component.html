@@ -1,19 +1,175 @@
- <h3>Towing Service</h3>
-  <div *ngIf="loaded" class="card p-3 shadow-sm">
-    <div class="form-check form-switch mb-3">
-      <input class="form-check-input" type="checkbox" [checked]="form.value.offers" (change)="toggle($event)">
-      <label class="form-check-label">Offers Towing</label>
+<div class="container">
+  <h3 class="mb-3"><i class="bi bi-gear-fill me-2 text-primary"></i>
+    Manage Towing Services
+  </h3>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="text-center my-5">
+    <span class="spinner-border spinner-border-sm me-2"></span> Loading Towing Services...
+  </div>
+
+  <div *ngIf="!loading">
+    <div *ngIf="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
+
+    <!-- If no towing driver -->
+    <div *ngIf="!hasApprovedDriver" class="alert alert-warning">
+      <strong><i class="bi bi-exclamation-triangle me-2"></i> You don’t have an approved towing driver
+        yet.</strong><br />
+      You must have at least one approved towing driver before you can configure towing services.<br />
+      <a routerLink="/manage-staff-towing-driver" class="btn btn-primary mt-2">Request a Towing Driver Account</a>
     </div>
 
-    <div *ngIf="form.value.offers">
-      <label class="form-label">Coverage (KM)</label>
-      <input type="number" class="form-control w-auto mb-2" formControlName="coverageKm">
-      <label class="form-label">Towing Services</label>
-      <div class="d-flex flex-wrap gap-2">
-        <label class="btn btn-outline-secondary btn-sm" *ngFor="let t of opts">
-          <input type="checkbox" class="form-check-input me-1" [checked]="(form.value.towingServices || []).includes(t)" (change)="toggleSrv(t)"> {{ t }}
-        </label>
+    <!-- Form -->
+    <form *ngIf="hasApprovedDriver && towingForm" [formGroup]="towingForm" (ngSubmit)="save()">
+
+
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <!-- General Settings -->
+          <div class="card shadow-sm mb-4">
+            <div class="card-header fw-semibold d-flex align-items-center">
+              <i class="bi bi-gear me-2 text-primary"></i> General Settings
+            </div>
+            <div class="card-body">
+              <div class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" formControlName="offers" id="offersChk">
+                <label class="form-check-label" for="offersChk">Enable Towing Services</label>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label">Coverage Distance (km)</label>
+                  <input type="number" class="form-control" formControlName="coverageKm" placeholder="e.g. 50">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label">Response Time (minutes)</label>
+                  <input type="number" class="form-control" formControlName="responseTimeMins" placeholder="e.g. 15">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <!-- Weekly Schedule -->
+          <div class="card shadow-sm mb-4">
+            <div class="card-header fw-semibold d-flex align-items-center">
+              <i class="bi bi-calendar-week me-2 text-primary"></i>
+              Weekly Operating Schedule
+            </div>
+            <div class="card-body">
+              <div formArrayName="schedule" class="rounded bg-light border p-3">
+                <div *ngFor="let day of scheduleArray.controls; let i = index" [formGroupName]="i"
+                  class="row align-items-center g-2 mb-3 pb-2 border-bottom">
+                  <div class="col-md-2 fw-semibold text-capitalize">{{ day.get('day')?.value }}</div>
+                  <div class="col-md-2">
+                    <div class="form-check">
+                      <input type="checkbox" class="form-check-input" formControlName="isClosed" id="closed-{{i}}">
+                      <label class="form-check-label small text-muted" for="closed-{{i}}">Closed</label>
+                    </div>
+                  </div>
+                  <div class="col-md-8 d-flex align-items-center" style="gap: 10px;">
+                    <input type="time" class="form-control" formControlName="startHour"
+                      [disabled]="day.get('isClosed')?.value" style="max-width: 140px;">
+                    <span class="text-muted small">to</span>
+                    <input type="time" class="form-control" formControlName="endHour"
+                      [disabled]="day.get('isClosed')?.value" style="max-width: 140px;">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <button class="btn btn-primary mt-3" (click)="save()">Save</button>
-    </div>
+
+      <!-- Towing Types -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="card shadow-sm mb-4">
+            <div class="card-header fw-semibold d-flex align-items-center">
+              <i class="bi bi-list-check me-2 text-primary"></i> Towing Service Types
+            </div>
+            <div class="card-body">
+              <p class="text-muted small">Select the towing services your center will offer.</p>
+              <div class="row">
+                <div *ngFor="let t of allTowingServices" class="col-md-4 mb-2">
+                  <div class="form-check">
+                    <input type="checkbox" class="form-check-input" [checked]="isTypeSelected(t)"
+                      (change)="toggleType(t)">
+                    <label class="form-check-label">{{ t }}</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Fees by Service -->
+        <div class="col-md-6">
+          <div class="card shadow-sm mb-4" formArrayName="serviceFees">
+            <div class="card-header fw-semibold d-flex align-items-center">
+              <i class="bi bi-cash-coin me-2 text-primary"></i> Additional Fees by Service
+            </div>
+            <div class="card-body">
+              <p class="text-muted small">Optional surcharges for special service types (leave empty if none).</p>
+              <div *ngFor="let fee of serviceFeesArray.controls; let i = index" [formGroupName]="i"
+                class="row g-3 mb-2 align-items-center">
+                <div class="col-md-5">
+                  <label class="form-label">{{ fee.get('type')?.value }}</label>
+                </div>
+                <div class="col-md-4">
+                  <input type="number" class="form-control" formControlName="fee" placeholder="RM">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pricing by Vehicle Size -->
+      <div class="card shadow-sm mb-4" formArrayName="sizePricing">
+        <div class="card-header fw-semibold d-flex align-items-center">
+          <i class="bi bi-rulers me-2 text-primary"></i> Pricing by Vehicle Size
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">Set base fees and per-km rates depending on the size class of the vehicle.</p>
+          <div *ngFor="let sp of sizePricingArray.controls; let i = index" [formGroupName]="i"
+            class="row g-3 mb-3 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label">{{ sp.get('sizeClass')?.value }} Base Fee (RM)</label>
+              <input type="number" class="form-control" formControlName="baseFee">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Per Km Rate (RM)</label>
+              <input type="number" class="form-control" formControlName="perKmRate">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Luxury / Exotic Car Surcharge -->
+      <div class="card shadow-sm mb-4" formArrayName="luxurySurcharge">
+        <div class="card-header fw-semibold d-flex align-items-center">
+          <i class="bi bi-gem me-2 text-primary"></i> Luxury / Exotic Car Surcharge
+        </div>
+        <div class="card-body">
+          <p class="text-muted small">Apply surcharges for specific luxury brands.</p>
+          <div class="row">
+            <div *ngFor="let lux of luxuryArray.controls; let i = index" [formGroupName]="i" class="col-md-4 mb-3">
+              <label class="form-label">{{ lux.get('make')?.value }} (RM)</label>
+              <input type="number" class="form-control" formControlName="surcharge">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save -->
+      <div class="d-flex justify-content-end sticky-bottom bg-light p-3 border-top shadow-sm">
+        <button type="submit" class="btn btn-primary px-4" [disabled]="towingForm.invalid || isSaving">
+          <span *ngIf="isSaving" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          Save Changes
+        </button>
+      </div>
+    </form>
   </div>
+</div>

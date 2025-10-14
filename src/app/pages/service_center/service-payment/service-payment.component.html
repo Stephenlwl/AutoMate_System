@@ -1,0 +1,825 @@
+<!-- Payment Form Section (Show when receipt is not generated) -->
+<div *ngIf="!receiptGenerated" class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="card-title mb-0">
+          <i class="bi bi-credit-card me-2"></i>Payment Processing
+        </h5>
+      </div>
+      <div class="card-body">
+
+        <!-- Service Center Information -->
+        <div *ngIf="serviceCenterInfo" class="mb-4 p-3 border rounded bg-light">
+          <h6 class="fw-bold text-dark mb-3">
+            <i class="bi bi-shop me-2"></i>Service Center Information
+          </h6>
+          <div class="row">
+            <div class="col-md-6">
+              <p class="mb-1"><strong>Name: </strong> {{ serviceCenterInfo.serviceCenterInfo?.name ||
+                serviceCenterInfo.name || 'N/A' }}</p>
+              <p class="mb-1"><strong>Address: </strong></p>
+              <p class="mb-1">{{ serviceCenterInfo.serviceCenterInfo?.address?.addressLine1 }}</p>
+              <p class="mb-1">
+                {{ serviceCenterInfo.serviceCenterInfo.address.addressLine2 }}
+              </p>
+              <p class="mb-1">
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.postalCode }}
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.city }},
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.state }}
+              </p>
+            </div>
+            <div class="col-md-6">
+              <p class="mb-1"><strong>Phone: </strong> {{ serviceCenterInfo.serviceCenterInfo?.serviceCenterPhoneNo ||
+                serviceCenterInfo.phone || 'N/A' }}</p>
+              <p class="mb-1" *ngIf="serviceCenterInfo.adminInfo?.email"><strong>Email: </strong> {{
+                serviceCenterInfo.adminInfo.email }}</p>
+              <p class="mb-0"><strong>Operating Hours: </strong> {{
+                formatOperatingHours(serviceCenterInfo.operatingHours) || 'Mon-Sat: 8:00 AM - 6:00 PM' }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Booking & Customer Information -->
+        <div *ngIf="booking && invoice" class="mb-4 p-3 border rounded">
+          <h6 class="fw-bold text-dark mb-3">
+            <i class="bi bi-journal-text me-2"></i>Booking & Customer Information
+          </h6>
+          <div class="row">
+            <div class="col-md-6">
+              <p class="mb-1"><strong>Booking No: </strong> {{ booking.id }}</p>
+              <p class="mb-1"><strong>Customer Name: </strong> {{ invoice.customerInfo?.name || 'N/A' }}</p>
+              <p class="mb-1"><strong>Contact: </strong> {{ invoice.customerInfo?.phone || 'N/A' }}</p>
+              <p class="mb-0"><strong>Email: </strong> {{ invoice.customerInfo?.email || 'N/A' }}</p>
+            </div>
+            <div class="col-md-6">
+              <p class="mb-1"><strong>Vehicle: </strong> {{ invoice.vehicleInfo?.make }} {{ invoice.vehicleInfo?.model
+                }} ({{ invoice.vehicleInfo?.year }})</p>
+              <p class="mb-1"><strong>Plate No: </strong> {{ invoice.vehicleInfo?.plateNumber || 'N/A' }}</p>
+              <p class="mb-1"><strong>Chassis No: </strong> {{ invoice.vehicleInfo?.vin || 'N/A' }}</p>
+              <p class="mb-0"><strong>Mileage: </strong> {{ invoice.mileage?.afterService || 0 }} km</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service Details Breakdown -->
+        <div *ngIf="invoice" class="mb-4 p-3 border rounded">
+          <h6 class="fw-bold text-dark mb-3">
+            <i class="bi bi-tools me-2"></i>Service Details
+          </h6>
+
+          <!-- Labour Charges -->
+          <div class="mb-3">
+            <h6 class="fw-bold text-info mb-2">LABOUR CHARGES</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered">
+                <thead class="table-info">
+                  <tr>
+                    <th width="5%">No</th>
+                    <th width="65%">Service Description</th>
+                    <th width="15%" class="text-end">Price (RM)</th>
+                    <th width="15%" class="text-end">Amount (RM)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Booked Services Labour -->
+                  <ng-container *ngIf="invoice.bookedServices && invoice.bookedServices.length > 0">
+                    <tr *ngFor="let service of invoice.bookedServices; let i = index">
+                      <td class="text-center">{{ i + 1 }}</td>
+                      <td>
+                        <div class="fw-medium">{{ service.serviceName || service.name }}</div>
+                        <small class="text-muted">{{ service.description || 'Standard service' }}</small>
+                      </td>
+                      <td class="text-end">{{ formatCurrency(service.labour.unitPrice || 0) }}</td>
+                      <td class="text-end fw-bold">{{ formatCurrency(service.labour.amount || 0) }}</td>
+                    </tr>
+                  </ng-container>
+
+                  <!-- Package Services Labour -->
+                  <ng-container *ngIf="invoice.packageServices && invoice.packageServices.length > 0">
+                    <tr *ngFor="let pkg of invoice.packageServices; let i = index">
+                      <td class="text-center">{{ (invoice.bookedServices?.length || 0) + i + 1 }}</td>
+                      <td>
+                        <div class="fw-medium">{{ pkg.packageName || pkg.name }}</div>
+                        <small class="text-muted">{{ pkg.description || 'Package service' }}</small>
+                        <small class="text-muted d-block" *ngIf="pkg.servicesIncluded">
+                          Includes: {{ pkg.servicesIncluded.join(', ') }}
+                        </small>
+                      </td>
+                      <td class="text-end">{{ formatCurrency(pkg.labour.unitPrice || pkg.price || 0) }}</td>
+                      <td class="text-end fw-bold">{{ formatCurrency(pkg.labour.amount || pkg.price || 0) }}</td>
+                    </tr>
+                  </ng-container>
+
+                  <!-- Additional Services Labour -->
+                  <ng-container *ngIf="invoice.additionalServices && invoice.additionalServices.length > 0">
+                    <tr *ngFor="let service of invoice.additionalServices; let i = index">
+                      <td class="text-center">{{ (invoice.bookedServices?.length || 0) +
+                        (invoice.packageServices?.length || 0) + i + 1 }}</td>
+                      <td>
+                        <div class="fw-medium">{{ service.serviceName || service.name }}</div>
+                        <small class="text-muted">{{ service.description || 'Additional service' }}</small>
+                        <small class="text-muted d-block">Quantity: {{ service.quantity || 1 }}</small>
+                      </td>
+                      <td class="text-end">{{ formatCurrency(service.serviceLabour.unitPrice || 0) }}</td>
+                      <td class="text-end fw-bold">{{ formatCurrency((service.serviceLabour.amount || 0) *
+                        (service.quantity || 1)) }}</td>
+                    </tr>
+                  </ng-container>
+
+                  <!-- No Labour Services Message -->
+                  <tr *ngIf="!(invoice.bookedServices && invoice.bookedServices.length > 0) && 
+                              !(invoice.packageServices && invoice.packageServices.length > 0) && 
+                              !(invoice.additionalServices && invoice.additionalServices.length > 0)">
+                    <td colspan="4" class="text-center text-muted py-2">No labour charges</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Parts & Materials -->
+          <div *ngIf="hasInvoiceParts()">
+            <h6 class="fw-bold text-warning mb-2">PARTS & MATERIALS</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered">
+                <thead class="table-warning">
+                  <tr>
+                    <th width="5%">No</th>
+                    <th width="55%">Part Description</th>
+                    <th width="10%" class="text-center">Qty</th>
+                    <th width="15%" class="text-end">Unit Price (RM)</th>
+                    <th width="15%" class="text-end">Amount (RM)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Parts from Booked Services -->
+                  <ng-container *ngIf="invoice.bookedServices && invoice.bookedServices.length > 0">
+                    <ng-container *ngFor="let service of invoice.bookedServices; let sIndex = index">
+                      <tr *ngFor="let part of service.parts; let pIndex = index">
+                        <td class="text-center">{{ pIndex + 1 }}</td>
+                        <td>
+                          <div class="fw-medium">{{ part.partName || part.name }}</div>
+                          <small class="text-muted">For: {{ service.serviceName || service.name }}</small>
+                        </td>
+                        <td class="text-center">{{ part.quantity || 1 }}</td>
+                        <td class="text-end">{{ formatCurrency(part.unitPrice || part.partPrice || 0) }}</td>
+                        <td class="text-end fw-bold">{{ formatCurrency(part.totalPrice || (part.quantity || 1) *
+                          (part.unitPrice || part.partPrice || 0)) }}</td>
+                      </tr>
+                    </ng-container>
+                  </ng-container>
+
+                  <!-- Parts from Additional Services -->
+                  <ng-container *ngIf="invoice.additionalServices && invoice.additionalServices.length > 0">
+                    <ng-container *ngFor="let service of invoice.additionalServices; let sIndex = index">
+                      <tr *ngFor="let part of service.parts; let pIndex = index">
+                        <td class="text-center">{{ (getTotalPartsCount(invoice.bookedServices) || 0) + pIndex + 1 }}
+                        </td>
+                        <td>
+                          <div class="fw-medium">{{ part.partName || part.name }}</div>
+                          <small class="text-muted">For: {{ service.serviceName || service.name }}</small>
+                        </td>
+                        <td class="text-center">{{ part.quantity || 1 }}</td>
+                        <td class="text-end">{{ formatCurrency(part.unitPrice || part.partPrice || 0) }}</td>
+                        <td class="text-end fw-bold">{{ formatCurrency(part.totalPrice || (part.quantity || 1) *
+                          (part.unitPrice || part.partPrice || 0)) }}</td>
+                      </tr>
+                    </ng-container>
+                  </ng-container>
+
+                  <!-- Standalone Parts -->
+                  <ng-container *ngIf="invoice.standaloneParts && invoice.standaloneParts.length > 0">
+                    <tr *ngFor="let part of invoice.standaloneParts; let pIndex = index">
+                      <td class="text-center">{{ (getTotalPartsCount(invoice.bookedServices) || 0) +
+                        (getTotalPartsCount(invoice.additionalServices) || 0) + pIndex + 1 }}</td>
+                      <td>
+                        <div class="fw-medium">{{ part.name }}</div>
+                        <small class="text-muted">Additional Part</small>
+                      </td>
+                      <td class="text-center">{{ part.quantity || 1 }}</td>
+                      <td class="text-end">{{ formatCurrency(part.unitPrice || 0) }}</td>
+                      <td class="text-end fw-bold">{{ formatCurrency(part.totalPrice || (part.quantity || 1) *
+                        (part.unitPrice || 0)) }}</td>
+                    </tr>
+                  </ng-container>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Summary Section -->
+          <div class="row mt-3">
+            <div class="col-md-8"></div>
+            <div class="col-md-4">
+              <div class="border rounded p-3 bg-light">
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="small">Labour Subtotal: </span>
+                  <span class="small fw-bold">{{ formatCurrency(invoice.labourSubtotal || 0) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="small">Parts Subtotal: </span>
+                  <span class="small fw-bold">{{ formatCurrency(invoice.partsSubtotal || 0) }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                  <strong class="small">Subtotal: </strong>
+                  <strong class="small">{{ formatCurrency(invoice.subtotal) }}</strong>
+                </div>
+                <div class="d-flex justify-content-between mb-2" *ngIf="invoice.taxAmount > 0">
+                  <span class="small">SST (8%): </span>
+                  <span class="small text-danger fw-bold">{{ formatCurrency(invoice.taxAmount) }}</span>
+                </div>
+                <div class="d-flex justify-content-between border-top pt-2">
+                  <h6 class="fw-bold">TOTAL AMOUNT: </h6>
+                  <h6 class="fw-bold text-dark">{{ formatCurrency(invoice.totalAmount) }}</h6>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Form -->
+        <div class="p-3 border rounded">
+          <h6 class="fw-bold text-dark mb-3">
+            <i class="bi bi-credit-card me-2"></i>Payment Information
+          </h6>
+          <form (ngSubmit)="processPayment()">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Payment Method *</label>
+                  <select class="form-select" [(ngModel)]="paymentMethod" name="paymentMethod" required
+                    (change)="onPaymentMethodChange()">
+                    <option value="cash">Cash</option>
+                    <option value="card">Credit/Debit Card</option>
+                    <option value="ewallet">E-Wallet</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Amount Paid (RM) *</label>
+                  <input type="number" class="form-control" [(ngModel)]="amountPaid" name="amountPaid" [min]="0"
+                    [step]="0.01" [max]="invoice?.totalAmount * 2" required (input)="onAmountPaidChange()">
+                  <div class="form-text">
+                    Invoice Total: {{ formatCurrency(invoice?.totalAmount || 0) }}
+                    <span *ngIf="amountPaid > 0 && amountPaid < invoice?.totalAmount" class="text-warning">
+                      - Balance Due: {{ formatCurrency(invoice?.totalAmount - amountPaid) }}
+                    </span>
+                    <span *ngIf="amountPaid > invoice?.totalAmount" class="text-info">
+                      - Change: {{ formatCurrency(amountPaid - invoice?.totalAmount) }}
+                    </span>
+                    <span *ngIf="amountPaid === invoice?.totalAmount" class="text-success">
+                      - Full payment
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- E-Wallet Details (Show only when payment method is ewallet) -->
+            <div *ngIf="paymentMethod === 'ewallet'" class="row border rounded p-3 bg-light">
+              <h6 class="fw-bold mb-3">E-Wallet Information</h6>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">E-Wallet Provider *</label>
+                  <select class="form-select" [(ngModel)]="ewalletProvider" name="ewalletProvider" required>
+                    <option value="">Select E-Wallet</option>
+                    <option value="touchngo">Touch 'n Go eWallet</option>
+                    <option value="grabpay">GrabPay</option>
+                    <option value="boost">Boost</option>
+                    <option value="maybankqrpay">Maybank QRPay</option>
+                    <option value="duitnow">DuitNow QR</option>
+                    <option value="shopeepay">ShopeePay</option>
+                    <option value="setel">Setel</option>
+                    <option value="bigpay">BigPay</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Transaction ID *</label>
+                  <input type="text" class="form-control" [(ngModel)]="ewalletTransactionId" name="ewalletTransactionId"
+                    placeholder="TXN123456789" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Reference Number</label>
+                  <input type="text" class="form-control" [(ngModel)]="ewalletReference" name="ewalletReference"
+                    placeholder="REF123456">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Phone Number</label>
+                  <input type="text" class="form-control" [(ngModel)]="ewalletPhone" name="ewalletPhone"
+                    placeholder="Customer phone number">
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Details (Show only when payment method is card) -->
+            <div *ngIf="paymentMethod === 'card'" class="row border rounded p-3 bg-light">
+              <h6 class="fw-bold mb-3">Card Information</h6>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">Card Number *</label>
+                  <input type="text" class="form-control" [(ngModel)]="cardNumber" name="cardNumber"
+                    placeholder="1234 5678 9012 3456" required maxlength="16">
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">Card Expiry *</label>
+                  <input type="text" class="form-control" [(ngModel)]="cardExpiry" name="cardExpiry" placeholder="MM/YY"
+                    required>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="mb-3">
+                  <label class="form-label">CVV *</label>
+                  <input type="text" class="form-control" [(ngModel)]="cardCVV" name="cardCVV" placeholder="123"
+                    required maxlength="3">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Authorization Code</label>
+                  <input type="text" class="form-control" [(ngModel)]="cardAuthCode" name="cardAuthCode"
+                    placeholder="AUTH12345">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Terminal ID</label>
+                  <input type="text" class="form-control" [(ngModel)]="cardTerminalId" name="cardTerminalId"
+                    placeholder="TERM001">
+                </div>
+              </div>
+            </div>
+
+            <!-- Bank Transfer Details (Show only when payment method is bank_transfer) -->
+            <div *ngIf="paymentMethod === 'bank_transfer'" class="row border rounded p-3 bg-light">
+              <h6 class="fw-bold mb-3">Bank Transfer Information</h6>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Bank Name *</label>
+                  <select class="form-select" [(ngModel)]="bankName" name="bankName" required>
+                    <option value="">Select Bank</option>
+                    <option value="maybank">Maybank</option>
+                    <option value="cimb">CIMB Bank</option>
+                    <option value="public">Public Bank</option>
+                    <option value="hongleong">Hong Leong Bank</option>
+                    <option value="rhb">RHB Bank</option>
+                    <option value="ambank">AmBank</option>
+                    <option value="bankislam">Bank Islam</option>
+                    <option value="alliance">Alliance Bank</option>
+                    <option value="ocbc">OCBC Bank</option>
+                    <option value="standardchartered">Standard Chartered</option>
+                    <option value="uob">UOB Bank</option>
+                    <option value="other">Other Bank</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Reference Number *</label>
+                  <input type="text" class="form-control" [(ngModel)]="bankReference" name="bankReference"
+                    placeholder="REF123456789" required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Transaction Date *</label>
+                  <input type="date" class="form-control" [(ngModel)]="bankTransactionDate" name="bankTransactionDate"
+                    required>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Amount Transferred (RM) *</label>
+                  <input type="number" class="form-control" [(ngModel)]="bankAmount" name="bankAmount" [min]="0"
+                    [step]="0.01" required>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cash Details (Show only when payment method is cash) -->
+            <div *ngIf="paymentMethod === 'cash'" class="row border rounded p-3 bg-light">
+              <h6 class="fw-bold mb-3">Cash Payment Details</h6>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Amount Tendered (RM)</label>
+                  <input type="number" class="form-control" [(ngModel)]="cashTendered" name="cashTendered" [min]="0"
+                    [step]="0.01" (input)="calculateCashChange()">
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label">Change Given (RM)</label>
+                  <input type="number" class="form-control" [(ngModel)]="cashChange" name="cashChange" readonly>
+                </div>
+              </div>
+            </div>
+
+            <!-- Payment Status Warning for Partial Payments -->
+            <div *ngIf="amountPaid > 0 && amountPaid < invoice?.totalAmount" class="alert alert-warning">
+              <div class="d-flex align-items-center">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <div>
+                  <strong>Partial Payment Notice</strong>
+                  <p class="mb-0 small">
+                    This will be recorded as a partial payment. The booking status will remain as "Ready to Collect"
+                    until full payment is received. Balance due: <strong>{{ formatCurrency(invoice?.totalAmount -
+                      amountPaid) }}</strong>
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Payment Notes</label>
+              <textarea class="form-control" [(ngModel)]="paymentNotes" name="paymentNotes" rows="2"
+                placeholder="Any additional payment notes..."></textarea>
+            </div>
+
+            <div class="d-flex justify-content-between border-top pt-3">
+              <div>
+                <span class="badge" [ngClass]="getPaymentStatusBadge()">
+                  {{ getPaymentStatusText() }}
+                </span>
+              </div>
+              <button type="submit" class="btn btn-success"
+                [disabled]="!paymentMethod || !amountPaid || amountPaid <= 0">
+                <i class="bi bi-credit-card me-1"></i>
+                {{ amountPaid >= invoice?.totalAmount ? 'Process Full Payment' : 'Process Partial Payment' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Receipt Display Section (Show when receipt is generated) -->
+<div *ngIf="receiptGenerated && receiptData" class="row">
+  <div class="col-12">
+    <!-- Receipt -->
+    <div class="card border-0 shadow-sm receipt-printable">
+      <div class="card-body p-0">
+        <div class="receipt-container" id="receiptContent"
+          style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+
+          <!-- Receipt Header -->
+          <div class="text-center border-bottom p-4 bg-light">
+            <h4 class="fw-bold mb-2 text-uppercase text-dark" style="font-size: 1.5rem; letter-spacing: 0.5px;">
+              {{ serviceCenterInfo?.serviceCenterInfo?.name || serviceCenterInfo?.name || 'AUTOMATE SERVICE CENTER' }}
+            </h4>
+            <p class="mb-1 text-muted" style="font-size: 0.9rem;">
+              {{ serviceCenterInfo?.serviceCenterInfo?.address?.addressLine1 }}
+            </p>
+            <p class="mb-1 text-muted" style="font-size: 0.9rem;">
+              <p class="mb-1">
+                {{ serviceCenterInfo.serviceCenterInfo.address.addressLine2 }}
+              </p>
+            <p class="mb-1 text-muted" style="font-size: 0.9rem;">
+               {{ serviceCenterInfo.serviceCenterInfo?.address?.postalCode }}
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.city }},
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.state }}
+            </p>
+            <p class="mb-0 text-muted" style="font-size: 0.85rem;">
+              Tel: {{ serviceCenterInfo?.serviceCenterInfo?.serviceCenterPhoneNo || serviceCenterInfo?.phone || 'N/A' }}
+            </p>
+          </div>
+
+          <!-- Receipt Details -->
+          <div class="p-4 border-bottom">
+            <div class="row mb-3">
+              <div class="col-6">
+                <strong class="text-dark">RECEIPT NO: </strong>
+                <span class="text-muted">{{ receiptData.receiptId || receiptData.id }}</span>
+              </div>
+              <div class="col-6 text-end">
+                <strong class="text-dark">DATE: </strong>
+                <span class="text-muted">{{ formatDateTime(receiptData.issuedAt) }}</span>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-6">
+                <strong class="text-dark">INVOICE NO: </strong>
+                <span class="text-muted">{{ receiptData.invoiceId }}</span>
+              </div>
+              <div class="col-6 text-end">
+                <strong class="text-dark">BOOKING NO: </strong>
+                <span class="text-muted">{{ receiptData.serviceBookingId }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer & Vehicle Info -->
+          <div class="p-4 border-bottom">
+            <div class="row">
+              <div class="col-md-6 mb-3 mb-md-0">
+                <h6 class="fw-bold text-dark mb-2 border-bottom pb-1">CUSTOMER DETAILS</h6>
+                <p class="mb-1"><strong>Name: </strong> {{ receiptData.customerInfo?.name || 'N/A' }}</p>
+                <p class="mb-1"><strong>Phone: </strong> {{ receiptData.customerInfo?.phone || 'N/A' }}</p>
+                <p class="mb-0"><strong>Email: </strong> {{ receiptData.customerInfo?.email || 'N/A' }}</p>
+              </div>
+              <div class="col-md-6">
+                <h6 class="fw-bold text-dark mb-2 border-bottom pb-1">VEHICLE DETAILS</h6>
+                <p class="mb-1"><strong>Vehicle: </strong> {{ receiptData.vehicleInfo?.make }} {{
+                  receiptData.vehicleInfo?.model }} ({{ receiptData.vehicleInfo?.year }})</p>
+                <p class="mb-1"><strong>Plate No: </strong> {{ receiptData.vehicleInfo?.plateNumber || 'N/A' }}</p>
+                <p class="mb-1"><strong>Chassis No: </strong> {{ receiptData.vehicleInfo?.vin || 'N/A' }}</p>
+                <p class="mb-0"><strong>Mileage: </strong> {{ receiptData.mileage?.afterService || 0 }} km</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Services Breakdown -->
+          <div class="p-0">
+            <table class="table table-bordered mb-0 receipt-table" style="font-size: 0.9rem;">
+              <thead class="table-dark">
+                <tr>
+                  <th width="5%" class="text-center">#</th>
+                  <th width="50%">Description</th>
+                  <th width="10%" class="text-center">Qty</th>
+                  <th width="15%" class="text-end">Unit Price</th>
+                  <th width="20%" class="text-end">Amount (RM)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Labour Charges -->
+                <tr class="table-primary">
+                  <td colspan="5" class="fw-bold text-dark">LABOUR CHARGES</td>
+                </tr>
+
+                <ng-container *ngIf="getReceiptLabourItems().length > 0; else noLabour">
+                  <tr *ngFor="let item of getReceiptLabourItems(); let i = index">
+                    <td class="text-center">{{ i + 1 }}</td>
+                    <td class="text-dark">{{ item.description }}</td>
+                    <td class="text-center">{{ item.quantity || 1 }}</td>
+                    <td class="text-end">{{ formatCurrency(item.unitPrice) }}</td>
+                    <td class="text-end fw-bold text-dark">{{ formatCurrency(item.amount) }}</td>
+                  </tr>
+                </ng-container>
+                <ng-template #noLabour>
+                  <tr>
+                    <td colspan="5" class="text-center text-muted py-3">No labour charges</td>
+                  </tr>
+                </ng-template>
+
+                <!-- Parts & Materials -->
+                <tr class="table-warning" *ngIf="hasReceiptParts()">
+                  <td colspan="5" class="fw-bold text-dark">PARTS & MATERIALS</td>
+                </tr>
+
+                <ng-container *ngIf="getReceiptPartsItems().length > 0; else noParts">
+                  <tr *ngFor="let item of getReceiptPartsItems(); let i = index">
+                    <td class="text-center">{{ getReceiptLabourItems().length + i + 1 }}</td>
+                    <td class="text-dark">{{ item.description }}</td>
+                    <td class="text-center">{{ item.quantity || 1 }}</td>
+                    <td class="text-end">{{ formatCurrency(item.unitPrice) }}</td>
+                    <td class="text-end fw-bold text-dark">{{ formatCurrency(item.amount) }}</td>
+                  </tr>
+                </ng-container>
+                <ng-template #noParts>
+                  <tr *ngIf="!hasReceiptParts()">
+                    <td colspan="5" class="text-center text-muted py-3">No parts or materials</td>
+                  </tr>
+                </ng-template>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Totals Section -->
+          <div class="p-4 border-bottom">
+            <div class="row justify-content-end">
+              <div class="col-lg-5 col-md-6">
+                <div class="border rounded p-3 bg-light">
+                  <div class="d-flex justify-content-between mb-2">
+                    <span class="text-dark">Labour Subtotal: </span>
+                    <span class="fw-bold text-dark">{{ formatCurrency(receiptData.labourSubtotal || 0) }}</span>
+                  </div>
+                  <div class="d-flex justify-content-between mb-2">
+                    <span class="text-dark">Parts Subtotal: </span>
+                    <span class="fw-bold text-dark">{{ formatCurrency(receiptData.partsSubtotal || 0) }}</span>
+                  </div>
+                  <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                    <strong class="text-dark">Subtotal: </strong>
+                    <strong class="text-dark">{{ formatCurrency(receiptData.subtotal) }}</strong>
+                  </div>
+                  <div class="d-flex justify-content-between mb-2" *ngIf="receiptData.taxAmount > 0">
+                    <span class="text-dark">SST (8%): </span>
+                    <span class="fw-bold text-danger">{{ formatCurrency(receiptData.taxAmount) }}</span>
+                  </div>
+                  <div class="d-flex justify-content-between border-top pt-2 mb-3">
+                    <h6 class="fw-bold text-dark">TOTAL AMOUNT: </h6>
+                    <h6 class="fw-bold text-primary">{{ formatCurrency(receiptData.totalAmount) }}</h6>
+                  </div>
+
+                  <!-- Payment Received -->
+                  <div class="d-flex justify-content-between border-top pt-2">
+                    <h6 class="fw-bold text-success">AMOUNT PAID: </h6>
+                    <h6 class="fw-bold text-success">{{ formatCurrency(receiptData.amountPaid) }}</h6>
+                  </div>
+
+                  <!-- Change (if any) -->
+                  <div class="d-flex justify-content-between mt-2"
+                    *ngIf="receiptData.amountPaid > receiptData.totalAmount">
+                    <span class="fw-medium text-dark">Change: </span>
+                    <span class="fw-medium text-info">{{ formatCurrency(receiptData.amountPaid -
+                      receiptData.totalAmount) }}</span>
+                  </div>
+
+                  <!-- Balance (if any) -->
+                  <div class="d-flex justify-content-between mt-2"
+                    *ngIf="receiptData.amountPaid < receiptData.totalAmount">
+                    <span class="fw-medium text-danger">Balance Due: </span>
+                    <span class="fw-medium text-danger">{{ formatCurrency(receiptData.totalAmount -
+                      receiptData.amountPaid) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Information -->
+          <div class="p-4 border-bottom">
+            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">PAYMENT INFORMATION</h6>
+            <div class="row">
+              <div class="col-md-4 mb-2">
+                <strong class="text-dark">Payment Method: </strong><br>
+                <span class="badge bg-primary fs-6 mt-1">{{ getPaymentMethodDisplay(receiptData.payment?.method)
+                  }}</span>
+              </div>
+              <div class="col-md-4 mb-2">
+                <strong class="text-dark">Status: </strong><br>
+                <span class="badge bg-success fs-6 mt-1">{{ getPaymentStatusDisplay(receiptData?.status)
+                  }}</span>
+              </div>
+              <div class="col-md-4 mb-2">
+                <strong class="text-dark">Time: </strong><br>
+                <span class="text-dark mt-1">{{ formatTime(receiptData.payment?.paidAt) }}</span>
+              </div>
+            </div>
+            <div class="mt-2" *ngIf="receiptData.payment?.transactionId">
+              <strong class="text-dark">Transaction ID: </strong>
+              <span class="text-primary">{{ receiptData.payment?.transactionId }}</span>
+            </div>
+            <div class="mt-2" *ngIf="receiptData.payment?.notes">
+              <strong class="text-dark">Notes: </strong>
+              <span class="text-muted">{{ receiptData.payment?.notes }}</span>
+            </div>
+          </div>
+
+          <!-- Service Summary -->
+          <div class="p-4 border-bottom bg-light">
+            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">SERVICE SUMMARY</h6>
+            <div class="row">
+              <div class="col-md-6 mb-2">
+                <strong class="text-dark">Services Completed: </strong>
+                <span class="text-muted">{{ getTotalServices() }}</span>
+              </div>
+              <div class="col-md-6 mb-2">
+                <strong class="text-dark">Parts Used: </strong>
+                <span class="text-muted">{{ getTotalParts() }}</span>
+              </div>
+              <div class="col-md-6 mb-2">
+                <strong class="text-dark">Service Date: </strong>
+                <span class="text-muted">{{ formatDate(receiptData.issuedAt) }}</span>
+              </div>
+              <div class="col-md-6 mb-2">
+                <strong class="text-dark">Service Advisor: </strong>
+                <span class="text-muted">{{ receiptData.issuedBy || 'System' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-4 border-bottom"
+            *ngIf="receiptData.warranty && (receiptData.warranty.labour.days > 0 || receiptData.warranty.parts.days > 0)">
+            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">WARRANTY INFORMATION</h6>
+            <div class="row">
+              <div class="col-12">
+                <!-- Labour Warranty -->
+                <div class="d-flex mb-2" *ngIf="receiptData.warranty.labour.days > 0">
+                  <i class="bi bi-shield-check text-success me-2 mt-1"></i>
+                  <div>
+                    <strong class="text-dark">Labour Warranty: </strong>
+                    {{ receiptData.warranty.labour.days }} days (until {{
+                    formatDate(receiptData.warranty.labour.endDate) }})
+                    <div *ngIf="receiptData.warranty.labour.notes" class="text-muted small">
+                      {{ receiptData.warranty.labour.notes }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Parts Warranty -->
+                <div class="d-flex mb-2" *ngIf="receiptData.warranty.parts.days > 0">
+                  <i class="bi bi-shield-check text-success me-2 mt-1"></i>
+                  <div>
+                    <strong class="text-dark">Parts Warranty: </strong>
+                    {{ receiptData.warranty.parts.days }} days (until {{ formatDate(receiptData.warranty.parts.endDate)
+                    }})
+                    <div *ngIf="receiptData.warranty.parts.notes" class="text-muted small">
+                      {{ receiptData.warranty.parts.notes }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- General Terms -->
+                <div class="d-flex mb-2" *ngIf="receiptData.warranty.generalTerms">
+                  <i class="bi bi-exclamation-circle text-warning me-2 mt-1"></i>
+                  <div>
+                    <strong class="text-dark">Terms: </strong>
+                    <span [innerHTML]="formatWarrantyText(receiptData.warranty.generalTerms)"></span>
+                  </div>
+                </div>
+
+                <!-- Exclusions -->
+                <div class="d-flex" *ngIf="receiptData.warranty.exclusions">
+                  <i class="bi bi-exclamation-triangle text-danger me-2 mt-1"></i>
+                  <div>
+                    <strong class="text-dark">Exclusions: </strong>
+                    <span [innerHTML]="formatWarrantyText(receiptData.warranty.exclusions)"></span>
+                  </div>
+                </div>
+
+                <!-- No Warranty Message -->
+                <div *ngIf="receiptData.warranty.labour.days === 0 && receiptData.warranty.parts.days === 0"
+                  class="text-center text-muted py-2">
+                  <i class="bi bi-info-circle me-2"></i>
+                  No warranty provided for this service
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Important Notes -->
+          <div class="p-4 border-bottom bg-warning bg-opacity-10">
+            <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">IMPORTANT NOTES</h6>
+            <div class="row">
+              <div class="col-12">
+                <div class="d-flex mb-2">
+                  <i class="bi bi-info-circle text-primary me-2 mt-1"></i>
+                  <div>Please keep this receipt for warranty claims</div>
+                </div>
+                <div class="d-flex mb-2">
+                  <i class="bi bi-telephone text-primary me-2 mt-1"></i>
+                  <div>For inquiries, please contact our service center</div>
+                </div>
+                <div class="d-flex">
+                  <i class="bi bi-heart text-danger me-2 mt-1"></i>
+                  <div>Thank you for your business!</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Signatures -->
+          <div class="p-4">
+            <div class="row">
+              <div class="col-md-6 text-center mb-3 mb-md-0">
+                <div class="border-bottom mx-auto mb-2" style="width: 200px; height: 50px;"></div>
+                <p class="mb-1 fw-bold text-dark">Customer's Signature</p>
+                <p class="text-muted small">Name: {{ receiptData.customerInfo?.name }}</p>
+              </div>
+              <div class="col-md-6 text-center">
+                <div class="border-bottom mx-auto mb-2" style="width: 200px; height: 50px;"></div>
+                <p class="mb-1 fw-bold text-dark">Authorized Signature</p>
+                <p class="text-muted small">Service Advisor: {{ receiptData.issuedBy || 'System' }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="text-center p-3 bg-dark text-white">
+            <p class="mb-2 fw-bold">** OFFICIAL RECEIPT - PLEASE RETAIN FOR YOUR RECORDS **</p>
+            <p class="mb-0 small">
+              {{ serviceCenterInfo?.serviceCenterInfo?.name || serviceCenterInfo?.name || 'AUTOMATE SERVICE CENTER' }} |
+              Tel: {{ serviceCenterInfo?.serviceCenterInfo?.serviceCenterPhoneNo || serviceCenterInfo?.phone || 'N/A' }}
+              |
+              Operating Hours: {{ formatOperatingHours(serviceCenterInfo.operatingHours) || 'Mon-Sat: 8:00 AM - 6:00 PM'
+              }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="card-footer bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-success" (click)="printReceipt()">
+              <i class="bi bi-printer me-1"></i>Print Receipt
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

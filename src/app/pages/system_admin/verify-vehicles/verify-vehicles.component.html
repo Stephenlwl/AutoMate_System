@@ -1,1 +1,151 @@
-<p>verify-vehicles works!</p>
+<div class="container mt-4">
+    <h3 class="mb-4 fw-bold">
+        <span class="text-primary"><i class="bi bi-car-front"></i></span> Vehicle Validation
+    </h3>
+    <hr>
+
+    <!-- Tabs -->
+    <ul class="nav nav-pills mb-4">
+        <li class="nav-item">
+            <a class="nav-link" [class.active]="activeTab==='pending'" (click)="activeTab='pending'">
+                Pending Vehicles <span class="badge bg-warning text-dark">{{ pendingVehicles.length }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" [class.active]="activeTab==='approved'" (click)="activeTab='approved'">
+                Approved Vehicles <span class="badge bg-success">{{ approvedVehicles.length }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" [class.active]="activeTab==='rejected'" (click)="activeTab='rejected'">
+                Rejected Vehicles <span class="badge bg-danger">{{ rejectedVehicles.length }}</span>
+            </a>
+        </li>
+    </ul>
+
+    <!-- Loading -->
+    <div *ngIf="loading" class="text-center py-5">
+        <span class="spinner-border spinner-border-sm text-primary"></span> Loading Vehicles...
+    </div>
+
+    <!-- Table -->
+    <div *ngIf="!loading">
+        <table class="table table-bordered table-hover align-middle">
+            <thead class="table-secondary">
+                <tr>
+                    <th>Owner</th>
+                    <th>Email</th>
+                    <th>Vehicle Details</th>
+                    <th>Plate Number</th>
+                    <th>VIN</th>
+                    <th>Status</th>
+                    <th>Documents</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr *ngFor="let vehicle of getVehiclesByTab()">
+                    <td class="fw-semibold">{{ vehicle.ownerName }}</td>
+                    <td>{{ vehicle.ownerEmail }}</td>
+                    <td>
+                        <strong>{{ vehicle.make }} {{ vehicle.model }}</strong><br>
+                        <small class="text-muted">
+                            Year: {{ vehicle.year }} |
+                            Fuel: {{ vehicle.fuelType || 'N/A' }} |
+                            Engine: {{ vehicle.displacement || 'N/A' }}
+                        </small>
+                    </td>
+                    <td>
+                        <span>{{ vehicle.plateNumber }}</span>
+                    </td>
+                    <td>
+                        <code>{{ vehicle.vin || 'N/A' }}</code>
+                    </td>
+                    <td>
+                        <span class="badge"
+                            [ngClass]="{'bg-warning text-dark': vehicle.status==='pending', 'bg-success': vehicle.status==='approved', 'bg-danger': vehicle.status==='rejected' }">
+                            {{ vehicle.status | titlecase }}
+                        </span>
+                        <br>
+                        <small *ngIf="vehicle.adminNote" class="text-muted">
+                            Note: {{ vehicle.adminNote }}
+                        </small>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-info me-2" *ngIf="vehicle.vocUrl"
+                            (click)="openPreview(vehicle.vocUrl, vehicle.vocIv, vehicle.vocType, 'VOC Document', vehicle.plateNumber)">
+                            <i class="bi bi-file-earmark-text"></i> VOC
+                        </button>
+                    </td>
+                    <td>
+                        <ng-container *ngIf="vehicle.status==='pending'">
+                            <button class="btn btn-sm btn-success me-1" (click)="approveVehicle(vehicle)"
+                                title="Approve Vehicle">
+                                <i class="bi bi-check-circle"></i> Approve
+                            </button>
+                            <button class="btn btn-sm btn-danger" (click)="openRejectionModal(vehicle)"
+                                title="Reject Vehicle">
+                                <i class="bi bi-x-circle"></i> Reject
+                            </button>
+                        </ng-container>
+                        <ng-container *ngIf="vehicle.status==='approved'">
+                            <span class="text-success">
+                                <i class="bi bi-check-circle-fill"></i> Approved
+                            </span>
+                            <br>
+                            <small class="text-muted">
+                                {{ vehicle.reviewedAt | date:'short' }}
+                            </small>
+                        </ng-container>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- Empty State -->
+        <div *ngIf="getVehiclesByTab().length === 0" class="text-center py-5">
+            <i class="bi bi-car-front text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-3">No vehicles found for this category.</p>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{{ previewTitle }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="fw-semibold">{{ vehicleDetails }}</p>
+                    <div class="text-center">
+                        <img [src]="previewUrl" class="img-fluid rounded shadow" alt="Preview" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rejection Modal -->
+    <div class="modal fade" id="rejectionReasonModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reject Vehicle</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Please provide a reason for rejecting <strong>{{ selectedVehicle?.plateNumber }}</strong>:</p>
+                    <textarea [(ngModel)]="rejectionReason" class="form-control" rows="3"
+                        placeholder="E.g. VOC document is unclear, License plate doesn't match..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button class="btn btn-danger" (click)="confirmRejection()">Confirm Rejection</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

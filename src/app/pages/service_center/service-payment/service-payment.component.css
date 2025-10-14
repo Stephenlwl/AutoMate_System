@@ -1,0 +1,41 @@
+/* Add to your component's CSS file */
+.receipt-printable {
+  max-width: 800px;
+  margin: 0 auto;
+  font-family: 'Courier New', monospace;
+}
+
+.receipt-table {
+  font-size: 0.875rem;
+}
+
+.receipt-table th {
+  font-weight: 600;
+  padding: 4px 8px;
+}
+
+.receipt-table td {
+  padding: 4px 8px;
+  vertical-align: middle;
+}
+
+@media print {
+  .receipt-printable {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  
+  .card-header, .card-footer {
+    background: white !important;
+    color: black !important;
+    border: 1px solid #000 !important;
+  }
+  
+  .btn {
+    display: none !important;
+  }
+  
+  .alert {
+    display: none !important;
+  }
+}

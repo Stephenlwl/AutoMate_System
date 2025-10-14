@@ -11,3 +11,185 @@
     <router-outlet></router-outlet>
   </div>
 </div>
+
+<div *ngIf="showTowingRequestOverlay"
+  class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-75 d-flex align-items-center justify-content-center"
+  style="z-index: 1050; backdrop-filter: blur(2px);">
+  <div class="bg-white rounded-3 shadow-lg p-4 mx-3" style="max-width: 450px; width: 100%;">
+
+    <div class="text-center mb-4">
+      <div class="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+        style="width: 64px; height: 64px;">
+        <i class="bi bi-truck-flatbed text-danger fs-3"></i>
+      </div>
+      <h3 class="fw-bold text-dark mb-2">New Towing Request</h3>
+      <p class="text-muted mb-0">A new towing service request requires your attention</p>
+    </div>
+
+
+    <div class="bg-light rounded-2 p-3 mb-4" *ngIf="newTowingRequest">
+      <div class="row g-2">
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-person text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Customer:</span>
+            <span class="ms-2 text-dark">{{ newTowingRequest.customerDetails?.name || 'Unknown Customer' }}</span>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-envelope text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Email:</span>
+            <span class="ms-2 text-dark">{{ newTowingRequest.customerDetails?.email || 'No email' }}</span>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-telephone text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Phone:</span>
+            <span class="ms-2 text-dark">{{ newTowingRequest.customerDetails?.phone || 'No phone' }}</span>
+          </div>
+        </div>
+
+        <div class="col-12" *ngIf="newTowingRequest.vehicleInfo">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-car-front text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Vehicle:</span>
+            <span class="ms-2 text-dark">
+              {{ newTowingRequest.vehicleInfo?.make || '' }}
+              {{ newTowingRequest.vehicleInfo?.model || '' }}
+              {{ newTowingRequest.vehicleInfo?.plateNumber ? '(' + newTowingRequest.vehicleInfo.plateNumber + ')' : ''
+              }}
+            </span>
+          </div>
+        </div>
+
+        <div class="col-12" *ngIf="newTowingRequest.location?.customer?.address?.full">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-geo-alt text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Location:</span>
+            <span class="ms-2 text-dark">{{ newTowingRequest.location.customer.address.full }}</span>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-info-circle text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Service Type:</span>
+            <span class="ms-2 text-dark text-capitalize">
+              {{ newTowingRequest.towingType || 'Standard' }} Towing
+            </span>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-clock text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Requested:</span>
+            <span class="ms-2 text-dark">
+              <ng-container *ngIf="newTowingRequest.createdAt; else justNow">
+                {{ newTowingRequest.createdAt | date:'MMM d, y, h:mm a' }}
+              </ng-container>
+              <ng-template #justNow>Just now</ng-template>
+            </span>
+          </div>
+        </div>
+
+        <div class="d-grid gap-2">
+          <button (click)="viewTowingRequest()" class="btn btn-primary btn-lg fw-semibold py-2">
+            <i class="bi bi-eye me-2"></i>
+            View Request Details
+          </button>
+          <button (click)="closeTowingRequestOverlay()" class="btn btn-outline-secondary py-2">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="showServiceBookingUrgentRequestOverlay"
+  class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-75 d-flex align-items-center justify-content-center"
+  style="z-index: 1050; backdrop-filter: blur(2px);">
+  <div class="bg-white rounded-3 shadow-lg p-4 mx-3" style="max-width: 450px; width: 100%;">
+
+    <div class="text-center mb-4">
+      <div class="bg-danger bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3"
+        style="width: 64px; height: 64px;">
+        <i class="bi bi-truck-flatbed text-danger fs-3"></i>
+      </div>
+      <h3 class="fw-bold text-dark mb-2">New Service Booking Urgent Request</h3>
+      <p class="text-muted mb-0">A new service booking urgent request requires your attention</p>
+    </div>
+
+
+    <div class="bg-light rounded-2 p-3 mb-4" *ngIf="newServiceBookingUrgentRequest">
+      <div class="row g-2">
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-person text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Customer:</span>
+            <span class="ms-2 text-dark">{{ newServiceBookingUrgentRequest.customerDetails?.name || 'Unknown Customer' }}</span>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-envelope text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Email:</span>
+            <span class="ms-2 text-dark">{{ newServiceBookingUrgentRequest.customerDetails?.email || 'No email' }}</span>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-telephone text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Phone:</span>
+            <span class="ms-2 text-dark">{{ newServiceBookingUrgentRequest.customerDetails?.phone || 'No phone' }}</span>
+          </div>
+        </div>
+
+        <div class="col-12" *ngIf="newServiceBookingUrgentRequest.vehicleInfo">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-car-front text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Vehicle:</span>
+            <span class="ms-2 text-dark">
+              {{ newServiceBookingUrgentRequest.vehicleInfo?.make || '' }}
+              {{ newServiceBookingUrgentRequest.vehicleInfo?.model || '' }}
+              {{ newServiceBookingUrgentRequest.vehicleInfo?.plateNumber ? '(' + newServiceBookingUrgentRequest.vehicleInfo.plateNumber + ')' : ''
+              }}
+            </span>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="d-flex align-items-center">
+            <i class="bi bi-clock text-primary me-2"></i>
+            <span class="fw-semibold text-dark">Requested:</span>
+            <span class="ms-2 text-dark">
+              <ng-container *ngIf="newServiceBookingUrgentRequest.createdAt; else justNow">
+                {{ newServiceBookingUrgentRequest.createdAt | date:'MMM d, y, h:mm a' }}
+              </ng-container>
+              <ng-template #justNow>Just now</ng-template>
+            </span>
+          </div>
+        </div>
+
+        <div class="d-grid gap-2">
+          <button (click)="viewServiceBookingUrgentRequest()" class="btn btn-primary btn-lg fw-semibold py-2">
+            <i class="bi bi-eye me-2"></i>
+            View Request Details
+          </button>
+          <button (click)="closeServiceBookingUrgentRequestOverlay()" class="btn btn-outline-secondary py-2">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

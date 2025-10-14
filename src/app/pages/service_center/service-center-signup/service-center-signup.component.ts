@@ -58,7 +58,7 @@ export class ServiceCenterSignupComponent {
     { name: 'ssm', label: 'SSM Document (Image / PDF) *', accept: '.jpg,.jpeg,.png,.pdf' },
     { name: 'serviceCenterPhoto', label: 'Service Center Photo (Image only) *', accept: '.jpg,.jpeg,.png' },
     { name: 'businessLicense', label: 'Business License (Image / PDF) *', accept: '.jpg,.jpeg,.png,.pdf' },
-    { name: 'adminIC', label: 'Admin IC (Front & Back, Image / PDF) *', accept: '.jpg,.jpeg,.png,.pdf' }
+    { name: 'adminIC', label: 'Take a picture with your own IC (Image / PDF) *', accept: '.jpg,.jpeg,.png,.pdf' }
   ];
 
   constructor() {
@@ -395,7 +395,8 @@ export class ServiceCenterSignupComponent {
         adminInfo: {
           name: this.form.value.adminName,
           email: this.form.value.email,
-          password: hashedPassword
+          password: hashedPassword,
+          role: 'manager'
         },
         serviceCenterInfo: {
           name: this.form.value.serviceCenterName,

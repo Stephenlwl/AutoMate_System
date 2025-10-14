@@ -1,0 +1,609 @@
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h3 fw-bold mb-1 text-primary">
+                {{ mode === 'create' ? 'Generate Towing Invoice' : 'Towing Invoice' }}
+            </h2>
+            <p class="text-muted mb-0" *ngIf="mode === 'create'">
+                Create invoice for completed towing service
+            </p>
+            <p class="text-muted mb-0" *ngIf="mode === 'view'">
+                View towing invoice details
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <button *ngIf="mode === 'view'" class="btn btn-outline-dark" (click)="printInvoice()">
+                <i class="bi bi-printer me-1"></i>Print
+            </button>
+        </div>
+    </div>
+
+    <!-- Error Alert -->
+    <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        {{ error }}
+        <button type="button" class="btn-close" (click)="error = ''"></button>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="text-center py-5">
+        <div class="spinner-border text-dark" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-muted mt-2">Loading invoice data...</p>
+    </div>
+
+    <!-- Create Invoice Form -->
+    <div *ngIf="mode === 'create' && towingRequest && !loading" class="row">
+        <div class="col-12">
+            <!-- Invoice Preview Header -->
+            <div class="card border mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="fw-bold text-primary mb-2">TOWING INVOICE</h4>
+                            <p class="mb-1"><strong>Invoice No:</strong> {{ generateInvoiceNumber() }}</p>
+                            <p class="mb-1"><strong>Date:</strong> {{ getCurrentDate() }}</p>
+                            <p class="mb-0"><strong>Request ID:</strong> {{ towingRequest.id }}</p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <h5 class="fw-bold text-dark">
+                                {{ towingRequest.serviceCenterName }}
+                            </h5>
+                          <p class="mb-1 small">
+                                {{ serviceCenterInfo?.serviceCenterInfo?.address?.addressLine1 }}
+                            </p>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo.serviceCenterInfo.address.addressLine2 }}
+                            </p>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.postalCode }}
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.city }},
+                                {{ serviceCenterInfo.serviceCenterInfo?.address?.state }}
+                            </p>
+                            <p class="mb-1 small">
+                                <strong>Tel: </strong>
+                                {{ serviceCenterInfo?.serviceCenterInfo?.serviceCenterPhoneNo }}
+                            </p>
+
+                            <p class="mb-0 small">
+                                <strong>Email: </strong>{{ serviceCenterInfo?.adminInfo?.email }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer & Vehicle Information -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">
+                                <i class="bi bi-person me-1"></i>Customer Information
+                            </h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="mb-1"><strong>{{ towingRequest.customer.name || 'N/A' }}</strong></p>
+                            <p class="mb-1 text-muted">Tel: {{ towingRequest.contactNumber || 'N/A' }}</p>
+                            <p class="mb-0 text-muted">Email: {{ towingRequest.email || 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">
+                                <i class="bi bi-car-front me-1"></i>Vehicle Information
+                            </h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="mb-1">
+                                <strong>{{ towingRequest.vehicleInfo?.make || 'N/A' }} {{
+                                    towingRequest.vehicleInfo?.model || 'N/A' }}</strong>
+                                ({{ towingRequest.vehicleInfo?.year || 'N/A' }})
+                            </p>
+                            <p class="mb-1 text-muted">Plate No: {{ towingRequest.vehicleInfo?.plateNumber || 'N/A' }}
+                            </p>
+                            <p class="mb-1 text-muted">Size Class: {{ towingRequest.vehicleInfo?.sizeClass || 'N/A' }}
+                            </p>
+                            <p class="mb-0 text-muted">Towing Type: {{ towingRequest.towingType || 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Towing Service Details -->
+            <div class="card border mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="card-title mb-0 fw-bold">
+                        <i class="bi bi-truck me-1"></i>Towing Service Details
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Towing Type:</strong> {{ towingRequest.towingType }}</p>
+                            <p class="mb-2"><strong>Distance:</strong> {{ towingRequest.distance ||
+                                towingRequest.pricingBreakdown?.distanceInKm || 0 }} km</p>
+                            <p class="mb-2"><strong>Response Time:</strong> {{ towingRequest.responseTime || 0 }}
+                                minutes</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-2"><strong>Coverage Area:</strong> {{ towingRequest.coverageArea || 0 }} km</p>
+                            <p class="mb-2"><strong>Estimated Duration:</strong> {{ towingRequest.estimatedDuration || 0
+                                }} minutes</p>
+                            <p class="mb-0"><strong>Description:</strong> {{
+                                towingRequest.description || "No Description provided by the customer"}}</p>
+                        </div>
+                    </div>
+
+                    <!-- Pickup Location -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6 class="fw-bold">Pickup Location</h6>
+                            <p class="mb-0 text-muted">{{ towingRequest.location.customer.address.full }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Charges -->
+            <div class="card border mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="card-title mb-0 fw-bold">
+                        <i class="bi bi-list-check me-1"></i>Service Charges
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="5%">No</th>
+                                    <th width="50%">Description</th>
+                                    <th width="15%" class="text-center">Qty/Distance</th>
+                                    <th width="15%" class="text-end">Unit Price (RM)</th>
+                                    <th width="15%" class="text-end">Amount (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Base Fee -->
+                                <tr>
+                                    <td class="text-center">1</td>
+                                    <td>
+                                        <div class="fw-medium">Base Towing Fee</div>
+                                        <small class="text-muted">Standard towing service charge</small>
+                                    </td>
+                                    <td class="text-center">1</td>
+                                    <td class="text-end">{{ formatCurrency(towingRequest.pricingBreakdown?.baseFee || 0)
+                                        }}</td>
+                                    <td class="text-end fw-bold">{{
+                                        formatCurrency(towingRequest.pricingBreakdown?.baseFee || 0) }}</td>
+                                </tr>
+
+                                <!-- Distance Charge -->
+                                <tr>
+                                    <td class="text-center">2</td>
+                                    <td>
+                                        <div class="fw-medium">Distance Charge</div>
+                                        <small class="text-muted">{{ towingRequest.pricingBreakdown?.distanceInKm }} km
+                                            × RM {{ towingRequest.pricingBreakdown?.perKmRate }}/km</small>
+                                    </td>
+                                    <td class="text-center">{{ towingRequest.pricingBreakdown?.distanceInKm || 0 }}</td>
+                                    <td class="text-end">{{ formatCurrency(towingRequest.pricingBreakdown?.perKmRate ||
+                                        0) }}</td>
+                                    <td class="text-end fw-bold">{{
+                                        formatCurrency(towingRequest.pricingBreakdown?.distanceCost || 0) }}</td>
+                                </tr>
+
+                                <!-- Luxury Surcharge -->
+                                <tr>
+                                    <td class="text-center">3</td>
+                                    <td>
+                                        <div class="fw-medium">Luxury Vehicle Surcharge</div>
+                                        <small class="text-muted">Additional charge for luxury/premium vehicles</small>
+                                    </td>
+                                    <td class="text-center"><div *ngIf="towingRequest.pricingBreakdown?.luxurySurcharge===0">-</div><div *ngIf="towingRequest.pricingBreakdown?.luxurySurcharge>0">{{ towingRequest.pricingBreakdown?.luxurySurcharge }}</div></td>
+                                    <td class="text-end">{{
+                                        formatCurrency(towingRequest.pricingBreakdown?.luxurySurcharge || 0) }}</td>
+                                    <td class="text-end fw-bold">{{
+                                        formatCurrency(towingRequest.pricingBreakdown?.luxurySurcharge || 0) }}</td>
+                                </tr>
+
+                                <!-- Additional Services -->
+                                <tr *ngFor="let service of additionalServices; let i = index">
+                                    <td class="text-center">{{ 3 + i + 1 }}</td>
+                                    <td>
+                                        <div class="fw-medium">{{ service.name }}</div>
+                                        <small class="text-muted">Additional service</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <input type="number" class="form-control form-control-sm text-center"
+                                            [(ngModel)]="service.quantity"
+                                            (change)="updateAdditionalServiceTotal(service)" min="1"
+                                            style="width: 60px;">
+                                    </td>
+                                    <td class="text-end">
+                                        <input type="number" class="form-control form-control-sm text-end"
+                                            [(ngModel)]="service.unitPrice"
+                                            (change)="updateAdditionalServiceTotal(service)" step="0.01" min="0">
+                                    </td>
+                                    <td class="text-end fw-bold">
+                                        {{ formatCurrency(service.totalPrice || 0) }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Additional Services -->
+            <div class="card border mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="card-title mb-0 fw-bold">Add Additional Services</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-5">
+                            <label class="form-label">Service Name</label>
+                            <input type="text" class="form-control" [(ngModel)]="newAdditionalService.name"
+                                placeholder="e.g., Emergency fuel delivery, Tire change">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Quantity</label>
+                            <input type="number" class="form-control" [(ngModel)]="newAdditionalService.quantity"
+                                min="1" value="1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Unit Price (RM)</label>
+                            <input type="number" class="form-control" [(ngModel)]="newAdditionalService.unitPrice"
+                                min="0" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-outline-dark w-100" (click)="addAdditionalService()"
+                                [disabled]="!newAdditionalService?.name || !newAdditionalService?.unitPrice">
+                                <i class="bi bi-plus-lg me-1"></i>Add
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tax & Total Section -->
+            <div class="card border mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="card-title mb-0 fw-bold">Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="taxToggle"
+                                        [(ngModel)]="enableTax" (change)="onTaxToggleChange()">
+                                    <label class="form-check-label fw-semibold" for="taxToggle">
+                                        Apply SST (8%)
+                                    </label>
+                                </div>
+                                <small class="text-muted">
+                                    Service Tax (SST) will be calculated at 8% of the subtotal amount
+                                </small>
+                            </div>
+                            <!-- Driver Information -->
+                            <div class="mt-3">
+                                <h6 class="fw-bold text-dark mb-2">Driver Information</h6>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Name:</strong> {{ towingRequest?.driverInfo?.name ||
+                                            'N/A' }}</p>
+                                        <p class="mb-1"><strong>Contact:</strong> {{
+                                            towingRequest?.driverInfo?.contactNumber || 'N/A' }}</p>
+                                        <p class="mb-0"><strong>Email:</strong> {{ towingRequest?.driverInfo?.email ||
+                                            'N/A' }}</p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Vehicle:</strong> {{
+                                            towingRequest?.driverVehicleInfo?.make }} {{
+                                            towingRequest?.driverVehicleInfo?.model }}</p>
+                                        <p class="mb-0"><strong>Plate:</strong> {{
+                                            towingRequest?.driverVehicleInfo?.carPlate }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <!-- Total Calculation -->
+                            <div class="border rounded p-3 bg-light">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Base Towing:</span>
+                                    <span class="fw-bold">{{ formatCurrency(towingRequest.pricingBreakdown?.baseFee ||
+                                        0) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Distance Charge:</span>
+                                    <span class="fw-bold">{{ formatCurrency(towingRequest.pricingBreakdown?.distanceCost
+                                        || 0) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Luxury Surcharge:</span>
+                                    <span class="fw-bold">{{
+                                        formatCurrency(towingRequest.pricingBreakdown?.luxurySurcharge || 0) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Additional Services:</span>
+                                    <span class="fw-bold">{{ formatCurrency(calculateAdditionalServicesTotal())
+                                        }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                                    <span class="fw-bold">Subtotal:</span>
+                                    <span class="fw-bold">{{ formatCurrency(calculateSubtotal()) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2" *ngIf="enableTax">
+                                    <span>SST (8%):</span>
+                                    <span class="fw-bold text-danger">{{ formatCurrency(calculateTaxAmount()) }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between border-top pt-2">
+                                    <h5 class="fw-bold">GRAND TOTAL:</h5>
+                                    <h5 class="fw-bold text-success">{{ formatCurrency(calculateTotal()) }}</h5>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex justify-content-between align-items-center mt-4">
+                <button type="button" class="btn btn-outline-secondary" (click)="goBack()">
+                    <i class="bi bi-x-circle me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-dark" (click)="generateInvoice()">
+                    <i class="bi bi-check-lg me-1"></i>Generate Invoice
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Invoice Details -->
+    <div *ngIf="mode === 'view' && invoice && !loading" class="row">
+        <div class="col-12">
+            <!-- Invoice Header -->
+            <div class="card border mb-4">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="fw-bold text-dark mb-2">TOWING INVOICE</h4>
+                            <p class="mb-1"><strong>Invoice No:</strong> {{ invoice.invoiceId || invoice.id }}</p>
+                            <p class="mb-1"><strong>Date:</strong> {{ formatDate(invoice.createdAt) }}</p>
+                            <p class="mb-0"><strong>Request ID:</strong> {{ invoice.towingRequestId }}</p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <h5 class="fw-bold text-dark">{{ serviceCenterInfo.serviceCenterInfo?.name ||
+                                serviceCenterInfo?.name || invoice.serviceCenterName }}</h5>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo?.serviceCenterInfo?.address?.addressLine1 }}</p>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo?.serviceCenterInfo?.address?.addressLine2 }}</p>
+                            <p class="mb-1 small">
+                                {{ serviceCenterInfo?.serviceCenterInfo?.address?.city }}, {{
+                                serviceCenterInfo?.serviceCenterInfo?.address?.state }} {{
+                                serviceCenterInfo?.serviceCenterInfo?.address?.postalCode }}</p>
+                            <p class="mb-1 small">
+                                <strong>Tel: </strong>
+                                {{ serviceCenterInfo?.serviceCenterInfo?.serviceCenterPhoneNo }}
+                            </p>
+
+                            <p class="mb-0 small">
+                                <strong>Email: </strong>{{ serviceCenterInfo?.adminInfo?.email }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer & Vehicle Information -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Customer Information</h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="mb-1"><strong>{{ invoice.customerInfo?.name || 'N/A' }}</strong></p>
+                            <p class="mb-1 text-muted"><strong>Tel:</strong> {{ invoice.customerInfo?.phone || 'N/A' }}</p>
+                            <p class="mb-0 text-muted"><strong>Email:</strong> {{ invoice.customerInfo?.email || 'N/A' }}</p>
+                            <p class="mb-0 text-muted"><strong>Pickup Location:</strong> {{invoice?.locationInfo?.pickupAddress || 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Vehicle Information</h6>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="mb-1">
+                                <strong>{{ invoice.vehicleInfo?.make || 'N/A' }} {{ invoice.vehicleInfo?.model || 'N/A'
+                                    }}</strong>
+                                ({{ invoice.vehicleInfo?.year || 'N/A' }})
+                            </p>
+                            <p class="mb-1 text-muted"><strong>Plate No:</strong> {{ invoice.vehicleInfo?.plateNumber || 'N/A' }}</p>
+                            <p class="mb-1 text-muted"><strong>Size Class:</strong> {{ invoice.vehicleInfo?.sizeClass || 'N/A' }}</p>
+                            <p class="mb-0 text-muted"><strong>Towing Type:</strong> {{ invoice.towingDetails?.towingType || 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Service Charges -->
+            <div class="card border mb-4">
+                <div class="card-header bg-light py-2">
+                    <h6 class="card-title mb-0 fw-bold">Service Charges</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th width="5%">No</th>
+                                    <th width="50%">Description</th>
+                                    <th width="15%" class="text-center">Qty</th>
+                                    <th width="15%" class="text-end">Unit Price (RM)</th>
+                                    <th width="15%" class="text-end">Amount (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Base Fee -->
+                                <tr>
+                                    <td class="text-center">1</td>
+                                    <td>
+                                        <div class="fw-medium">Base Towing Fee</div>
+                                        <small class="text-muted">Standard towing service charge</small>
+                                    </td>
+                                    <td class="text-center">1</td>
+                                    <td class="text-end">{{ formatCurrency(invoice.baseTowingCost ||
+                                        invoice.pricingBreakdown?.baseFee || 0) }}</td>
+                                    <td class="text-end fw-bold">{{ formatCurrency(invoice.baseTowingCost ||
+                                        invoice.pricingBreakdown?.baseFee || 0) }}</td>
+                                </tr>
+
+                                <!-- Distance Charge -->
+                                <tr *ngIf="(invoice.pricingBreakdown?.distanceCost || 0) > 0">
+                                    <td class="text-center">2</td>
+                                    <td>
+                                        <div class="fw-medium">Distance Charge</div>
+                                        <small class="text-muted">{{ invoice.pricingBreakdown?.distanceInKm }} km × RM
+                                            {{ invoice.pricingBreakdown?.perKmRate }}/km</small>
+                                    </td>
+                                    <td class="text-center">{{ invoice.pricingBreakdown?.distanceInKm || 0 }}</td>
+                                    <td class="text-end">{{ formatCurrency(invoice.pricingBreakdown?.perKmRate || 0) }}
+                                    </td>
+                                    <td class="text-end fw-bold">{{
+                                        formatCurrency(invoice.pricingBreakdown?.distanceCost || 0) }}</td>
+                                </tr>
+
+                                <!-- Luxury Surcharge -->
+                                <tr *ngIf="(invoice.pricingBreakdown?.luxurySurcharge || 0) > 0">
+                                    <td class="text-center">3</td>
+                                    <td>
+                                        <div class="fw-medium">Luxury Vehicle Surcharge</div>
+                                        <small class="text-muted">Additional charge for luxury/premium vehicles</small>
+                                    </td>
+                                    <td class="text-center">1</td>
+                                    <td class="text-end">{{ formatCurrency(invoice.pricingBreakdown?.luxurySurcharge ||
+                                        0) }}</td>
+                                    <td class="text-end fw-bold">{{
+                                        formatCurrency(invoice.pricingBreakdown?.luxurySurcharge || 0) }}</td>
+                                </tr>
+
+                                <!-- Additional Services -->
+                                <tr *ngFor="let service of invoice.additionalServices; let i = index">
+                                    <td class="text-center">{{ 3 + i + 1 }}</td>
+                                    <td>{{ service.name }}
+                                        <br>
+                                        <small class="text-muted">Additional service</small>
+                                    </td>
+                                    <td class="text-center">{{ service.quantity || 1 }}</td>
+                                    <td class="text-end">{{ formatCurrency(service.unitPrice || 0) }}</td>
+                                    <td class="text-end fw-bold">{{ formatCurrency(service.totalPrice || 0) }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Total & Payment Information -->
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Driver Information -->
+                    <div class="card border" *ngIf="invoice.driverInfo">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Driver Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Name:</strong> {{ invoice.driverInfo?.name || 'N/A' }}</p>
+                                    <p class="mb-1"><strong>Contact:</strong> {{ invoice.driverInfo?.contactNumber ||
+                                        'N/A' }}</p>
+                                    <p class="mb-0"><strong>Email:</strong> {{ invoice.driverInfo?.email || 'N/A' }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Vehicle:</strong> {{ invoice.driverInfo?.vehicle?.make }} {{
+                                        invoice.driverInfo?.vehicle?.model }}</p>
+                                    <p class="mb-0"><strong>Plate:</strong> {{ invoice.driverInfo?.vehicle?.carPlate }}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <!-- Totals -->
+                    <div class="card border">
+                        <div class="card-header bg-light py-2">
+                            <h6 class="card-title mb-0 fw-bold">Invoice Summary</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Base Towing:</span>
+                                <span class="fw-bold">{{ formatCurrency(invoice.baseTowingCost || 0) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2"
+                                *ngIf="(invoice.pricingBreakdown?.distanceCost || 0) > 0">
+                                <span>Distance Charge:</span>
+                                <span class="fw-bold">{{ formatCurrency(invoice.pricingBreakdown?.distanceCost || 0)
+                                    }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2"
+                                *ngIf="(invoice.pricingBreakdown?.luxurySurcharge || 0) > 0">
+                                <span>Luxury Surcharge:</span>
+                                <span class="fw-bold">{{ formatCurrency(invoice.pricingBreakdown?.luxurySurcharge || 0)
+                                    }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2"
+                                *ngIf="(invoice.additionalServicesTotal || 0) > 0">
+                                <span>Additional Services:</span>
+                                <span class="fw-bold">{{ formatCurrency(invoice.additionalServicesTotal || 0) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                                <span class="fw-bold">Subtotal:</span>
+                                <span class="fw-bold">{{ formatCurrency(invoice.subtotal) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2" *ngIf="invoice.taxAmount > 0">
+                                <span>SST (8%):</span>
+                                <span class="fw-bold text-dark">{{ formatCurrency(invoice.taxAmount) }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between border-top pt-2 mb-3">
+                                <h5 class="fw-bold">GRAND TOTAL:</h5>
+                                <h5 class="fw-bold text-success">{{ formatCurrency(invoice.totalAmount) }}</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="text-center mt-4 pt-3 border-top">
+                <p class="text-muted small mb-1">Thank you for your business</p>
+                <p class="text-muted small">This is an official invoice for towing services rendered</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="mode === 'view' && !invoice && !loading && !error" class="text-center py-5">
+        <div class="mb-3">
+            <i class="bi bi-receipt display-4 text-muted"></i>
+        </div>
+        <h5 class="text-muted">No Invoice Found</h5>
+        <p class="text-muted">The requested invoice could not be found</p>
+        <button class="btn btn-dark" (click)="goBack()">
+            <i class="bi bi-arrow-left me-1"></i>Back to Towing Requests
+        </button>
+    </div>
+</div>

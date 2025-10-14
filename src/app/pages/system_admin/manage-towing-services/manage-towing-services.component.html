@@ -1,0 +1,181 @@
+<div class="container py-3">
+    <h3 class="mb-4 fw-bold text-primary">
+        <i class="bi bi-truck me-2"></i> Manage Towing Services
+    </h3>
+    <hr>
+    <!-- Pending Requests Section -->
+
+    <!-- <div *ngIf="pendingRequests$ | async as pendingRequests">
+        <div *ngIf="pendingRequests.length > 0" class="text-muted mb-4 small">
+            <i class="bi bi-info-circle me-2"></i> There are {{ pendingRequests.length }} towing service requests pending approval.
+        </div>
+    </div> -->
+
+    <!-- Services Overview Section -->
+    <h5 class="mb-3 mt-3">Towing Services Overview</h5>
+    <div class="row mb-3 g-3 align-items-end">
+        <!-- Search Input -->
+        <div class="col-md-4">
+            <label for="serviceSearch" class="form-label text-muted small">Search Towing Services</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" id="serviceSearch" class="form-control" placeholder="Enter service name..."
+                    [formControl]="searchControl">
+            </div>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="col-md-3">
+            <label for="statusFilter" class="form-label text-muted small">Filter by Status</label>
+            <select class="form-select" [formControl]="statusFilterControl">
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Services Table -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">
+                <i class="bi bi-list-ul me-2"></i>
+                Existing Towing Services
+                <span class="badge bg-primary ms-2">
+                    {{ (towingServices$ | async)?.length || 0 }} services
+                </span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" *ngIf="(towingServices$ | async)?.length; else emptyState">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Service Name</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            *ngFor="let service of (filteredServices$ | async)! | paginate: { itemsPerPage: pageSize, currentPage: page, id: 'serviceOverview' }">
+                            <td>
+                                <strong>{{ service.name }}</strong>
+                                <br>
+                                <small class="text-muted">Created: {{ service.createdAt?.toDate() | date:'shortDate'
+                                    }}</small>
+                            </td>
+                            <td>
+                                <span class="text-truncate d-inline-block" [title]="service.description">
+                                    {{ service.description }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge" [class.bg-success]="service.active"
+                                    [class.bg-secondary]="!service.active">
+                                    {{ service.active ? 'Active' : 'Inactive' }}
+                                </span>
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-sm btn-outline-secondary me-2"
+                                        (click)="toggleServiceActive(service)">
+                                        {{ service.active ? 'Disable' : 'Enable' }}
+                                    </button>
+                                    <button class="btn btn-sm btn-warning me-2" (click)="editService(service)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" (click)="deleteService(service)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                    </tbody>
+                </table>
+                <pagination-controls id="serviceOverview" (pageChange)="page = $event"
+                    class="d-flex justify-content-center mt-3">
+                </pagination-controls>
+
+                <ng-template #emptyState>
+                    <div class="text-center py-5">
+                        <i class="bi bi-truck display-1 text-muted"></i>
+                        <h4 class="text-muted mt-3">No Towing Services Found</h4>
+                        <p class="text-muted">Start by adding your first towing service using the form below.</p>
+                    </div>
+                </ng-template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Towing Service Form -->
+    <div class="row g-3 mt-2">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        {{ editingService ? 'Edit Towing Service' : 'Add New Towing Service' }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form [formGroup]="towingServiceForm" (ngSubmit)="onSubmit()">
+                        <div class="row g-3">
+                            <!-- Service Name -->
+                            <div class="col-md-6">
+                                <label for="name" class="form-label">Towing Service Name *</label>
+                                <input type="text" class="form-control" id="name" formControlName="name"
+                                    [class.is-invalid]="isFieldInvalid('name')"
+                                    placeholder="e.g., Vehicle Breakdown Assistance">
+                                <div class="invalid-feedback" *ngIf="isFieldInvalid('name')"></div>
+                            </div>
+
+                            <!-- Description -->
+                            <div class="col-12">
+                                <label for="description" class="form-label">Description *</label>
+                                <textarea class="form-control" id="description" formControlName="description" rows="3"
+                                    [class.is-invalid]="isFieldInvalid('description')"
+                                    placeholder="Describe what this towing service includes..."></textarea>
+                                <div class="invalid-feedback" *ngIf="isFieldInvalid('description')"></div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="active"
+                                        formControlName="active">
+                                    <label class="form-check-label" for="active">Active Service</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="d-flex gap-2">
+                                    <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
+                                        <i class="bi" [class.bi-check-circle]="!isSubmitting"
+                                            [class.bi-hourglass-split]="isSubmitting"></i>
+                                        {{ isSubmitting ? 'Saving...' : (editingService ? 'Update Service' : 'Add
+                                        Service') }}
+                                    </button>
+
+                                    <button type="button" class="btn btn-secondary" (click)="cancelEdit()"
+                                        *ngIf="editingService">
+                                        <i class="bi bi-x-circle"></i> Cancel
+                                    </button>
+
+                                    <button type="button" class="btn btn-outline-secondary" (click)="resetForm()"
+                                        *ngIf="!editingService">
+                                        <i class="bi bi-arrow-clockwise"></i> Reset
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

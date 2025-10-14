@@ -1,0 +1,809 @@
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between mb-4" *ngIf="mode==='payment'">
+    <div>
+      <h1 class="h3 fw-bold text-primary mb-1">
+        Towing Payment Processing
+      </h1>
+      <p class="text-muted mb-0">
+        Process payment for towing service
+      </p>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="text-muted mt-2">Loading payment details...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && !loading" class="alert alert-danger">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    {{ error }}
+  </div>
+
+  <!-- Payment Form Section -->
+  <div *ngIf="!receiptGenerated && !loading && invoice" class="row">
+    <div class="col-12">
+      <div class="card border-2 mb-4">
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h4 class="fw-bold text-primary mb-2">Towing Receipt</h4>
+              <p class="mb-1"><strong>Invoice No:</strong> {{ invoice.invoiceId || invoice.id }}</p>
+              <p class="mb-1"><strong>Request No:</strong> {{ towingRequest?.id || 'N/A' }}</p>
+              <p class="mb-0"><strong>Date:</strong> {{ formatDate(invoice.createdAt) }}</p>
+            </div>
+            <div class="col-md-6 text-end" *ngIf="serviceCenterInfo">
+              <h5 class="fw-bold text-dark">{{ serviceCenterInfo.serviceCenterInfo?.name || serviceCenterInfo.name }}
+              </h5>
+              <p class="mb-1 small">
+                {{ serviceCenterInfo?.serviceCenterInfo?.address?.addressLine1 }}
+              </p>
+              <p class="mb-1 small">
+                {{ serviceCenterInfo.serviceCenterInfo.address.addressLine2 }}
+              </p>
+              <p class="mb-1 small">
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.postalCode }}
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.city }},
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.state }}
+              </p>
+              <p class="mb-1 small"><strong>Tel:</strong> {{ serviceCenterInfo.serviceCenterInfo?.serviceCenterPhoneNo
+                || serviceCenterInfo.phone }}</p>
+              <p class="mb-0 small" *ngIf="serviceCenterInfo.adminInfo?.email">
+                <strong>Email:</strong> {{ serviceCenterInfo.adminInfo.email }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer & Vehicle Information -->
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card border">
+            <div class="card-header bg-light py-2">
+              <h6 class="card-title mb-0 fw-bold">
+                <i class="bi bi-person me-1"></i>Customer Information
+              </h6>
+            </div>
+            <div class="card-body py-3">
+              <p class="mb-1"><strong>{{ invoice.customerInfo?.name || 'N/A' }}</strong></p>
+              <p class="mb-1 text-muted">Tel: {{ invoice.customerInfo?.phone || 'N/A' }}</p>
+              <p class="mb-0 text-muted">Email: {{ invoice.customerInfo?.email || 'N/A' }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border">
+            <div class="card-header bg-light py-2">
+              <h6 class="card-title mb-0 fw-bold">
+                <i class="bi bi-car-front me-1"></i>Vehicle Information
+              </h6>
+            </div>
+            <div class="card-body py-3">
+              <p class="mb-1">
+                <strong>{{ invoice.vehicleInfo?.make || 'N/A' }} {{ invoice.vehicleInfo?.model || 'N/A' }}</strong>
+                ({{ invoice.vehicleInfo?.year || 'N/A' }})
+              </p>
+              <p class="mb-1 text-muted">Plate No: {{ invoice.vehicleInfo?.plateNumber || 'N/A' }}</p>
+              <p class="mb-1 text-muted">Vehicle Class: {{ invoice.vehicleInfo?.sizeClass || 'N/A' }}</p>
+              <p class="mb-0 text-muted">Towing Type: {{ invoice.towingDetails?.towingType || 'Standard' }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Towing Service Details -->
+      <div class="card border mb-4">
+        <div class="card-header bg-light py-2">
+          <h6 class="card-title mb-0 fw-bold">
+            <i class="bi bi-list-check me-1"></i>Towing Service Details
+          </h6>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-bordered mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th width="5%">No</th>
+                  <th width="55%">Description</th>
+                  <th width="15%" class="text-center">Distance</th>
+                  <th width="25%" class="text-end">Amount (RM)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Base Towing Service -->
+                <tr class="table-info">
+                  <td colspan="4" class="fw-bold">TOWING SERVICE</td>
+                </tr>
+
+                <tr>
+                  <td class="text-center">1</td>
+                  <td>
+                    <div class="fw-medium">{{ invoice.towingDetails?.towingType || 'Standard' }} Towing Service</div>
+                    <small class="text-muted">
+                      Base fee for towing service
+                      <span *ngIf="invoice.pricingBreakdown?.distanceInKm">
+                        • {{ invoice.pricingBreakdown.distanceInKm }} km distance
+                      </span>
+                    </small>
+                  </td>
+                  <td class="text-center">
+                    {{ invoice.pricingBreakdown?.distanceInKm || 0 }} km
+                  </td>
+                  <td class="text-end fw-bold">
+                    {{ formatCurrency(invoice.baseTowingCost || 0) }}
+                  </td>
+                </tr>
+
+                <!-- Distance Cost -->
+                <tr>
+                  <td class="text-center">2</td>
+                  <td>
+                    <div class="fw-medium">Distance Charge</div>
+                    <small class="text-muted">
+                      {{ invoice.pricingBreakdown?.distanceInKm }} km ×
+                      RM{{ invoice.pricingBreakdown?.perKmRate }}/km
+                    </small>
+                  </td>
+                  <td class="text-center">
+                    {{ invoice.pricingBreakdown?.distanceInKm || 0 }} km
+                  </td>
+                  <td class="text-end fw-bold">
+                    {{ formatCurrency(invoice.pricingBreakdown?.distanceCost || 0) }}
+                  </td>
+                </tr>
+
+                <!-- Luxury Surcharge -->
+                <tr>
+                  <td class="text-center">3</td>
+                  <td>
+                    <div class="fw-medium">Luxury Vehicle Surcharge</div>
+                    <small class="text-muted">Additional charge for {{ invoice.vehicleInfo?.sizeClass }} vehicle</small>
+                  </td>
+                  <td class="text-center">-</td>
+                  <td class="text-end fw-bold">
+                    {{ formatCurrency(invoice.pricingBreakdown?.luxurySurcharge || 0) }}
+                  </td>
+                </tr>
+
+                <!-- Additional Services -->
+                <tr class="table-warning" *ngIf="invoice.additionalServices && invoice.additionalServices.length > 0">
+                  <td colspan="4" class="fw-bold">ADDITIONAL SERVICES</td>
+                </tr>
+
+                <tr *ngFor="let service of invoice.additionalServices; let i = index">
+                  <td class="text-center">{{ 4 + i }}</td>
+                  <td>
+                    <div class="fw-medium">{{ service.name || service.serviceName }}</div>
+                    <small class="text-muted">{{ service.description || 'Additional service' }}</small>
+                    <small class="text-muted d-block" *ngIf="service.quantity > 1">
+                      Quantity: {{ service.quantity }}
+                    </small>
+                  </td>
+                  <td class="text-center">-</td>
+                  <td class="text-end fw-bold">
+                    {{ formatCurrency((service.unitPrice || service.price || 0) * (service.quantity || 1)) }}
+                  </td>
+                </tr>
+
+                <!-- No Additional Services -->
+                <tr *ngIf="!invoice.additionalServices || invoice.additionalServices.length === 0">
+                  <td colspan="4" class="text-center text-muted py-3">
+                    No additional services
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Location Information -->
+      <div class="card border mb-4" *ngIf="invoice.locationInfo">
+        <div class="card-header bg-light py-2">
+          <h6 class="card-title mb-0 fw-bold">
+            <i class="bi bi-geo-alt me-1"></i>Location Information
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <h6 class="fw-bold text-primary mb-2">Pickup Location</h6>
+              <p class="mb-1">{{ invoice.locationInfo.pickupAddress || 'N/A' }}</p>
+            </div>
+            <div class="col-md-6">
+              <h6 class="fw-bold text-primary mb-2">Destination</h6>
+              <p class="mb-1">{{ invoice.locationInfo.serviceCenterAddress || 'Service Center' }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Driver Information -->
+      <div class="card border mb-4" *ngIf="invoice.driverInfo">
+        <div class="card-header bg-light py-2">
+          <h6 class="card-title mb-0 fw-bold">
+            <i class="bi bi-person-badge me-1"></i>Driver Information
+          </h6>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <p class="mb-1"><strong>Driver Name:</strong> {{ invoice.driverInfo.name || 'N/A' }}</p>
+              <p class="mb-1"><strong>Contact:</strong> {{ invoice.driverInfo.contactNumber || 'N/A' }}</p>
+            </div>
+            <div class="col-md-6">
+              <p class="mb-1" *ngIf="invoice.driverInfo.vehicle">
+                <strong>Tow Vehicle:</strong> {{ invoice.driverInfo.vehicle.make }} {{ invoice.driverInfo.vehicle.model
+                }}
+              </p>
+              <p class="mb-0" *ngIf="invoice.driverInfo.email">
+                <strong>Email:</strong> {{ invoice.driverInfo.email }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Total & Payment Form -->
+      <div class="row">
+        <div class="col-md-8">
+          <!-- Payment Form -->
+          <div class="card border">
+            <div class="card-header bg-light py-2">
+              <h6 class="card-title mb-0 fw-bold">
+                <i class="bi bi-credit-card me-2"></i>Payment Information
+              </h6>
+              <form (ngSubmit)="processPayment()">
+                <div class="row">
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Payment Method *</label>
+                      <select class="form-select" [(ngModel)]="paymentMethod" name="paymentMethod" required
+                        (change)="onPaymentMethodChange()">
+                        <option value="cash">Cash</option>
+                        <option value="card">Credit/Debit Card</option>
+                        <option value="ewallet">E-Wallet</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Amount Paid (RM) *</label>
+                      <input type="number" class="form-control" [(ngModel)]="amountPaid" name="amountPaid" [min]="0"
+                        [step]="0.01" [max]="invoice?.totalAmount * 2" required (input)="onAmountPaidChange()">
+                      <div class="form-text">
+                        Invoice Total: {{ formatCurrency(invoice?.totalAmount || 0) }}
+                        <span *ngIf="amountPaid > 0 && amountPaid < invoice?.totalAmount" class="text-warning">
+                          - Balance Due: {{ formatCurrency(invoice?.totalAmount - amountPaid) }}
+                        </span>
+                        <span *ngIf="amountPaid > invoice?.totalAmount" class="text-info">
+                          - Change: {{ formatCurrency(amountPaid - invoice?.totalAmount) }}
+                        </span>
+                        <span *ngIf="amountPaid === invoice?.totalAmount" class="text-success">
+                          - Full payment
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- E-Wallet Details (Show only when payment method is ewallet) -->
+                <div *ngIf="paymentMethod === 'ewallet'" class="row border rounded p-3 bg-light">
+                  <h6 class="fw-bold mb-3">E-Wallet Information</h6>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">E-Wallet Provider *</label>
+                      <select class="form-select" [(ngModel)]="ewalletProvider" name="ewalletProvider" required>
+                        <option value="">Select E-Wallet</option>
+                        <option value="touchngo">Touch 'n Go eWallet</option>
+                        <option value="grabpay">GrabPay</option>
+                        <option value="boost">Boost</option>
+                        <option value="maybankqrpay">Maybank QRPay</option>
+                        <option value="duitnow">DuitNow QR</option>
+                        <option value="shopeepay">ShopeePay</option>
+                        <option value="setel">Setel</option>
+                        <option value="bigpay">BigPay</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Transaction ID *</label>
+                      <input type="text" class="form-control" [(ngModel)]="ewalletTransactionId"
+                        name="ewalletTransactionId" placeholder="TXN123456789" required>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Reference Number</label>
+                      <input type="text" class="form-control" [(ngModel)]="ewalletReference" name="ewalletReference"
+                        placeholder="REF123456">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Phone Number</label>
+                      <input type="text" class="form-control" [(ngModel)]="ewalletPhone" name="ewalletPhone"
+                        placeholder="Customer phone number">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card Details (Show only when payment method is card) -->
+                <div *ngIf="paymentMethod === 'card'" class="row border rounded p-3 bg-light">
+                  <h6 class="fw-bold mb-3">Card Information</h6>
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label class="form-label">Card Number *</label>
+                      <input type="text" class="form-control" [(ngModel)]="cardNumber" name="cardNumber"
+                        placeholder="1234 5678 9012 3456" required maxlength="16">
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label class="form-label">Card Expiry *</label>
+                      <input type="text" class="form-control" [(ngModel)]="cardExpiry" name="cardExpiry"
+                        placeholder="MM/YY" required>
+                    </div>
+                  </div>
+                  <div class="col-md-4">
+                    <div class="mb-3">
+                      <label class="form-label">CVV *</label>
+                      <input type="text" class="form-control" [(ngModel)]="cardCVV" name="cardCVV" placeholder="123"
+                        required maxlength="3">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Authorization Code</label>
+                      <input type="text" class="form-control" [(ngModel)]="cardAuthCode" name="cardAuthCode"
+                        placeholder="AUTH12345">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Terminal ID</label>
+                      <input type="text" class="form-control" [(ngModel)]="cardTerminalId" name="cardTerminalId"
+                        placeholder="TERM001">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bank Transfer Details (Show only when payment method is bank_transfer) -->
+                <div *ngIf="paymentMethod === 'bank_transfer'" class="row border rounded p-3 bg-light">
+                  <h6 class="fw-bold mb-3">Bank Transfer Information</h6>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Bank Name *</label>
+                      <select class="form-select" [(ngModel)]="bankName" name="bankName" required>
+                        <option value="">Select Bank</option>
+                        <option value="maybank">Maybank</option>
+                        <option value="cimb">CIMB Bank</option>
+                        <option value="public">Public Bank</option>
+                        <option value="hongleong">Hong Leong Bank</option>
+                        <option value="rhb">RHB Bank</option>
+                        <option value="ambank">AmBank</option>
+                        <option value="bankislam">Bank Islam</option>
+                        <option value="alliance">Alliance Bank</option>
+                        <option value="ocbc">OCBC Bank</option>
+                        <option value="standardchartered">Standard Chartered</option>
+                        <option value="uob">UOB Bank</option>
+                        <option value="other">Other Bank</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Reference Number *</label>
+                      <input type="text" class="form-control" [(ngModel)]="bankReference" name="bankReference"
+                        placeholder="REF123456789" required>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Transaction Date *</label>
+                      <input type="date" class="form-control" [(ngModel)]="bankTransactionDate"
+                        name="bankTransactionDate" required>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Amount Transferred (RM) *</label>
+                      <input type="number" class="form-control" [(ngModel)]="bankAmount" name="bankAmount" [min]="0"
+                        [step]="0.01" required>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cash Details (Show only when payment method is cash) -->
+                <div *ngIf="paymentMethod === 'cash'" class="row border rounded p-3 bg-light">
+                  <h6 class="fw-bold mb-3">Cash Payment Details</h6>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Amount Tendered (RM)</label>
+                      <input type="number" class="form-control" [(ngModel)]="cashTendered" name="cashTendered" [min]="0"
+                        [step]="0.01" (input)="calculateCashChange()">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="mb-3">
+                      <label class="form-label">Change Given (RM)</label>
+                      <input type="number" class="form-control" [(ngModel)]="cashChange" name="cashChange" readonly>
+                    </div>
+                  </div>
+                </div>
+                <!-- ... -->
+
+                <!-- Payment Notes -->
+                <div class="mb-3">
+                  <label class="form-label">Payment Notes</label>
+                  <textarea class="form-control" [(ngModel)]="paymentNotes" name="paymentNotes" rows="2"
+                    placeholder="Any additional payment notes..."></textarea>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-flex justify-content-between border-top pt-3">
+                  <div>
+                    <span class="badge" [ngClass]="getPaymentStatusBadge()">
+                      {{ getPaymentStatusText() }}
+                    </span>
+                  </div>
+                  <button type="submit" class="btn btn-success"
+                    [disabled]="!paymentMethod || !amountPaid || amountPaid <= 0">
+                    <i class="bi bi-credit-card me-1"></i>
+                    {{ amountPaid >= invoice?.totalAmount ? 'Process Full Payment' : 'Process Partial Payment' }}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <!-- Invoice Summary -->
+          <div class="card border">
+            <div class="card-header bg-light py-2">
+              <h6 class="card-title mb-0 fw-bold">Invoice Summary</h6>
+            </div>
+            <div class="card-body">
+              <div class="d-flex justify-content-between mb-2">
+                <span>Base Towing:</span>
+                <span class="fw-bold">{{ formatCurrency(invoice.baseTowingCost || 0) }}</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2" *ngIf="invoice.pricingBreakdown?.distanceCost > 0">
+                <span>Distance Charge:</span>
+                <span class="fw-bold">{{ formatCurrency(invoice.pricingBreakdown?.distanceCost || 0) }}</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2" *ngIf="invoice.pricingBreakdown?.luxurySurcharge > 0">
+                <span>Luxury Surcharge:</span>
+                <span class="fw-bold">{{ formatCurrency(invoice.pricingBreakdown?.luxurySurcharge || 0) }}</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2" *ngIf="invoice.additionalServicesTotal > 0">
+                <span>Additional Services:</span>
+                <span class="fw-bold">{{ formatCurrency(invoice.additionalServicesTotal || 0) }}</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2 border-top pt-2">
+                <span>Subtotal:</span>
+                <span class="fw-bold">{{ formatCurrency(invoice.subtotal || 0) }}</span>
+              </div>
+              <div class="d-flex justify-content-between mb-2" *ngIf="invoice.taxAmount > 0">
+                <span>SST (8%):</span>
+                <span class="fw-bold text-danger">{{ formatCurrency(invoice.taxAmount || 0) }}</span>
+              </div>
+              <div class="d-flex justify-content-between border-top pt-2 mb-3">
+                <h5 class="fw-bold">TOTAL:</h5>
+                <h5 class="fw-bold text-success">{{ formatCurrency(invoice.totalAmount || 0) }}</h5>
+              </div>
+
+              <!-- Payment Status Warning -->
+              <div *ngIf="amountPaid > 0 && amountPaid < invoice?.totalAmount" class="alert alert-warning small">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <strong>Partial Payment</strong>
+                <p class="mb-0 mt-1">Balance due: {{ formatCurrency(invoice?.totalAmount - amountPaid) }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Service Information -->
+          <div class="card border mt-3">
+            <div class="card-header bg-light py-2">
+              <h6 class="card-title mb-0 fw-bold">Service Information</h6>
+            </div>
+            <div class="card-body">
+              <div class="mb-2">
+                <strong>Distance:</strong> {{ invoice.towingDetails?.distance || 0 }} km
+              </div>
+              <div class="mb-2">
+                <strong>Coverage Area:</strong> {{ invoice.towingDetails?.coverageArea || 'N/A' }} km
+              </div>
+              <div class="mb-2">
+                <strong>Response Time:</strong> {{ invoice.towingDetails?.responseTime || 'N/A' }} mins
+              </div>
+              <div class="mb-0">
+                <strong>Estimated Duration:</strong> {{ invoice.towingDetails?.estimatedDuration || 'N/A' }} mins
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt Display Section -->
+  <div *ngIf="receiptGenerated && receiptData" class="row">
+    <div class="col-12">
+      <!-- Receipt Card -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+          <!-- Receipt content follows towing invoice structure -->
+          <div class="receipt-container" id="receiptContent">
+            <!-- Receipt Header -->
+            <div class="text-center border-bottom p-4 bg-light">
+              <h4 class="fw-bold mb-2 text-uppercase text-dark">{{ serviceCenterInfo?.serviceCenterInfo?.name ||
+                serviceCenterInfo?.name }}</h4>
+              <p class="mb-1 small">
+                {{ serviceCenterInfo?.serviceCenterInfo?.address?.addressLine1 }}
+              </p>
+              <p class="mb-1 small">
+                {{ serviceCenterInfo.serviceCenterInfo.address.addressLine2 }}
+              </p>
+              <p class="mb-1 small">
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.postalCode }}
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.city }},
+                {{ serviceCenterInfo.serviceCenterInfo?.address?.state }}
+              </p>
+              </div>
+              <!-- Receipt Details -->
+              <div class="p-4 border-bottom">
+                <div class="row">
+                  <div class="col-6">
+                    <strong>Receipt No:</strong> {{ receiptData.receiptId }}
+                  </div>
+                  <div class="col-6 text-end">
+                    <strong>Date:</strong> {{ formatDateTime(receiptData.issuedAt) }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Customer & Vehicle Info -->
+              <div class="p-4 border-bottom">
+                <div class="row">
+                  <div class="col-md-6">
+                    <h6 class="fw-bold text-dark mb-2">CUSTOMER DETAILS</h6>
+                    <p class="mb-1">{{ receiptData.customerInfo?.name }}</p>
+                    <p class="mb-1">{{ receiptData.customerInfo?.phone }}</p>
+                    <p class="mb-0">{{ receiptData.customerInfo?.email }}</p>
+                  </div>
+                  <div class="col-md-6">
+                    <h6 class="fw-bold text-dark mb-2">VEHICLE DETAILS</h6>
+                    <p class="mb-1">{{ receiptData.vehicleInfo?.make }} {{ receiptData.vehicleInfo?.model }} ({{
+                      receiptData.vehicleInfo?.year }})</p>
+                    <p class="mb-1">Plate: {{ receiptData.vehicleInfo?.plateNumber }}</p>
+                    <p class="mb-0">Class: {{ receiptData.vehicleInfo?.sizeClass }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Service Breakdown -->
+              <div class="p-0">
+                <table class="table table-bordered mb-0">
+                  <thead class="table-dark">
+                    <tr>
+                      <th>#</th>
+                      <th>Description</th>
+                      <th>Qty/Distance</th>
+                      <th class="text-end">Amount (RM)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>1</td>
+                      <td>{{ receiptData.towingDetails?.towingType }} <small>(Towing Service)</small></td>
+                      <td>1</td>
+                      <td class="text-end">{{ formatCurrency(receiptData.baseTowingCost) }}</td>
+                    </tr>
+                    <tr>
+                      <td>2</td>
+                      <td>Distance Charge ({{ receiptData?.perKmRate }}/km rate)</td>
+                      <td>{{ receiptData?.distanceInKm }}/km</td>
+                      <td class="text-end">{{ formatCurrency(receiptData?.distanceCost) }}</td>
+                    </tr>
+                    <tr>
+                      <td>3</td>
+                      <td>Luxury Vehicle Surcharge</td>
+                      <td>
+                        <div class="text-center" *ngIf="receiptData?.luxurySurcharge === 0">-</div>
+                        <div *ngIf="receiptData?.luxurySurcharge !== 0">{{
+                          formatCurrency(receiptData?.luxurySurcharge) }}</div>
+                      </td>
+                      <td class="text-end">{{ formatCurrency(receiptData?.luxurySurcharge) }}</td>
+                    </tr>
+                    <tr *ngFor="let service of receiptData.additionalServices; let i = index">
+                      <td>{{ i + 4 }}</td>
+                      <td>{{ service.name }} ({{ service.quantity || 1 }})</td>
+                      <td>{{ service.quantity || 1 }}</td>
+                      <td class="text-end">{{ formatCurrency((service.unitPrice || service.price || 0) *
+                        (service.quantity || 1)) }}</td>
+                    </tr>
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colspan="3" class="text-end">Subtotal</td>
+                      <td class="text-end">{{ formatCurrency(receiptData.subtotal) }}</td>
+                    </tr>
+                    <tr *ngIf="receiptData.taxAmount > 0">
+                      <td colspan="3" class="text-end">SST (8%)</td>
+                      <td class="text-end text-danger">{{ formatCurrency(receiptData.taxAmount) }}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="3" class="text-end"><strong>Total Amount</strong></td>
+                      <td class="text-end"><strong>{{ formatCurrency(receiptData.totalAmount) }}</strong></td>
+                    </tr>
+                    <tr>
+                      <td colspan="3" class="text-end"><strong>Amount Paid</strong></td>
+                      <td class="text-end text-success"><strong>{{ formatCurrency(receiptData.amountPaid) }}</strong>
+                      </td>
+                    </tr>
+                    <tr *ngIf="receiptData.balanceDue > 0">
+                      <td colspan="3" class="text-end"><strong>Balance Due</strong></td>
+                      <td class="text-end text-danger"><strong>{{ formatCurrency(receiptData.balanceDue) }}</strong>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              <!-- Payment Information -->
+              <div class="p-4 border-bottom">
+                <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">PAYMENT INFORMATION</h6>
+
+                <div class="row">
+                  <!-- Payment Method & Status -->
+                  <div class="col-md-6 mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <strong class="me-2">Method:</strong>
+                      <span class="badge bg-primary">{{ getPaymentMethodDisplay(receiptData.payment?.method) }}</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                      <strong class="me-2">Status:</strong>
+                      <span class="badge bg-success">{{ getPaymentStatusDisplay(receiptData.payment?.status) }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Payment Date & Amount -->
+                  <div class="col-md-6 mb-3">
+                    <div class="mb-2">
+                      <strong>Paid At:</strong> {{ formatDate(receiptData.payment?.paidAt) }}
+                    </div>
+                    <div>
+                      <strong>Amount Paid:</strong> {{ formatCurrency(receiptData.payment?.amountPaid) }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Card Payment Details -->
+                <div class="row" *ngIf="receiptData.payment?.method === 'card'">
+                  <div class="col-12">
+                    <div class="border-top pt-3">
+                      <h6 class="fw-bold text-dark mb-2">CARD PAYMENT DETAILS</h6>
+                      <div class="row">
+                        <div class="col-md-4 mb-2">
+                          <strong>Card Ending:</strong> **** {{ receiptData.payment?.cardLastFour }}
+                        </div>
+                        <div class="col-md-4 mb-2">
+                          <strong>Transaction ID:</strong> {{ receiptData.payment?.transactionId }}
+                        </div>
+                        <div class="col-md-4 mb-2">
+                          <strong>Auth Code:</strong> {{ receiptData.payment?.authorizationCode }}
+                        </div>
+                        <div class="col-md-4 mb-2" *ngIf="receiptData.payment?.terminalId">
+                          <strong>Terminal ID:</strong> {{ receiptData.payment?.terminalId }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- E-Wallet Payment Details -->
+                <div class="row" *ngIf="receiptData.payment?.method === 'ewallet'">
+                  <div class="col-12">
+                    <div class="border-top pt-3">
+                      <h6 class="fw-bold text-dark mb-2">E-WALLET PAYMENT DETAILS</h6>
+                      <div class="row">
+                        <div class="col-md-4 mb-2">
+                          <strong>Provider:</strong> {{ receiptData.payment?.ewalletProvider }}
+                        </div>
+                        <div class="col-md-4 mb-2">
+                          <strong>Transaction ID:</strong> {{ receiptData.payment?.ewalletTransactionId }}
+                        </div>
+                        <div class="col-md-4 mb-2">
+                          <strong>Reference:</strong> {{ receiptData.payment?.ewalletReference }}
+                        </div>
+                        <div class="col-md-4 mb-2" *ngIf="receiptData.payment?.ewalletPhone">
+                          <strong>Phone:</strong> {{ receiptData.payment?.ewalletPhone }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Bank Transfer Details -->
+                <div class="row" *ngIf="receiptData.payment?.method === 'bank_transfer'">
+                  <div class="col-12">
+                    <div class="border-top pt-3">
+                      <h6 class="fw-bold text-dark mb-2">BANK TRANSFER DETAILS</h6>
+                      <div class="row">
+                        <div class="col-md-4 mb-2">
+                          <strong>Bank Name:</strong> {{ receiptData.payment?.bankName }}
+                        </div>
+                        <div class="col-md-4 mb-2">
+                          <strong>Reference:</strong> {{ receiptData.payment?.bankReference }}
+                        </div>
+                        <div class="col-md-4 mb-2">
+                          <strong>Transaction Date:</strong> {{ formatDate(receiptData.payment?.bankTransactionDate) }}
+                        </div>
+                        <div class="col-md-4 mb-2" *ngIf="receiptData.payment?.bankAmount">
+                          <strong>Bank Amount:</strong> {{ formatCurrency(receiptData.payment?.bankAmount) }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Cash Payment Details -->
+                <div class="row" *ngIf="receiptData.payment?.method === 'cash'">
+                  <div class="col-12">
+                    <div class="border-top pt-3">
+                      <h6 class="fw-bold text-dark mb-2">CASH PAYMENT DETAILS</h6>
+                      <div class="row">
+                        <div class="col-md-4 mb-2">
+                          <strong>Cash Tendered:</strong> {{ formatCurrency(receiptData.payment?.cashTendered) }}
+                        </div>
+                        <div class="col-md-4 mb-2">
+                          <strong>Change Given:</strong> {{ formatCurrency(receiptData.payment?.cashChange) }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Payment Notes -->
+                <div class="row mt-3">
+                  <div class="col-12">
+                    <div *ngIf="receiptData.payment?.notes" class="border-top pt-3">
+                      <strong>Notes:</strong>
+                      <p class="mb-0 text-muted">{{ receiptData.payment.notes }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-success" (click)="printReceipt()">
+          <i class="bi bi-printer me-1"></i>Print Receipt
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!receiptGenerated && !invoice && !loading && !error" class="text-center py-5">
+    <div class="mb-3">
+      <i class="bi bi-credit-card display-4 text-muted"></i>
+    </div>
+    <h5 class="text-muted">No Towing Payment Information Found</h5>
+    <p class="text-muted">Unable to load towing payment details</p>
+    <button class="btn btn-primary" (click)="completeAndReturn()">
+      <i class="bi bi-arrow-left me-1"></i>Back to Towing Bookings
+    </button>
+  </div>
+</div>

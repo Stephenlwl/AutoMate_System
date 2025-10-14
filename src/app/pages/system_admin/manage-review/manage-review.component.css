@@ -1,0 +1,39 @@
+.rating-stars {
+  direction: ltr;
+  unicode-bidi: bidi-override;
+}
+
+.rating-stars span {
+  color: #ddd;
+  font-size: 1.2em;
+}
+
+.rating-stars span.text-warning {
+  color: #ffc107;
+}
+
+.review-preview {
+  background-color: #f8f9fa;
+  border-left: 4px solid #dc3545 !important;
+}
+
+.table th {
+  border-top: none;
+  font-weight: 600;
+}
+
+.badge {
+  font-size: 0.75em;
+}
+
+/* Responsive table */
+@media (max-width: 768px) {
+  .table-responsive {
+    font-size: 0.875rem;
+  }
+  
+  .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.775rem;
+  }
+}

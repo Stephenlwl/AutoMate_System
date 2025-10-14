@@ -46,18 +46,69 @@ export class ServiceCenterLoginComponent {
       const email = this.form.value.email.trim();
       const password = this.form.value.password;
 
-      const q = query(
+      const staffQuery = query(
+        collection(this.firestore, 'staffs'),
+        where('email', '==', email)
+      );
+      const staffSnapshot = await getDocs(staffQuery);
+
+      if (!staffSnapshot.empty) {
+        const staffDoc = staffSnapshot.docs[0].data() as any;
+        const staffStatus = staffDoc.status || 'pending';
+
+        if (staffStatus === 'pending') {
+          this.pendingEmail = email;
+          this.showPendingModal = true;
+          return;
+        }
+
+        if (staffStatus === 'rejected') {
+          this.rejectedReason = staffDoc.rejectionReason || 'No reason provided';
+          this.showRejectedModal = true;
+          return;
+        }
+
+        if (staffStatus === 'approved') {
+          const hashedPassword = staffDoc?.password || '';
+          const isMatch = await bcrypt.compare(password, hashedPassword);
+
+          if (!isMatch) {
+            this.errorMessage = 'Invalid email or password.';
+            return;
+          }
+
+          const docId = staffSnapshot.docs[0].id;
+
+          this.authService.setAdmin({
+            id: docId,
+            email: staffDoc.email,
+            name: staffDoc.name,
+            role: staffDoc.role,
+            serviceCenterId: staffDoc.serviceCenterId,
+            serviceCenterName: staffDoc.serviceCenterName,
+          });
+
+          const isLocationProvided = await this.updateServiceCenterStaffLocation(docId);
+          if (isLocationProvided) {
+            this.router.navigate(['/serviceCenter/dashboard']);
+          }
+          return; // staff login successful
+        }
+      }
+
+      //else check service_centers
+      const svcQuery = query(
         collection(this.firestore, 'service_centers'),
         where('adminInfo.email', '==', email)
       );
-      const snapshot = await getDocs(q);
+      const svcSnapshot = await getDocs(svcQuery);
 
-      if (snapshot.empty) {
+      if (svcSnapshot.empty) {
         this.errorMessage = 'Invalid email or password.';
         return;
       }
 
-      const userDoc = snapshot.docs[0].data() as any;
+      const userDoc = svcSnapshot.docs[0].data() as any;
       const status = userDoc.verification?.status || 'pending';
 
       if (status === 'pending') {
@@ -73,7 +124,6 @@ export class ServiceCenterLoginComponent {
       }
 
       if (status === 'approved') {
-        // Validate password
         const hashedPassword = userDoc.adminInfo?.password || '';
         const isMatch = await bcrypt.compare(password, hashedPassword);
 
@@ -82,20 +132,21 @@ export class ServiceCenterLoginComponent {
           return;
         }
 
-        const docId = snapshot.docs[0].id;
+        const docId = svcSnapshot.docs[0].id;
 
         this.authService.setAdmin({
           id: docId,
           email: userDoc.adminInfo.email,
           name: userDoc.adminInfo.name,
+          role: userDoc.adminInfo.role,
           serviceCenterName: userDoc.serviceCenterInfo.name,
         });
 
         const isLocationProvided = await this.updateServiceCenterLocation(docId);
-        // Navigate to dashboard
         if (isLocationProvided) {
           this.router.navigate(['/serviceCenter/dashboard']);
-        } 
+        }
+        return;
       }
     } catch (error) {
       console.error(error);
@@ -144,6 +195,25 @@ export class ServiceCenterLoginComponent {
       const location = await this.getCurrentLocation();
       if (location) {
         await updateDoc(doc(this.firestore, 'service_centers', docId), {
+          'serviceCenterInfo.latitude': location.latitude,
+          'serviceCenterInfo.longitude': location.longitude,
+          updatedAt: new Date(),
+        });
+        console.log('Location updated in Firestore:', location);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.warn('Could not update location:', err);
+      return false;
+    }
+  }
+
+  private async updateServiceCenterStaffLocation(docId: string): Promise<boolean> {
+    try {
+      const location = await this.getCurrentLocation();
+      if (location) {
+        await updateDoc(doc(this.firestore, 'staffs', docId), {
           'serviceCenterInfo.latitude': location.latitude,
           'serviceCenterInfo.longitude': location.longitude,
           updatedAt: new Date(),

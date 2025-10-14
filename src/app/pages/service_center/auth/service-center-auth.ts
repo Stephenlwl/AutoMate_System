@@ -23,12 +23,24 @@ export class AuthService {
         return this.adminData;
     }
 
-    getEmail(): string | null {
+    getServiceCenterId(): string {
+        return this.adminData?.serviceCenterId || this.adminData?.id || null;
+    }
+
+    getAdminEmail(): string | null {
         return this.adminData?.email || null;
     }
 
-    getServiceCenterName(): string | null {
-        return this.adminData?.serviceCenterName || null;
+    getServiceCenterName(): string {
+        return this.adminData?.serviceCenterName;
+    }
+
+    getAdminName(): string {
+        return this.adminData?.name || '';
+    }
+    
+    getRole(): string | null {
+        return this.adminData?.role || null;
     }
 
     isLoggedIn(): boolean {

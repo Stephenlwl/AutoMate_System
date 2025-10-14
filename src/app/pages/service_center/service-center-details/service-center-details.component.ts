@@ -15,7 +15,7 @@ import { environment } from '../../../../environments/environment';
   styleUrls: ['./service-center-details.component.css']
 })
 export class ServiceCenterDetailsComponent {
-  private fs = inject(Firestore);
+  private firestore = inject(Firestore);
   private auth = inject(AuthService);
   private fb = inject(FormBuilder);
   private http = inject(HttpClient);
@@ -46,7 +46,7 @@ export class ServiceCenterDetailsComponent {
   }
 
   async ngOnInit() {
-    this.serviceCenterId = this.auth.getAdmin().id;
+    this.serviceCenterId = this.auth.getServiceCenterId();
 
     this.serviceForm = this.fb.group({
       name: [{ value: '', disabled: true }],
@@ -67,7 +67,7 @@ export class ServiceCenterDetailsComponent {
       reason: ['']
     });
 
-    this.loadServiceCenterDetails();
+    await this.loadServiceCenterDetails();
     this.setupOperatingHoursWatcher();
     this.loadPublicHolidays();
   }
@@ -77,7 +77,7 @@ export class ServiceCenterDetailsComponent {
     try {
 
       // fetch service center info data
-      const snap = await getDoc(doc(this.fs, 'service_centers', this.serviceCenterId));
+      const snap = await getDoc(doc(this.firestore, 'service_centers', this.serviceCenterId));
       const data: any = snap.data();
 
       if (data) {
@@ -168,8 +168,13 @@ export class ServiceCenterDetailsComponent {
         });
 
         if (isClosedControl?.value) {
+          openControl?.setValue('');
+          closeControl?.setValue('');
           openControl?.disable();
           closeControl?.disable();
+        } else {
+          if (!openControl?.value) openControl?.setValue('09:00');
+          if (!closeControl?.value) closeControl?.setValue('18:00');
         }
       });
     } catch (error) {
@@ -348,10 +353,10 @@ export class ServiceCenterDetailsComponent {
       alert('Please provide a valid phone number.');
       this.isSaving = false;
       return;
-    } 
+    }
 
     try {
-      await updateDoc(doc(this.fs, 'service_centers', this.serviceCenterId), {
+      await updateDoc(doc(this.firestore, 'service_centers', this.serviceCenterId), {
         "serviceCenterInfo.name": this.serviceForm.getRawValue().name,
         "serviceCenterInfo.serviceCenterPhoneNo": this.serviceForm.value.phoneNo,
         "serviceCenterInfo.description": this.serviceForm.value.description,

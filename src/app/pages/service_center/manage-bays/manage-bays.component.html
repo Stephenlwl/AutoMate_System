@@ -1,21 +1,41 @@
- <h3>Bays</h3>
+<div class="container">
+  <h3 class="mb-3">
+    <i class="bi bi-house-gear me-2 text-primary"></i>
+    Manage Bays
+  </h3>
 
-  <form [formGroup]="form" class="row g-2 mb-3" (ngSubmit)="create()">
-    <div class="col-md-4"><input class="form-control" placeholder="Bay name" formControlName="name"></div>
-    <div class="col-md-6"><input class="form-control" placeholder="Notes" formControlName="notes"></div>
-    <div class="col-md-2"><button class="btn btn-primary w-100" [disabled]="form.invalid">Add</button></div>
-  </form>
+  <p class="text-muted mb-4">Add, remove, and manage service bays</p>
+  <!-- Header -->
+  <!-- <div class="d-flex justify-content-between align-items-center mb-4"> -->
+    <div>
+      <form [formGroup]="form" class="row g-2 mb-3" (ngSubmit)="create()">
+        <div class="col-md-4"><input class="form-control" placeholder="Bay name" formControlName="name"></div>
+        <div class="col-md-6"><input class="form-control" placeholder="Notes" formControlName="notes"></div>
+        <div class="col-md-2"><button class="btn btn-primary w-100" [disabled]="form.invalid">Add</button></div>
+      </form>
 
-  <table class="table table-hover">
-    <thead class="table-light"><tr><th>Name</th><th>Active</th><th>Notes</th><th></th></tr></thead>
-    <tbody>
-      <tr *ngFor="let b of bays">
-        <td>{{ b.name }}</td>
-        <td><span class="badge" [class.bg-success]="b.active" [class.bg-secondary]="!b.active">{{ b.active ? 'Active' : 'Inactive' }}</span></td>
-        <td>{{ b.notes }}</td>
-        <td>
-          <button class="btn btn-sm btn-outline-secondary" (click)="toggle(b)">{{ b.active ? 'Disable' : 'Enable' }}</button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+      <table class="table table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Name</th>
+            <th>Active</th>
+            <th>Notes</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let b of bays">
+            <td>{{ b.name }}</td>
+            <td><span class="badge" [class.bg-success]="b.active" [class.bg-secondary]="!b.active">{{ b.active ?
+                'Active' : 'Inactive' }}</span></td>
+            <td>{{ b.notes }}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-secondary" (click)="toggle(b)">{{ b.active ? 'Disable' : 'Enable'
+                }}</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  <!-- </div> -->
+</div>

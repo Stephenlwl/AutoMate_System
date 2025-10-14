@@ -26,6 +26,9 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
   selectedRejectId: string | null = null;
   rejectionReason: string = '';
   selectedAdminEmail: string = '';
+  approvedServiceCenters: any[] = [];
+  rejectedServiceCenters: any[] = [];
+  activeTab: 'pending' | 'approved' | 'rejected' = 'pending';
 
   loadingServiceCenterAction: string | null = null;
   loadingServiceCenterActionType: 'approve' | 'reject' | null = null;
@@ -33,6 +36,33 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
   async ngOnInit() {
     await this.loadServiceCenters();
     await this.loadRespondedServiceCenters();
+  }
+
+  async loadServiceCenters() {
+    this.loading = true;
+    try {
+      const snapshot = await getDocs(collection(this.firestore, 'service_centers'));
+      const all = snapshot.docs.map(docSnap => {
+        const data: any = { id: docSnap.id, ...docSnap.data() };
+        if (data.serviceCenterInfo?.registrationNumber) {
+          data.serviceCenterInfo.registrationNumber = this.decryptText(data.serviceCenterInfo.registrationNumber);
+        }
+        return data;
+      });
+
+      this.pendingServiceCenters = all.filter((s: any) => s.verification?.status === 'pending');
+      this.approvedServiceCenters = all.filter((s: any) => s.verification?.status === 'approved');
+      this.rejectedServiceCenters = all.filter((s: any) => s.verification?.status === 'rejected');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  getServiceCentersByTab() {
+    if (this.activeTab === 'pending') return this.pendingServiceCenters;
+    if (this.activeTab === 'approved') return this.approvedServiceCenters;
+    if (this.activeTab === 'rejected') return this.rejectedServiceCenters;
+    return [];
   }
 
   decryptText(encryptedText: string): string {
@@ -43,30 +73,6 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
     } catch (err) {
       console.error("Decryption failed:", err);
       return '';
-    }
-  }
-
-  async loadServiceCenters() {
-    this.loading = true;
-    try {
-      const snapshot = await getDocs(collection(this.firestore, 'service_centers'));
-      this.pendingServiceCenters = snapshot.docs
-        .map(docSnap => {
-          const data: any = {
-            id: docSnap.id, ...docSnap.data()
-          };
-          // decrypt registration number if exists
-          if (data.serviceCenterInfo?.registrationNumber) {
-            data.serviceCenterInfo.registrationNumber =
-              this.decryptText(data.serviceCenterInfo.registrationNumber);
-          }
-          return data;
-        })
-        .filter((serviceCenter: any) => serviceCenter.verification?.status === 'pending');
-    } catch (error) {
-      console.error('Error loading service center:', error);
-    } finally {
-      this.loading = false;
     }
   }
 

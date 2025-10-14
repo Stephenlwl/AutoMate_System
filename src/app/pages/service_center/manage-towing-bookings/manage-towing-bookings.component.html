@@ -1,0 +1,834 @@
+<div class="container">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h3 class="h3 fw-bold text-primary mb-1">Towing Requests</h3>
+      <p class="text-muted mb-0">Manage towing service requests and assignments</p>
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary" (click)="refreshData()" [disabled]="isLoading('refresh')">
+        <i class="bi" [class]="isLoading('refresh') ? 'spinner-border spinner-border-sm' : 'bi-arrow-clockwise'"></i>
+        {{ isLoading('refresh') ? 'Refreshing...' : 'Refresh' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Quick Stats Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3" *ngFor="let stat of stats">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-3">
+          <div class="d-flex align-items-center">
+            <div class="flex-grow-1">
+              <h4 class="mb-0 fw-bold" [ngClass]="stat.textClass">{{ stat.count }}</h4>
+              <small class="text-muted">{{ stat.label }}</small>
+            </div>
+            <div class="flex-shrink-0">
+              <div class="p-2 rounded" [ngClass]="stat.bgClass">
+                <i class="bi" [class]="stat.icon"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters Card -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white py-3">
+      <h5 class="card-title mb-0">Filters & Search</h5>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Status Filter</label>
+          <select class="form-select" [(ngModel)]="statusFilter" (change)="onStatusFilterChange()">
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="accepted">Accepted</option>
+            <option value="dispatched">Dispatched</option>
+            <option value="ongoing">Ongoing</option>
+            <option value="completed">Completed</option>
+            <option value="declined">Declined</option>
+            <option value="removed">Removed</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">From Date</label>
+          <input type="date" class="form-control" [(ngModel)]="dateFrom" (change)="onDateFilterChange()">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">To Date</label>
+          <input type="date" class="form-control" [(ngModel)]="dateTo" (change)="onDateFilterChange()">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Search</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light">
+              <i class="bi bi-search text-muted"></i>
+            </span>
+            <input type="text" class="form-control" placeholder="Customer, vehicle, or location..."
+              [(ngModel)]="searchTerm" (input)="onSearch()">
+          </div>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">&nbsp;</label>
+          <div class="d-grid">
+            <button class="btn btn-outline-secondary" (click)="clearFilters()">
+              Clear Filters
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Filter Buttons -->
+      <div class="mt-3 pt-3 border-top">
+        <div class="d-flex flex-wrap gap-2">
+          <small class="text-muted me-2 align-self-center">Quick Filters:</small>
+          <button class="btn btn-sm btn-outline-primary" (click)="setQuickFilter('today')">
+            <i class="bi bi-calendar-day"></i> Today
+          </button>
+          <button class="btn btn-sm btn-outline-info" (click)="setQuickFilter('yesterday')">
+            <i class="bi bi-calendar-minus"></i> Yesterday
+          </button>
+          <button class="btn btn-sm btn-outline-success" (click)="setQuickFilter('this_week')">
+            <i class="bi bi-calendar-week"></i> This Week
+          </button>
+          <button class="btn btn-sm btn-outline-warning" (click)="setQuickFilter('pending')">
+            <i class="bi bi-clock"></i> Pending Requests
+          </button>
+          <button class="btn btn-sm btn-outline-info" (click)="setQuickFilter('accepted')">
+            <i class="bi bi-check-circle"></i> Accepted
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Towing Requests Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3">
+      <h5 class="card-title mb-0">Towing Requests ({{ filteredRequests.length }})</h5>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th width="200">Customer & Vehicle</th>
+            <th width="150">Towing Details</th>
+            <th width="200">Location</th>
+            <th width="120">Date & Time</th>
+            <th width="100">Cost</th>
+            <th width="120">Status</th>
+            <th width="150">Driver</th>
+            <th width="200" class="text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let request of filteredRequests; trackBy: trackByRequestId">
+            <!-- Customer & Vehicle -->
+            <td>
+              <div class="d-flex align-items-start">
+                <div class="flex-shrink-0">
+                  <div class="bg-light rounded p-2 me-2">
+                    <i class="bi bi-person-circle text-primary"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1">
+                  <strong class="d-block">{{ request.customer?.name || 'Unknown Customer' }}</strong>
+                  <small class="text-muted d-block">
+                    <i class="bi bi-car-front me-1"></i>
+                    {{ request.vehicleInfo?.make }} {{ request.vehicleInfo?.model }} {{ request.vehicleInfo?.year }}
+                  </small>
+                  <small class="text-muted d-block">
+                    <i class="bi bi-upc-scan me-1"></i>
+                    {{ request.vehicleInfo?.plateNumber || 'N/A' }}
+                  </small>
+                  <small class="text-muted d-block">
+                    <i class="bi bi-telephone me-1"></i>
+                    {{ request.contactNumber || request.customer?.phone || 'N/A' }}
+                  </small>
+                </div>
+              </div>
+            </td>
+
+            <!-- Towing Details -->
+            <td>
+              <div class="mb-2">
+                <strong class="text-primary">
+                  <i class="bi" [class]="getTowingTypeIcon(request.towingType)"></i>
+                  {{ request.towingType }}
+                </strong>
+              </div>
+              <div class="small text-muted">
+                <i class="bi bi-signpost-split me-1"></i>
+                {{ formatDistance(request.distance) }}
+              </div>
+              <div class="small text-muted" *ngIf="request.description">
+                <i class="bi bi-chat-text me-1"></i>
+                {{ request.description }}
+              </div>
+            </td>
+
+            <!-- Location -->
+            <td>
+              <div class="small">
+                <i class="bi bi-geo-alt text-danger me-1"></i>
+                {{ request.location?.customer?.address.full || 'N/A' }}
+              </div>
+              <div class="text-muted mt-1">
+                <small>
+                  <i class="bi bi-geo me-1"></i>
+                  Lat: {{ request.location?.customer?.latitude?.toFixed(4) }}, Lng: {{ request.location?.customer?.longitude?.toFixed(4) }}
+                </small>
+              </div>
+            </td>
+
+            <!-- Date & Time -->
+            <td>
+              <div class="text-nowrap">
+                <strong>{{ formatDate(request.createdAt) }}</strong>
+                <div class="text-muted small">{{ request.createdAt?.toDate?.() | date:'HH:mm' }}</div>
+              </div>
+            </td>
+
+            <!-- Cost -->
+            <td>
+              <div *ngIf="request?.payment?.total > 0; else estimatedCost">
+                <strong class="text-success">{{ formatCurrency(request.payment?.total) }}</strong>
+                <div class="text-muted small">Final Cost</div>
+              </div>
+              <ng-template #estimatedCost>
+                <strong class="text-danger">{{ formatCurrency(request.estimatedCost) }}</strong>
+                <div class="text-muted small">Est. Cost</div>
+              </ng-template>
+            </td>
+
+            <!-- Status -->
+            <td>
+              <span class="badge d-inline-flex align-items-center {{ getStatusBadgeClass(request.status) }}">
+                <i class="bi {{ getStatusIcon(request.status) }} me-1"></i>
+                {{ getStatusText(request.status) }}
+              </span>
+            </td>
+
+            <!-- Driver -->
+            <td>
+              <ng-container *ngIf="request.driver; else noDriver">
+                <div class="d-flex align-items-start">
+                  <div class="flex-shrink-0">
+                    <i class="bi bi-person-badge text-primary"></i>
+                  </div>
+                  <div class="flex-grow-1 ms-2">
+                    <div class="fw-medium">{{ request.driverInfo?.name || request.driver?.name}}</div>
+                    <small class="text-muted">Driver</small>
+                  </div>
+                </div>
+              </ng-container>
+              <ng-template #noDriver>
+                <span class="text-muted">
+                  <i class="bi bi-dash-circle"></i> Not assigned
+                </span>
+              </ng-template>
+            </td>
+
+            <!-- Actions -->
+            <td>
+              <div class="d-flex flex-wrap gap-1 justify-content-center">
+                <!-- Pending -->
+                <button *ngIf="request.status === 'pending'" class="btn btn-success btn-sm"
+                  (click)="acceptRequest(request)" [disabled]="isLoading('accept', request.id)" title="Accept Request">
+                  <i class="bi"
+                    [class]="isLoading('accept', request.id) ? 'spinner-border spinner-border-sm' : 'bi-check-lg'"></i>
+                  {{ isLoading('accept', request.id) ? '...' : 'Accept' }}
+                </button>
+
+                <button *ngIf="request.status === 'pending'" class="btn btn-outline-danger btn-sm"
+                  (click)="declineRequest(request)" [disabled]="isLoading('decline', request.id)"
+                  title="Decline Request">
+                  <i class="bi"
+                    [class]="isLoading('decline', request.id) ? 'spinner-border spinner-border-sm' : 'bi-x-lg'"></i>
+                  {{ isLoading('decline', request.id) ? '...' : 'Decline' }}
+                </button>
+
+                <!-- Accepted -->
+                <button *ngIf="request.status === 'accepted'" class="btn btn-primary btn-sm"
+                  (click)="openAssignModal(request)" [disabled]="isLoading('assign', request.id)" title="Assign Driver">
+                  <i class="bi"
+                    [class]="isLoading('assign', request.id) ? 'spinner-border spinner-border-sm' : 'bi-person-plus'"></i>
+                  {{ isLoading('assign', request.id) ? '...' : 'Assign' }}
+                </button>
+
+                <!-- Dispatched -->
+                <button *ngIf="request.status === 'dispatched'" class="btn btn-warning btn-sm"
+                  (click)="markAsOngoing(request)" [disabled]="isLoading('ongoing', request.id)"
+                  title="Mark as Ongoing">
+                  <i class="bi"
+                    [class]="isLoading('ongoing', request.id) ? 'spinner-border spinner-border-sm' : 'bi-geo-alt'"></i>
+                  {{ isLoading('ongoing', request.id) ? '...' : 'Ongoing' }}
+                </button>
+                
+                <!-- Generate Invoice Button -->
+                <button *ngIf="canGenerateInvoice(request)" class="btn btn-warning btn-sm"
+                  (click)="openTowingInvoice(request)" [disabled]="isLoading('invoice', request.id)"
+                  title="Generate Invoice">
+                  <i class="bi"
+                    [class]="isLoading('invoice', request.id) ? 'spinner-border spinner-border-sm' : 'bi-receipt'"></i>
+                  {{ isLoading('invoice', request.id) ? '...' : 'Invoice' }}
+                </button>
+
+                <!-- View Invoice Button -->
+                <button *ngIf="canViewInvoice(request)" class="btn btn-outline-success btn-sm"
+                  (click)="openTowingInvoice(request)" title="View Invoice">
+                  <i class="bi bi-file-earmark-text"></i> View Invoice
+                </button>
+
+                <!-- Make Payment Button -->
+                <button *ngIf="canMakePayment(request)" class="btn btn-dark btn-sm" (click)="makeTowingPayment(request)"
+                  title="Make Payment">
+                  <i class="bi bi-cash-coin"></i> Make Payment
+                </button>
+
+                <!-- View Receipt Button -->
+                <button *ngIf="canViewReceipt(request)" class="btn btn-outline-info btn-sm"
+                  (click)="viewTowingReceipt(request)" title="View Receipt">
+                  <i class="bi bi-file-earmark-text"></i> View Receipt
+                </button>
+
+                <!-- Always available -->
+                <button class="btn btn-outline-secondary btn-sm" (click)="viewDetails(request)" title="View Details">
+                  <i class="bi bi-eye"></i> View
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="filteredRequests.length === 0 && !loading" class="text-center py-5">
+      <div class="mb-3">
+        <i class="bi bi-truck display-4 text-muted"></i>
+      </div>
+      <h5 class="text-muted">No towing requests found</h5>
+      <p class="text-muted">Try adjusting your filters or search criteria</p>
+      <button class="btn btn-primary" (click)="clearFilters()">
+        Clear Filters
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="loading" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="text-muted mt-2">Loading towing requests...</p>
+    </div>
+  </div>
+
+  <!-- Load More -->
+  <div *ngIf="hasMoreData && !loading" class="text-center mt-4">
+    <button class="btn btn-outline-primary" [disabled]="loadingMore" (click)="loadMoreTowingRequests()">
+      <i class="bi bi-arrow-down" *ngIf="!loadingMore"></i>
+      {{ loadingMore ? 'Loading...' : 'Load More Requests' }}
+    </button>
+  </div>
+</div>
+
+<!-- Assign Modal -->
+<div class="modal fade" id="assignModal" tabindex="-1" aria-labelledby="assignModalLabel" aria-hidden="true"
+  #assignModal>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="assignModalLabel">
+          <i class="bi bi-person-plus me-2"></i>Assign Driver
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <small>
+            <i class="bi bi-info-circle me-1"></i>
+            Assigning will move the request to "Assigned" status
+          </small>
+        </div>
+
+        <form>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Select Driver</label>
+            <select class="form-select" [(ngModel)]="selectedDriver" name="driver">
+              <option value="">Choose a driver...</option>
+              <option *ngFor="let driver of drivers" [value]="driver.id">
+                {{ driver.name }} - {{ driver.phoneNo || 'No phone' }}
+              </option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Additional Notes (Optional)</label>
+            <textarea class="form-control" rows="2" placeholder="Any special instructions..."
+              [(ngModel)]="assignmentNotes" name="notes"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="saveAssignment()"
+          [disabled]="!selectedDriver || isLoading('assign', selectedRequest?.id)">
+          <i class="bi"
+            [class]="isLoading('assign', selectedRequest?.id) ? 'spinner-border spinner-border-sm' : 'bi-check-lg'"></i>
+          {{ isLoading('assign', selectedRequest?.id) ? 'Assigning...' : 'Save Assignment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- View Details Modal -->
+<div class="modal fade" id="viewDetailsModal" tabindex="-1" aria-labelledby="viewDetailsModalLabel" aria-hidden="true"
+  #viewDetailsModal>
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title" id="viewDetailsModalLabel">
+          <i class="bi bi-eye me-2"></i>Towing Request Details - {{ selectedRequest?.vehicleInfo?.plateNumber || 'N/A'
+          }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Status & Basic Info Header -->
+        <div class="row mb-4">
+          <div class="col-md-8">
+            <div class="d-flex align-items-center gap-3">
+              <span class="badge d-inline-flex align-items-center {{ getStatusBadgeClass(selectedRequest?.status) }}">
+                <i class="bi {{ getStatusIcon(selectedRequest?.status) }} me-1"></i>
+                {{ getStatusText(selectedRequest?.status) }}
+              </span>
+              <span class="text-muted">Request ID: {{ selectedRequest?.id?.substring(0, 8) || 'N/A' }}</span>
+            </div>
+          </div>
+          <div class="col-md-4 text-end">
+            <small class="text-muted">
+              Created: {{ formatDateTime(selectedRequest?.createdAt) }}
+            </small>
+          </div>
+        </div>
+
+        <!-- Customer & Vehicle Information -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-person me-1"></i>Customer Information
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-2">
+                  <strong class="d-block">{{ selectedRequest?.customer?.name || 'N/A' }}</strong>
+                  <small class="text-muted">Customer ID: {{ selectedRequest?.userId?.substring(0, 8) || 'N/A' }}</small>
+                </div>
+                <div class="row small">
+                  <div class="col-12 mb-1">
+                    <i class="bi bi-telephone me-2 text-muted"></i>
+                    {{ selectedRequest?.contactNumber || selectedRequest?.customer?.phone || 'N/A' }}
+                  </div>
+                  <div class="col-12 mb-1">
+                    <i class="bi bi-envelope me-2 text-muted"></i>
+                    {{ selectedRequest?.email || selectedRequest?.customer?.email || 'N/A' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-car-front me-1"></i>Vehicle Information
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-2">
+                  <strong class="d-block">{{ selectedRequest?.vehicleInfo?.make || 'N/A' }} {{
+                    selectedRequest?.vehicleInfo?.model || 'N/A' }}</strong>
+                  <small class="text-muted">Year: {{ selectedRequest?.vehicleInfo?.year || 'N/A' }}</small>
+                </div>
+                <div class="row small">
+                  <div class="col-12 mb-1">
+                    <i class="bi bi-upc-scan me-2 text-muted"></i>
+                    Plate: {{ selectedRequest?.vehicleInfo?.plateNumber || 'N/A' }}
+                  </div>
+                  <div class="col-12 mb-1">
+                    <i class="bi bi-diagram-3 me-2 text-muted"></i>
+                    Size Class: {{ selectedRequest?.vehicleInfo?.sizeClass || 'N/A' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Towing & Service Details -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-truck me-1"></i>Towing Details
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <strong>Towing Type:</strong><br>
+                  <span class="badge bg-primary">
+                    <i class="bi" [class]="getTowingTypeIcon(selectedRequest?.towingType)"></i>
+                    {{ selectedRequest?.towingType || 'N/A' }}
+                  </span>
+                </div>
+                <div class="mb-3">
+                  <strong>Response Time:</strong><br>
+                  {{ selectedRequest?.responseTime || '0' }} minutes
+                </div>
+                <div class="mb-3">
+                  <strong>Estimated Duration:</strong><br>
+                  {{ selectedRequest?.estimatedDuration || '0' }} minutes
+                </div>
+                <div *ngIf="selectedRequest?.description">
+                  <strong>Description:</strong>
+                  <p class="mb-0 text-muted small">{{ selectedRequest?.description || 'No additional description' }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-geo-alt me-1"></i>Location & Distance
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <strong>Pickup Address:</strong><br>
+                  <small class="text-muted">{{ selectedRequest?.location?.customer?.address?.full || 'N/A' }}</small>
+                </div>
+                <div class="mb-3">
+                  <strong>Distance:</strong><br>
+                  {{ formatDistance(selectedRequest?.distance) }}
+                </div>
+                <div class="mb-3">
+                  <strong>Coverage Area:</strong><br>
+                  {{ selectedRequest?.coverageArea || '0' }} km
+                </div>
+                <div class="row small text-muted">
+                  <div class="col-12">
+                    <strong>Coordinates:</strong>
+                    {{ selectedRequest?.location?.customer?.latitude?.toFixed(6) || 'N/A' }},
+                    {{ selectedRequest?.location?.customer?.longitude?.toFixed(6) || 'N/A' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pricing Information -->
+        <div class="card mb-4">
+          <div class="card-header bg-light">
+            <h6 class="card-title mb-0 fw-bold">
+              <i class="bi bi-cash-coin me-1"></i>Pricing Information
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <strong>Estimated Cost:</strong><br>
+                  <span class="text-success fw-bold">{{ formatCurrency(selectedRequest?.estimatedCost) }}</span>
+                </div>
+                <div *ngIf="selectedRequest?.payment?.taxAmount !== null" class="mb-3">
+                  <strong>SST (8%):</strong><br>
+                  <span class="text-danger fw-bold">{{
+                    formatCurrency(selectedRequest?.payment?.taxAmount || 0) }}</span>
+                </div>
+                <div class="mb-3">
+                  <strong>Final Cost:</strong><br>
+                  <span class="text-success fw-bold">{{ formatCurrency(selectedRequest?.payment?.total) || 'Not set'
+                    }}</span>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div *ngIf="selectedRequest?.pricingBreakdown" class="small">
+                  <strong>Pricing Breakdown:</strong><br>
+                  Base Fee: {{ formatCurrency(selectedRequest?.pricingBreakdown?.baseFee) }}<br>
+                  Distance Cost: {{ formatCurrency(selectedRequest?.pricingBreakdown?.distanceCost) }}<br>
+                  Distance: {{ selectedRequest?.pricingBreakdown?.distanceInKm || '0' }} km<br>
+                  Per KM Rate: RM {{ selectedRequest?.pricingBreakdown?.perKmRate || '0' }}/km<br>
+                  <span *ngIf="selectedRequest?.pricingBreakdown?.luxurySurcharge">
+                    Luxury Surcharge: {{ formatCurrency(selectedRequest?.pricingBreakdown?.luxurySurcharge) }}
+                  </span>
+                  <span *ngIf="selectedRequest?.payment?.additionalFees">
+                    Additional Service Fees: {{ formatCurrency(selectedRequest?.payment?.additionalFees) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment Information -->
+        <div class="card mb-4" *ngIf="selectedRequest?.payment">
+          <div class="card-header bg-light">
+            <h6 class="card-title mb-0 fw-bold">
+              <i class="bi bi-credit-card me-1"></i>Payment Information
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-4">
+                <strong>Status:</strong><br>
+                <span class="badge" [ngClass]="{
+                  'bg-warning': selectedRequest?.payment?.status === 'unpaid',
+                  'bg-success': selectedRequest?.payment?.status === 'paid',
+                  'bg-secondary': selectedRequest?.payment?.status !== 'unpaid' && selectedRequest?.payment?.status !== 'paid'
+                }">
+                  {{ selectedRequest?.payment?.status || 'unpaid' }}
+                </span>
+              </div>
+              <div class="col-md-4">
+                <strong>Method:</strong><br>
+                {{ selectedRequest?.payment?.method || 'Not specified' }}
+              </div>
+              <div class="col-md-4">
+                <strong>Paid Amount:</strong><br>
+                {{ formatCurrency(selectedRequest?.payment?.paidAmount || selectedRequest?.payment?.total) || 'N/A' }}
+              </div>
+            </div>
+            <div class="row mt-2" *ngIf="selectedRequest?.payment?.paidAt">
+              <div class="col-12">
+                <small class="text-muted">
+                  Paid at: {{ formatDateTime(selectedRequest?.payment?.paidAt) }}
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Assignment Information -->
+        <div class="card mb-4" *ngIf="selectedRequest?.driverId || selectedRequest?.driverInfo">
+          <div class="card-header bg-light">
+            <h6 class="card-title mb-0 fw-bold">
+              <i class="bi bi-person-gear me-1"></i>Assignment Information
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-8">
+                <div class="d-flex align-items-start mb-3">
+                  <div class="bg-primary bg-opacity-10 rounded p-2 me-3">
+                    <i class="bi bi-person-badge text-primary"></i>
+                  </div>
+                  <div>
+                    <strong class="d-block">{{ selectedRequest?.driverInfo?.name || selectedRequest?.driver?.name ||
+                      'N/A' }}</strong>
+                    <small class="text-muted">Driver ID: {{ selectedRequest?.driverId?.substring(0, 8) || 'N/A'
+                      }}</small>
+                    <div class="mt-1">
+                      <i class="bi bi-telephone me-1 text-muted"></i>
+                      {{ selectedRequest?.driverInfo?.contactNumber || selectedRequest?.driver?.phoneNo || 'N/A' }}
+                    </div>
+                    <div>
+                      <i class="bi bi-envelope me-1 text-muted"></i>
+                      {{ selectedRequest?.driverInfo?.email || selectedRequest?.driver?.email || 'N/A' }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card bg-light">
+                  <div class="card-body">
+                    <strong>Driver Vehicle:</strong><br>
+                    <span *ngIf="selectedRequest?.driverVehicleInfo?.carPlate || selectedRequest?.driver?.carPlate">
+                      {{ selectedRequest?.driverVehicleInfo?.carPlate || selectedRequest?.driver?.carPlate }}<br>
+                      {{ selectedRequest?.driverVehicleInfo?.make || selectedRequest?.driver?.make }}
+                      {{ selectedRequest?.driverVehicleInfo?.model || selectedRequest?.driver?.model }}
+                      ({{ selectedRequest?.driverVehicleInfo?.year || selectedRequest?.driver?.year }})
+                    </span>
+                    <span *ngIf="!selectedRequest?.driverVehicleInfo?.carPlate && !selectedRequest?.driver?.carPlate">
+                      Vehicle not assigned
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="mt-3" *ngIf="selectedRequest?.assignmentNotes">
+              <strong>Assignment Notes:</strong>
+              <p class="mb-0 text-muted small">{{ selectedRequest?.assignmentNotes }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Service Center Information -->
+        <div class="card mb-4">
+          <div class="card-header bg-light">
+            <h6 class="card-title mb-0 fw-bold">
+              <i class="bi bi-building me-1"></i>Service Center Information
+            </h6>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6">
+                <strong>Name:</strong><br>
+                {{ selectedRequest?.serviceCenterName || 'N/A' }}
+              </div>
+              <div class="col-md-6">
+                <strong>Contact:</strong><br>
+                {{ selectedRequest?.serviceCenterContact?.phone || 'N/A' }}
+              </div>
+            </div>
+            <div class="row mt-2">
+              <div class="col-12">
+                <strong>Address:</strong><br>
+                <small class="text-muted">{{ selectedRequest?.serviceCenterContact?.address || 'N/A' }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status History & Timestamps -->
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-clock-history me-1"></i>Status History
+                </h6>
+              </div>
+              <div class="card-body">
+                <div *ngIf="selectedRequest?.statusHistory?.length > 0; else noHistory">
+                  <div *ngFor="let history of selectedRequest?.statusHistory" class="mb-3 pb-3 border-bottom">
+                    <div class="d-flex justify-content-between">
+                      <span class="badge {{ getStatusBadgeClass(history.status) }} small">
+                        {{ getStatusText(history.status) }}
+                      </span>
+                      <small class="text-muted">{{ formatDateTime(history.timestamp) }}</small>
+                    </div>
+                    <div class="small text-muted mt-1">
+                      <div>By: {{ history.updatedBy || 'System' }}</div>
+                      <div *ngIf="history.notes">{{ history.notes }}</div>
+                    </div>
+                  </div>
+                </div>
+                <ng-template #noHistory>
+                  <p class="text-muted mb-0">No status history available</p>
+                </ng-template>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <h6 class="card-title mb-0 fw-bold">
+                  <i class="bi bi-calendar-event me-1"></i>Timestamps
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="small">
+                  <div class="mb-2">
+                    <strong>Requested:</strong> {{ formatDateTime(selectedRequest?.timestamps?.requestedAt) }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedRequest?.timestamps?.acceptedAt">
+                    <strong>Accepted:</strong> {{ formatDateTime(selectedRequest?.timestamps?.acceptedAt) }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedRequest?.timestamps?.dispatchedAt">
+                    <strong>Dispatched:</strong> {{ formatDateTime(selectedRequest?.timestamps?.dispatchedAt) }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedRequest?.timestamps?.driverAssignedAt">
+                    <strong>Driver Assigned:</strong> {{ formatDateTime(selectedRequest?.timestamps?.driverAssignedAt)
+                    }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedRequest?.timestamps?.arrivedAtLocationAt">
+                    <strong>Arrived at Location:</strong> {{
+                    formatDateTime(selectedRequest?.timestamps?.arrivedAtLocationAt) }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedRequest?.timestamps?.serviceStartedAt">
+                    <strong>Service Started:</strong> {{ formatDateTime(selectedRequest?.timestamps?.serviceStartedAt)
+                    }}
+                  </div>
+                  <div class="mb-2" *ngIf="selectedRequest?.timestamps?.completedAt">
+                    <strong>Completed:</strong> {{ formatDateTime(selectedRequest?.timestamps?.completedAt) }}
+                  </div>
+                  <div class="mb-0">
+                    <strong>Last Updated:</strong> {{ formatDateTime(selectedRequest?.updatedAt) }}
+                  </div>
+                  <div class="mt-2">
+                    <strong>Updated By:</strong> {{ selectedRequest?.statusUpdatedBy || 'N/A' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rating Information -->
+        <div class="card" *ngIf="selectedRequest?.rating">
+          <div class="card-header bg-light">
+            <h6 class="card-title mb-0 fw-bold">
+              <i class="bi bi-star me-1"></i>Rating & Feedback
+            </h6>
+          </div>
+          <div class="card-body">
+            <div *ngIf="selectedRequest?.rating?.driverRating || selectedRequest?.rating?.serviceRating; else noRating">
+              <div class="row">
+                <div class="col-md-6" *ngIf="selectedRequest?.rating?.driverRating">
+                  <strong>Driver Rating:</strong><br>
+                  <span class="text-warning">
+                    <i class="bi bi-star-fill"></i>
+                    {{ selectedRequest?.rating?.driverRating }}/5
+                  </span>
+                </div>
+                <div class="col-md-6" *ngIf="selectedRequest?.rating?.serviceRating">
+                  <strong>Service Rating:</strong><br>
+                  <span class="text-warning">
+                    <i class="bi bi-star-fill"></i>
+                    {{ selectedRequest?.rating?.serviceRating }}/5
+                  </span>
+                </div>
+              </div>
+              <div class="mt-2" *ngIf="selectedRequest?.rating?.comments">
+                <strong>Comments:</strong><br>
+                <p class="mb-0 text-muted">{{ selectedRequest?.rating?.comments }}</p>
+              </div>
+              <div class="mt-2" *ngIf="selectedRequest?.rating?.ratedAt">
+                <small class="text-muted">
+                  Rated at: {{ formatDateTime(selectedRequest?.rating?.ratedAt) }}
+                </small>
+              </div>
+            </div>
+            <ng-template #noRating>
+              <p class="text-muted mb-0">No rating provided yet</p>
+            </ng-template>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle me-1"></i>Close
+        </button>
+        <button type="button" class="btn btn-primary" *ngIf="canAssign(selectedRequest)"
+          (click)="openAssignModal(selectedRequest)">
+          <i class="bi bi-person-plus me-1"></i>Assign Driver
+        </button>
+        <button type="button" class="btn btn-warning" *ngIf="canMarkAsOngoing(selectedRequest)"
+          (click)="markAsOngoing(selectedRequest)">
+          <i class="bi bi-geo-alt me-1"></i>Mark as Ongoing
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
