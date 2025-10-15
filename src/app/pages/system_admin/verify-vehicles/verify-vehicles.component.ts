@@ -16,6 +16,7 @@ interface Vehicle {
   ownerName: string;
   ownerEmail: string;
   ownerPhone?: string;
+  carOwnerName?: string;
   make: string;
   model: string;
   year: string;
@@ -84,6 +85,7 @@ export class VerifyVehiclesComponent implements OnInit {
             ownerName: ownerData['name'] || ownerData['fullName'] || 'Unknown Owner',
             ownerEmail: ownerData['email'] || 'No Email',
             ownerPhone: ownerData['phone'],
+            carOwnerName: vehicleData['carOwnerName'] || 'Car Owner No Set',
             make: vehicleData['make'] || 'Unknown',
             model: vehicleData['model'] || 'Unknown',
             year: vehicleData['year']?.toString() || 'N/A',
@@ -254,7 +256,9 @@ export class VerifyVehiclesComponent implements OnInit {
       await this.http.post<any>('http://localhost:3000/sendVehicleNotification/vehicle-approved', {
         toEmail: vehicle.ownerEmail,
         plateNumber: vehicle.plateNumber,
-        vehicle: `${vehicle.make} ${vehicle.model}`
+        vehicle: `${vehicle.make} ${vehicle.model}`,
+        ownerName: vehicle.ownerName
+
       }).toPromise();
 
       // Update local state
@@ -301,7 +305,8 @@ export class VerifyVehiclesComponent implements OnInit {
         toEmail: vehicle.ownerEmail,
         plateNumber: vehicle.plateNumber,
         vehicle: `${vehicle.make} ${vehicle.model}`,
-        rejectionReason: reason
+        rejectionReason: reason,
+        ownerName: vehicle.ownerName
       }).toPromise();
 
       // Update local state

@@ -68,36 +68,51 @@ export class TowingPaymentComponent implements OnInit {
     const mode = queryParams['mode'];
     const receiptId = queryParams['receiptId'];
 
+    const receiptKey = `towing_receipt_${this.requestId}`;
+    const storedData = sessionStorage.getItem(receiptKey);
+    let sessionData: any = null;
+
+    if (storedData) {
+      try {
+        sessionData = JSON.parse(storedData);
+      } catch (err) {
+        console.warn('Invalid session data:', err);
+      }
+    }
+
     if (mode === 'view-receipt') {
-      // Try to get receipt data from sessionStorage first
-      const receiptKey = `towing_receipt_${this.requestId}`;
-      const storedReceipt = sessionStorage.getItem(receiptKey);
+      this.mode = 'view-receipt';
 
-      if (storedReceipt) {
-        const receiptData = JSON.parse(storedReceipt);
-        this.receiptData = receiptData.receiptData;
-        this.towingRequest = receiptData.towingRequest;
-        this.receiptGenerated = true;
-        this.mode = 'view-receipt';
+      if (sessionData?.receiptId) {
+        await this.loadReceiptById(sessionData.receiptId);
 
-        // Load service center info
-        if (this.receiptData.serviceCenterId) {
-          await this.loadServiceCenterInfo(this.receiptData.serviceCenterId);
+        // Try to get towing request (for service center)
+        if (sessionData?.towingRequestId) {
+          await this.loadTowingRequestById(sessionData.towingRequestId);
         }
 
-        // Clean up sessionStorage
+        if (this.receiptData?.serviceCenterId) {
+          await this.loadServiceCenterInfo(this.receiptData.serviceCenterId);
+        } else if (this.towingRequest?.serviceCenterId) {
+          await this.loadServiceCenterInfo(this.towingRequest.serviceCenterId);
+        }
+
         sessionStorage.removeItem(receiptKey);
         return;
       }
 
-      // load from Firestore if sessionStorage doesn't have data
       if (receiptId) {
         await this.loadReceiptById(receiptId);
+        if (this.receiptData?.towingRequestId) {
+          await this.loadTowingRequestById(this.receiptData.towingRequestId);
+        }
+        if (this.receiptData?.serviceCenterId) {
+          await this.loadServiceCenterInfo(this.receiptData.serviceCenterId);
+        }
         return;
       }
     }
 
-    // for payment mode
     const navigation = this.router.getCurrentNavigation();
     const navigationState = navigation?.extras?.state as any;
 
@@ -110,14 +125,27 @@ export class TowingPaymentComponent implements OnInit {
         this.towingRequest = navigationState.towingRequest;
       }
 
-      if (this.receiptData.serviceCenterId) {
+      if (this.receiptData?.serviceCenterId) {
         await this.loadServiceCenterInfo(this.receiptData.serviceCenterId);
+      } else if (this.towingRequest?.serviceCenterId) {
+        await this.loadServiceCenterInfo(this.towingRequest.serviceCenterId);
       }
+
       return;
     }
 
     if (this.requestId) {
       await this.loadTowingRequestAndInvoice();
+    }
+  }
+
+  async loadTowingRequestById(requestId: string) {
+    const reqRef = doc(this.firestore, 'towing_requests', requestId);
+    const snap = await getDoc(reqRef);
+    if (snap.exists()) {
+      this.towingRequest = { id: snap.id, ...snap.data() };
+    } else {
+      console.warn('Towing request not found:', requestId);
     }
   }
 
@@ -485,25 +513,25 @@ export class TowingPaymentComponent implements OnInit {
         statusUpdatedBy: this.adminName || 'system'
       };
 
-       const paymentStatusText = isFullPayment ? 'completed' : 'pending_payment';
-        const paymentNotes = isFullPayment 
-          ? `Full payment of ${this.formatCurrency(this.amountPaid)} received. Towing Service completed.` 
-          : `Partial payment of ${this.formatCurrency(this.amountPaid)} received. Balance due: ${this.formatCurrency(this.invoice.totalAmount - this.amountPaid)}`;
+      const paymentStatusText = isFullPayment ? 'completed' : 'pending_payment';
+      const paymentNotes = isFullPayment
+        ? `Full payment of ${this.formatCurrency(this.amountPaid)} received. Towing Service completed.`
+        : `Partial payment of ${this.formatCurrency(this.amountPaid)} received. Balance due: ${this.formatCurrency(this.invoice.totalAmount - this.amountPaid)}`;
 
-        const newStatusHistory = {
-          status: paymentStatusText,
-          timestamp: Timestamp.now(),
-          updatedBy: this.adminName || 'system',
-          notes: paymentNotes
-        };
+      const newStatusHistory = {
+        status: paymentStatusText,
+        timestamp: Timestamp.now(),
+        updatedBy: this.adminName || 'system',
+        notes: paymentNotes
+      };
 
-        requestUpdate.statusHistory = [...(this.towingRequest.statusHistory || []), newStatusHistory];
+      requestUpdate.statusHistory = [...(this.towingRequest.statusHistory || []), newStatusHistory];
 
-        requestUpdate.timestamps = {
-          ...this.towingRequest.timestamps,
-          ...(isFullPayment && { completedAt: Timestamp.now() }),
-          paymentProcessedAt: Timestamp.now()
-        };
+      requestUpdate.timestamps = {
+        ...this.towingRequest.timestamps,
+        ...(isFullPayment && { completedAt: Timestamp.now() }),
+        paymentProcessedAt: Timestamp.now()
+      };
 
 
       await updateDoc(doc(this.firestore, 'towing_requests', this.towingRequest.id), requestUpdate);

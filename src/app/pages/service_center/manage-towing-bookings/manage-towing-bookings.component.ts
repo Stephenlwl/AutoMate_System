@@ -188,7 +188,7 @@ export class ManageTowingBookingsComponent implements OnInit, OnDestroy {
     this.towingRequestsUnsubscribe = onSnapshot(
       q,
       async (snapshot: QuerySnapshot<DocumentData>) => {
-      
+
         // Skip the first load if it has very few documents due to likely cached data
         if (isFirstLoad && snapshot.docs.length < 5) {
           isFirstLoad = false;
@@ -745,8 +745,6 @@ export class ManageTowingBookingsComponent implements OnInit, OnDestroy {
 
       if (!isPaid && request.invoiceId) {
         mode = 'payment';
-
-        // Load invoice for payment
         const invoiceRef = doc(this.firestore, 'towing_invoices', request.invoiceId);
         const invoiceSnap = await getDoc(invoiceRef);
 
@@ -763,7 +761,6 @@ export class ManageTowingBookingsComponent implements OnInit, OnDestroy {
           };
         }
       } else if (request.payment?.receiptId) {
-        // Load actual receipt
         mode = 'view-receipt';
         const receiptRef = doc(this.firestore, 'towing_receipts', request.payment.receiptId);
         const receiptSnap = await getDoc(receiptRef);
@@ -771,7 +768,6 @@ export class ManageTowingBookingsComponent implements OnInit, OnDestroy {
           receiptData = { id: receiptSnap.id, ...receiptSnap.data() };
         }
       } else if (request.invoiceId) {
-        // Check if receipt exists for this invoice
         const receiptsSnap = await getDocs(query(
           collection(this.firestore, 'towing_receipts'),
           where('invoiceId', '==', request.invoiceId),
@@ -789,14 +785,19 @@ export class ManageTowingBookingsComponent implements OnInit, OnDestroy {
       if (receiptData || mode === 'payment') {
         const url = this.createTowingPaymentUrl(request.id, mode, receiptData?.receiptId || receiptData?.id);
 
-        // Store data in sessionStorage with proper key
         const receiptKey = `towing_receipt_${request.id}`;
-        sessionStorage.setItem(receiptKey, JSON.stringify({
-          receiptData: receiptData,
-          request: request,
-          mode: mode
-        }));
+        const storageData = {
+          receiptId: receiptData?.receiptId || receiptData?.id,
+          invoiceId: receiptData?.invoiceId || request.invoiceId,
+          mode: mode,
+          serviceCenterId: request.serviceCenterId,
+          requestId: request.id
+        };
 
+        // Clear any existing data first to free up space
+        this.clearOldReceiptData();
+
+        sessionStorage.setItem(receiptKey, JSON.stringify(storageData));
         window.open(url, '_blank');
       } else {
         alert('No receipt found for this towing request. Please generate an invoice first.');
@@ -807,6 +808,24 @@ export class ManageTowingBookingsComponent implements OnInit, OnDestroy {
       alert('Failed to load receipt. Please try again.');
     } finally {
       this.setLoading('receipt', request.id, false);
+    }
+  }
+
+  private clearOldReceiptData(): void {
+    const keysToRemove: string[] = [];
+
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('towing_receipt_')) {
+        keysToRemove.push(key);
+      }
+    }
+
+    // remove older ones
+    if (keysToRemove.length > 5) {
+      keysToRemove.sort().slice(0, keysToRemove.length - 5).forEach(key => {
+        sessionStorage.removeItem(key);
+      });
     }
   }
 

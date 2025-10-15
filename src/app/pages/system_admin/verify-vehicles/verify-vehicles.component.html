@@ -33,7 +33,8 @@
         <table class="table table-bordered table-hover align-middle">
             <thead class="table-secondary">
                 <tr>
-                    <th>Owner</th>
+                    <th>UserName</th>
+                    <th>Car Owner</th>
                     <th>Email</th>
                     <th>Vehicle Details</th>
                     <th>Plate Number</th>
@@ -46,6 +47,7 @@
             <tbody>
                 <tr *ngFor="let vehicle of getVehiclesByTab()">
                     <td class="fw-semibold">{{ vehicle.ownerName }}</td>
+                    <td>{{ vehicle.carOwnerName }}</td>
                     <td>{{ vehicle.ownerEmail }}</td>
                     <td>
                         <strong>{{ vehicle.make }} {{ vehicle.model }}</strong><br>
@@ -94,7 +96,7 @@
                             </span>
                             <br>
                             <small class="text-muted">
-                                {{ vehicle.reviewedAt | date:'short' }}
+                                {{ formatDate(vehicle.reviewedAt) }}
                             </small>
                         </ng-container>
                     </td>
