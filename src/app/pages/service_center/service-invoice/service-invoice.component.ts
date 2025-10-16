@@ -148,12 +148,12 @@ export class ServiceInvoiceComponent implements OnInit {
           this.mode = 'view';
           await this.loadServiceCenterInfo(this.booking.serviceCenterId);
           await this.loadInvoice(this.booking.invoiceId);
-        } else if (this.booking.status === 'ready_to_collect') {
+        } else if (this.booking.status === 'in_progress') {
           this.mode = 'create';
           await this.loadServiceCenterInfo(this.booking.serviceCenterId);
           await this.loadServiceOffers();
         } else {
-          this.error = 'Cannot generate invoice. Booking must be in "Ready to Collect" status.';
+          this.error = 'Cannot generate invoice. Booking must be in "In Progress" status.';
           this.loading = false;
         }
       } else {
@@ -190,7 +190,7 @@ export class ServiceInvoiceComponent implements OnInit {
     return this.mode === 'create' &&
       this.booking &&
       !this.booking.invoiceId &&
-      this.booking.status === 'ready_to_collect';
+      this.booking.status === 'in_progress';
   }
 
   async loadInvoice(invoiceId: string) {
@@ -537,8 +537,8 @@ getTotalBookedServicesParts(): number {
     }
 
     // Ensure booking is in correct status
-    if (this.booking.status !== 'ready_to_collect') {
-      alert('Cannot generate invoice. Booking must be in "Ready to Collect" status.');
+    if (this.booking.status !== 'in_progress') {
+      alert('Cannot generate invoice. Booking must be in "In Progress" status.');
       return;
     }
 

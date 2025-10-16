@@ -267,10 +267,18 @@
                   <i class="bi"
                     [class]="isLoading('inProgress', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-play-circle'"></i>
                   {{ isLoading('inProgress', booking.id) ? '...' : 'Start' }}
+                </button>            
+
+                <!-- Ready to Collect -->
+                <button *ngIf="booking.status === 'in_progress'" class="btn btn-warning btn-sm"
+                  (click)="openInvoice(booking)" [disabled]="isLoading('invoice', booking.id)" title="Generate Invoice">
+                  <i class="bi"
+                    [class]="isLoading('invoice', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-receipt'"></i>
+                  {{ isLoading('invoice', booking.id) ? '...' : 'Invoice' }}
                 </button>
 
                 <!-- In Progress -->
-                <button *ngIf="booking.status === 'in_progress'" class="btn btn-warning btn-sm"
+                <button *ngIf="booking.status === 'invoice_generated'" class="btn btn-warning btn-sm"
                   (click)="markReadyForCollection(booking)" [disabled]="isLoading('ready', booking.id)"
                   title="Mark as Ready for Collection">
                   <i class="bi"
@@ -278,22 +286,13 @@
                   {{ isLoading('ready', booking.id) ? '...' : 'Ready' }}
                 </button>
 
-                <!-- Ready to Collect -->
-                <button *ngIf="booking.status === 'ready_to_collect'" class="btn btn-warning btn-sm"
-                  (click)="openInvoice(booking)" [disabled]="isLoading('invoice', booking.id)" title="Generate Invoice">
-                  <i class="bi"
-                    [class]="isLoading('invoice', booking.id) ? 'spinner-border spinner-border-sm' : 'bi-receipt'"></i>
-                  {{ isLoading('invoice', booking.id) ? '...' : 'Invoice' }}
-                </button>
-
-
                 <button *ngIf="booking.status === 'invoice_generated' || booking.status === 'completed'"
                   class="btn btn-outline-success btn-sm" (click)="openInvoice(booking)" title="View Invoice">
                   <i class="bi  bi-file-earmark-text"></i> View Invoice
                 </button>
 
                 <!-- Invoice Generated -->
-                <button *ngIf="booking.status === 'invoice_generated' && booking.payment?.status !== 'paid'"
+                <button *ngIf="booking.status === 'ready_to_collect' && booking.payment?.status !== 'paid'"
                   class="btn btn-dark btn-sm" (click)="makePayment(booking)" title="Make Payment">
                   <i class="bi bi-cash-coin"></i> Make Payment
                 </button>

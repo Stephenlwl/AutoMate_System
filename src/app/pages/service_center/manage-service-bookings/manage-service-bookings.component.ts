@@ -702,16 +702,8 @@ async isBayAvailableForBooking(bayId: string, booking: any): Promise<boolean> {
     return booking && (booking.status === 'confirmed' || booking.status === 'assigned');
   }
 
-  canStartService(booking: any): boolean {
-    return booking && booking.status === 'assigned';
-  }
-
-  canMarkReady(booking: any): boolean {
-    return booking && booking.status === 'in_progress';
-  }
-
   canComplete(booking: any): boolean {
-    return booking && booking.status === 'ready_to_collect';
+    return booking && booking.status === 'in_progress';
   }
 
   canViewReceipt(booking: any): boolean {
@@ -993,11 +985,11 @@ async isBayAvailableForBooking(bayId: string, booking: any): Promise<boolean> {
         const url = `/service-invoice/${booking.invoiceId}/${this.auth.getAdminName?.() || 'system'}`;
         window.open(url, '_blank');
       } else {
-        if (booking.status === 'ready_to_collect') {
+        if (booking.status === 'in_progress') {
           const url = `/service-invoice/booking/${booking.id}/${this.auth.getAdminName?.() || 'system'}`;
           window.open(url, '_blank');
         } else {
-          alert('Cannot generate invoice. Booking must be in "Ready to Collect" status.');
+          alert('Cannot generate invoice. Booking must be in "in progress" status.');
         }
       }
     } catch (error) {
