@@ -7,7 +7,7 @@ import { AuthService } from '../auth/service-center-auth';
 import { Modal } from 'bootstrap';
 import { firstValueFrom, Subject, takeUntil } from 'rxjs';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { onSnapshot } from 'firebase/firestore'; 
+import { onSnapshot } from 'firebase/firestore';
 
 @Component({
   selector: 'app-manage-service-bookings',
@@ -27,6 +27,8 @@ export class ManageServiceBookingsComponent implements OnInit, OnDestroy {
   private viewDetailsModal: any;
   private assignModal: any;
   private bookingUnsubscribe: any;
+  availableBays: any[] = [];
+  loadingBays = false;
 
   private destroy$ = new Subject<void>();
 
@@ -558,6 +560,125 @@ export class ManageServiceBookingsComponent implements OnInit, OnDestroy {
     }
   }
 
+  async loadAvailableBaysForBooking(booking: any) {
+    this.loadingBays = true;
+    this.availableBays = [];
+
+    try {
+      await this.loadTechniciansAndBays();
+      const availabilityResults = [];
+      for (const bay of this.bays) {
+        const isAvailable = await this.isBayAvailableForBooking(bay.id, booking);
+        availabilityResults.push({
+          ...bay,
+          isAvailable: isAvailable
+        });
+      }
+      this.availableBays = availabilityResults;
+      if (this.selectedBay) {
+        const currentBay = this.availableBays.find(b => b.id === this.selectedBay);
+        if (!currentBay || !currentBay.isAvailable) {
+          const firstAvailable = this.availableBays.find(b => b.isAvailable);
+          this.selectedBay = firstAvailable ? firstAvailable.id : '';
+        }
+      }
+
+    } catch (error) {
+      console.error('Error loading available bays:', error);
+      this.availableBays = this.bays.map(bay => ({ ...bay, isAvailable: true }));
+    } finally {
+      this.loadingBays = false;
+    }
+  }
+
+async isBayAvailableForBooking(bayId: string, booking: any): Promise<boolean> {
+  try {
+    const scheduledDate = this.getBookingDate(booking);
+    const scheduledTime = booking.scheduledTime;
+    const duration = booking.estimatedDuration || 60;
+    const serviceCenterId = booking.serviceCenterId;
+
+    if (!scheduledDate || !scheduledTime || !serviceCenterId) {
+      console.warn('Missing required booking data:', { scheduledDate, scheduledTime, serviceCenterId });
+      return true;
+    }
+
+    // Parse the scheduled time
+    const [hours, minutes] = scheduledTime.split(':').map(Number);
+    const startDateTime = new Date(scheduledDate);
+    startDateTime.setHours(hours, minutes, 0, 0);
+    
+    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
+    const queryDate = new Date(scheduledDate);
+    
+    // Query for bookings on the same day, same bay, with active status
+    const overlappingBookingsQuery = query(
+      collection(this.firestore, 'service_bookings'),
+      where('serviceCenterId', '==', serviceCenterId),
+      where('scheduledDate', '==', Timestamp.fromDate(queryDate)),
+      where('bayId', '==', bayId),
+      where('status', 'in', ['assigned', 'in_progress', 'ready_to_collect', 'invoice_generated', 'approved'])
+    );
+
+    const overlappingBookings = await getDocs(overlappingBookingsQuery);
+
+    let overlapFound = false;
+
+    for (const doc of overlappingBookings.docs) {
+      const existingBooking = doc.data();
+      const existingBookingId = doc.id;
+
+      if (existingBookingId === booking.id) {
+        console.log('skipping current booking:', existingBookingId);
+        continue;
+      }
+
+      const existingTime = existingBooking['scheduledTime'];
+      const existingDuration = existingBooking['estimatedDuration'] || 60;
+
+      if (existingTime) {
+        const [existingHours, existingMinutes] = existingTime.split(':').map(Number);
+        
+        // Use the same scheduledDate (not queryDate) for time comparison
+        const existingStart = new Date(scheduledDate);
+        existingStart.setHours(existingHours, existingMinutes, 0, 0);
+        
+        const existingEnd = new Date(existingStart.getTime() + existingDuration * 60000);
+
+        // Check for time overlap
+        if (this.doTimeSlotsOverlap(startDateTime, endDateTime, existingStart, existingEnd)) {
+          overlapFound = true;
+          break;
+        } 
+      }
+    }
+    return !overlapFound;
+  } catch (error) {
+    console.error('Error in isBayAvailableForBooking:', error);
+    return false;
+  }
+}
+
+  private getBookingDate(booking: any): Date | null {
+    try {
+      if (booking.scheduledDate?.toDate) {
+        return booking.scheduledDate.toDate();
+      } else if (booking.scheduledDate instanceof Date) {
+        return booking.scheduledDate;
+      } else if (booking.scheduledDate?.seconds) {
+        return new Date(booking.scheduledDate.seconds * 1000);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error parsing booking date:', error);
+      return null;
+    }
+  }
+
+  doTimeSlotsOverlap(start1: Date, end1: Date, start2: Date, end2: Date): boolean {
+    return start1 < end2 && end1 > start2;
+  }
+
   async loadServiceOffers() {
     try {
       const scId = await this.auth.getServiceCenterId();
@@ -673,13 +794,14 @@ export class ManageServiceBookingsComponent implements OnInit, OnDestroy {
     }
   }
 
-  openAssignModal(booking: any) {
+  async openAssignModal(booking: any) {
     this.viewDetailsModal.hide();
-    setTimeout(() => {
+    setTimeout(async () => {
       this.selectedBooking = booking;
       this.selectedTechnician = booking.technicianId || '';
       this.selectedBay = booking.bayId || '';
       this.assignmentNotes = '';
+      await this.loadAvailableBaysForBooking(booking);
       this.assignModal.show();
     }, 300);
   }

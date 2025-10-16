@@ -58,11 +58,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let booking of todayBookings" 
-                  [class.table-warning]="booking.status === 'pending'"
-                  [class.table-info]="booking.status === 'confirmed' || booking.status === 'accepted'"
-                  [class.table-primary]="booking.status === 'assigned' || booking.status === 'dispatched'"
-                  [class.table-orange]="booking.status === 'in_progress' || booking.status === 'ongoing'">
+              <tr *ngFor="let booking of todayBookings" [class.table-warning]="booking.status === 'pending'"
+                [class.table-info]="booking.status === 'confirmed' || booking.status === 'accepted'"
+                [class.table-primary]="booking.status === 'assigned' || booking.status === 'dispatched'"
+                [class.table-orange]="booking.status === 'in_progress' || booking.status === 'ongoing'">
                 <td>
                   <span class="badge" [ngClass]="{
                     'bg-primary': booking.type === 'service',
@@ -120,4 +119,138 @@
     </div>
 
   </ng-container>
+
+  <div class="timeline-container">
+    <div class="controls">
+      <div class="date-navigation">
+        <button (click)="previousPeriod()" [disabled]="loading"><i class="bi bi-chevron-left"></i></button>
+        <button (click)="goToToday()" [disabled]="loading">Today</button>
+        <button (click)="nextPeriod()" [disabled]="loading"><i class="bi bi-chevron-right"></i></button>
+
+        <span class="current-period">
+          {{ currentStartDate.value | date:'mediumDate' }}
+          -
+          {{ getDateRange(selectedDateRange.value, currentStartDate.value)[getDateRange(selectedDateRange.value,
+          currentStartDate.value).length - 1] | date:'mediumDate' }}
+        </span>
+
+        <span class="operating-hours-info" *ngIf="overallStartTime && overallEndTime">
+          Operating Hours: {{ overallStartTime }} - {{ overallEndTime }}
+        </span>
+      </div>
+
+      <div class="view-options">
+        <button [class.active]="selectedDateRange.value === 'week'" (click)="setDateRange('week')" [disabled]="loading">
+          Week
+        </button>
+        <button [class.active]="selectedDateRange.value === 'month'" (click)="setDateRange('month')"
+          [disabled]="loading">
+          Month
+        </button>
+        <button [class.active]="selectedDateRange.value === 'year'" (click)="setDateRange('year')" [disabled]="loading">
+          Year
+        </button>
+      </div>
+      
+    </div>
+
+    <div *ngIf="loading" class="loading">
+      Loading timeline...
+    </div>
+
+    <!-- Timeline Table -->
+    <div *ngIf="!loading" class="timeline-table">
+      <table>
+        <thead>
+          <tr>
+            <th class="time-header">Time</th>
+            <th *ngFor="let day of schedule" [class.today]="day.isToday" [class.past]="day.isPast"
+              [class.closed]="!day.operatingHours" class="day-header">
+              <div class="day-name">{{ day.dayName }}</div>
+              <div class="date">{{ day.date | date:'MMM d' }}</div>
+              <div class="day-operating-hours" *ngIf="day.operatingHours">
+                {{ day.operatingHours.open }} - {{ day.operatingHours.close }}
+              </div>
+              <div class="day-closed" *ngIf="!day.operatingHours">
+                Closed
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <ng-container *ngFor="let timeSlot of getUniqueTimeSlots()">
+            <tr>
+              <td class="time-slot-header">{{ timeSlot }}</td>
+              <td *ngFor="let day of schedule" class="time-slot-cell"
+                [class.available]="getSlotForDayAndTime(day, timeSlot)?.isAvailable"
+                [class.booked]="(getSlotForDayAndTime(day, timeSlot)?.bookings?.length || 0) > 0"
+                [class.non-operating]="!getSlotForDayAndTime(day, timeSlot)?.isOperatingHour"
+                [class.multiple-bookings]="(getSlotForDayAndTime(day, timeSlot)?.bookings?.length || 0) > 1">
+
+                <!-- Show multiple bookings if they exist -->
+                <div *ngIf="(getSlotForDayAndTime(day, timeSlot)?.bookings?.length || 0) > 0"
+                  class="booking-info-container">
+                  <div *ngFor="let booking of getSlotForDayAndTime(day, timeSlot)?.bookings; let i = index"
+                    class="booking-info" [class]="'booking-status-' + booking.status + ' booking-index-' + (i % 5)"
+                    [title]="getBookingTooltip(booking)">
+                    <div class="booking-details">
+                      <div class="booking-header">
+                        <span class="vehicle-info">
+                          {{ getVehicleShortDisplay(booking) }}
+                        </span>
+                        <span class="booking-status-badge" [ngClass]="getStatusBadgeClass(booking.status)">
+                          {{ getStatusShortDisplay(booking.status) }}
+                        </span>
+                      </div>
+                      <div class="booking-meta">
+                        <span class="bay-info" *ngIf="booking.bayId">
+                          <i class="bi bi-geo-fill"></i> {{ getBayName(booking.bayId) }}
+                        </span>
+                        <span class="duration-info" *ngIf="booking.estimatedDuration">
+                          <i class="bi bi-clock"></i> {{ booking.estimatedDuration }}m
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Show available bays count when slot is available -->
+                <div *ngIf="getSlotForDayAndTime(day, timeSlot)?.isOperatingHour && 
+                    (getSlotForDayAndTime(day, timeSlot)?.bookings?.length || 0) === 0" class="available-label">
+                  <div>Available</div>
+                  <small class="available-bays-count">
+                    {{ getAvailableBaysCountForSlot(day, timeSlot) }}/{{ bays.length }} bays
+                  </small>
+                </div>
+
+                <div *ngIf="!getSlotForDayAndTime(day, timeSlot)?.isOperatingHour && day.operatingHours"
+                  class="non-operating-label">
+                  -
+                </div>
+
+                <div *ngIf="!day.operatingHours" class="closed-label">
+                  Closed
+                </div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="color-box available"></div>
+        <span>Available</span>
+      </div>
+      <div class="legend-item">
+        <div class="color-box booked"></div>
+        <span>Booked</span>
+      </div>
+      <div class="legend-item">
+        <div class="color-box non-operating"></div>
+        <span>Closed/Non-operating</span>
+      </div>
+    </div>
+  </div>
 </div>
