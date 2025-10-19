@@ -109,7 +109,6 @@ export class ValidateUserAccountsComponent implements OnInit {
           return '';
         }
       }
-
       // build cipher params and decrypt
       const cipherParams = CryptoJS.lib.CipherParams.create({
         ciphertext: CryptoJS.enc.Base64.parse(encryptedFile.replace(/\s+/g, '')),
@@ -120,11 +119,7 @@ export class ValidateUserAccountsComponent implements OnInit {
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7,
       });
-
-      console.debug('decryptFile: decrypted hex (first 80 chars):', decrypted.toString(CryptoJS.enc.Hex).slice(0, 80));
-      console.debug('decryptFile: decrypted base64 (first 80 chars):', decrypted.toString(CryptoJS.enc.Base64).slice(0, 80));
-
-      // interpreting decrypted as UTF-8 base64 text encrypt base64 text flow
+    // interpreting decrypted as UTF-8 base64 text encrypt base64 text flow
       try {
         const maybeText = CryptoJS.enc.Utf8.stringify(decrypted);
         if (maybeText && this.isLikelyBase64(maybeText)) {
@@ -176,7 +171,7 @@ export class ValidateUserAccountsComponent implements OnInit {
       });
 
       await this.http.post<any>(
-        'http://localhost:3000/sendNotification/approve',
+        'http://localhost:3000/sendCarOwnerNotification/approve',
         { toEmail: userEmail }
       ).toPromise();
 
@@ -209,7 +204,7 @@ export class ValidateUserAccountsComponent implements OnInit {
       });
 
       await this.http.post<any>(
-        'http://localhost:3000/sendNotification/reject',
+        'http://localhost:3000/sendCarOwnerNotification/reject',
         {
           toEmail: userEmail,
           rejectionReason: reason

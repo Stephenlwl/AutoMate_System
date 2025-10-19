@@ -452,7 +452,6 @@ export class ServiceCenterDashboardComponent implements OnInit, OnDestroy {
       const serviceCenterData = await this.loadServiceCenterData();
       const bookings = await this.loadBookings(range, startDate);
       this.generateTimeline(range, startDate, serviceCenterData, bookings);
-      this.debugTimeSlotBookings();
     } catch (error) {
       console.error('Failed to load timeline data', error);
       alert('Failed to load timeline data: ' + error);
@@ -536,7 +535,7 @@ export class ServiceCenterDashboardComponent implements OnInit, OnDestroy {
   }
 
   createDaySchedule(date: Date, serviceCenterData: any, bookings: ServiceBooking[]): DaySchedule {
-    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const dayName = date.toLocaleDateString('en-MY', { weekday: 'long' });
     const dateString = date.toISOString().split('T')[0];
 
     const isSpecialClosure = serviceCenterData.specialClosures?.some(
@@ -552,7 +551,7 @@ export class ServiceCenterDashboardComponent implements OnInit, OnDestroy {
     const daySchedule: DaySchedule = {
       date: date,
       dateString: dateString,
-      dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      dayName: date.toLocaleDateString('en-MY', { weekday: 'short' }),
       isToday: this.isToday(date),
       isPast: this.isPast(date),
       timeSlots: [],
@@ -710,18 +709,6 @@ export class ServiceCenterDashboardComponent implements OnInit, OnDestroy {
       return overlaps;
     });
     return overlappingBookings;
-  }
-
-  debugTimeSlotBookings() {
-    this.schedule.forEach(day => {
-
-      day.timeSlots.forEach(slot => {
-        if (slot.bookings && slot.bookings.length > 0) {
-          slot.bookings.forEach((booking, index) => {
-          });
-        }
-      });
-    });
   }
 
   getOccupiedBaysForTimeSlot(bookings: any[]): string[] {

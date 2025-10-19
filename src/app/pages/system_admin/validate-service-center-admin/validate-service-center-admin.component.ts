@@ -147,7 +147,7 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
       });
 
       await this.http.post<any>(
-        'http://localhost:3000/sendNotification/approve',
+        'http://localhost:3000/sendServiceCenterNotification/approve',
         { toEmail: adminEmail }
       ).toPromise();
 
@@ -184,7 +184,7 @@ export class ValidateServiceCenterAdminComponent implements OnInit {
       });
 
       await this.http.post<any>(
-        'http://localhost:3000/sendNotification/reject',
+        'http://localhost:3000/sendServiceCenterNotification/reject',
         {
           toEmail: this.selectedAdminEmail,
           rejectionReason: this.rejectionReason
