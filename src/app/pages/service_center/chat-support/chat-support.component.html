@@ -43,18 +43,12 @@
               </div>
             </div>
 
-            <div class="channel-details small text-muted mb-1">
-              <span *ngIf="channel.customer_info" class="customer-name text-truncate d-block">
-                <i class="bi bi-person me-1"></i>{{ channel.customer_info.name }}
-              </span>
-              <span class="channel-type badge" [class]="getChannelBadgeClass(channel.host_by)">
-                {{ getChannelTypeLabel(channel.host_by) }}
-              </span>
+            <!-- <div class="channel-details small text-muted mb-1 d-flex">
               <button class="btn btn-sm btn-outline-danger delete-btn ms-2"
                 (click)="confirmDeleteChannel(channel.id, $event)" title="Delete Channel">
                 Delete
               </button>
-            </div>
+            </div> -->
 
             <div class="last-message-time small text-muted">
               <i class="bi bi-clock me-1"></i>
@@ -79,7 +73,7 @@
         <i class="bi bi-chat fa-4x mb-4 opacity-50"></i>
         <h3 class="h4 mb-2">Select a conversation</h3>
         <p class="mb-4">Choose a conversation from the sidebar or start a new one</p>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-3 justify-content-center">
           <button class="btn btn-outline-primary" (click)="startAdminChat()">
             <i class="bi bi-headset me-2"></i>Contact Admin Support
           </button>
@@ -97,9 +91,6 @@
               {{ selectedChannelData.name }}
             </h5>
             <div class="chat-subtitle small text-muted">
-              <span *ngIf="selectedChannelData.customer_info">
-                <i class="bi bi-person me-1"></i>Customer: {{ selectedChannelData.customer_info.name }}
-              </span>
               <span *ngIf="selectedChannelData.customer_info?.email" class="ms-2">
                 <i class="bi bi-envelope me-1"></i>{{ selectedChannelData.customer_info?.email }}
               </span>

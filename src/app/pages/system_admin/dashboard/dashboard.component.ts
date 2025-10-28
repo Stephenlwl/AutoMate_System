@@ -23,13 +23,29 @@ export class DashboardComponent {
     ).pipe(map(data => ({ label: 'Car Owner Pending Accounts', value: data.length, icon: 'bi bi-person-check' })));
 
     const carRepairServiceCenterPending$ = collectionData(
-       query(collection(this.firestore, 'service_centers'), where("verification.status", "==", "pending"))
+      query(collection(this.firestore, 'service_centers'), where("verification.status", "==", "pending"))
     ).pipe(map(data => ({ label: 'Car Repair Service Center Pending Accounts', value: data.length, icon: 'bi bi-tools' })));
 
     const vehiclesPending$ = collectionData(
-      query(collection(this.firestore, 'vehicles'), where('status', '==', 'pending'))
-    ).pipe(map(data => ({ label: 'Pending Vehicles', value: data.length, icon: 'bi bi-car-front' })));
+      collection(this.firestore, 'car_owners')
+    ).pipe(map((carOwners: any[]) => {
+      const pendingVehiclesCount = carOwners.reduce((count, carOwner) => {
+        if (carOwner.vehicles && Array.isArray(carOwner.vehicles)) {
+          const pendingVehicles = carOwner.vehicles.filter((vehicle: any) =>
+            vehicle.status === 'pending'
+          );
+          return count + pendingVehicles.length;
+        }
+        return count;
+      }, 0);
 
+      return {
+        label: 'Pending Vehicles',
+        value: pendingVehiclesCount,
+        icon: 'bi bi-car-front'
+      };
+    })
+    );
     const reviews$ = collectionData(
       query(collection(this.firestore, 'reviews'), where('status', '==', 'approved'))
     ).pipe(map(data => ({ label: 'Reviews to Moderate', value: data.length, icon: 'bi bi-chat-left-text' })));

@@ -3,6 +3,7 @@ import { Firestore, doc, getDoc, updateDoc, collection, query, where, getDocs, s
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormArray } from '@angular/forms';
 import { AuthService } from '../auth/service-center-auth';
 import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
 
 interface SizePricing {
   sizeClass: string;
@@ -42,7 +43,7 @@ interface TowingConfig {
 @Component({
   selector: 'app-manage-towing-services',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule],
   templateUrl: './manage-towing-services.component.html',
   styleUrls: ['./manage-towing-services.component.css']
 })

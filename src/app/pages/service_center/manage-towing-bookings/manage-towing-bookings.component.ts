@@ -178,24 +178,20 @@ export class ManageTowingBookingsComponent implements OnInit, OnDestroy {
       collection(this.firestore, 'towing_requests'),
       where('serviceCenterId', '==', this.serviceCenterId),
       orderBy('createdAt', 'desc'),
-      limit(20)
+      // limit(20)
     );
 
     console.log('Setting up towing requests listener for service center:', this.serviceCenterId);
-
-    let isFirstLoad = true;
 
     this.towingRequestsUnsubscribe = onSnapshot(
       q,
       async (snapshot: QuerySnapshot<DocumentData>) => {
 
         // Skip the first load if it has very few documents due to likely cached data
-        if (isFirstLoad && snapshot.docs.length < 5) {
-          isFirstLoad = false;
-          return;
-        }
-
-        isFirstLoad = false;
+        // if (isFirstLoad && snapshot.docs.length < 5) {
+        //   isFirstLoad = false;
+        //   return;
+        // }
 
         this.lastVisible = snapshot.docs[snapshot.docs.length - 1];
         this.hasMoreData = snapshot.docs.length === 20;
@@ -254,8 +250,7 @@ export class ManageTowingBookingsComponent implements OnInit, OnDestroy {
         collection(this.firestore, 'towing_requests'),
         where('serviceCenterId', '==', this.serviceCenterId),
         orderBy('createdAt', 'desc'),
-        startAfter(this.lastVisible),
-        limit(20)
+        // limit(20)
       );
 
       const requestsSnap = await getDocs(q);

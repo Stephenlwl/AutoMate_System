@@ -280,7 +280,7 @@ export class ManageServiceBookingsComponent implements OnInit, OnDestroy {
         collection(this.firestore, 'service_bookings'),
         where('serviceCenterId', '==', scId),
         orderBy('createdAt', 'desc'),
-        limit(20)
+        // limit(20)
       );
 
       // Use onSnapshot for real-time updates

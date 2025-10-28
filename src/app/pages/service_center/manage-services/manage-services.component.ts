@@ -2508,6 +2508,7 @@ export class ServiceCenterServiceComponent implements OnInit {
       try {
         await deleteDoc(doc(this.firestore, 'service_packages', pkg.id));
         console.log('Package deleted successfully');
+        this.loadSavedPackages();
       } catch (err) {
         console.error('Error deleting package:', err);
       }
@@ -2563,6 +2564,7 @@ export class ServiceCenterServiceComponent implements OnInit {
       alert('Service Package created successfully!');
       // reset form
       this.packageForm = { name: '', description: '', services: [] };
+      this.loadSavedPackages();
     } catch (error) {
       console.error('Error creating service package:', error);
       alert('Failed to create service package');
@@ -2574,7 +2576,12 @@ export class ServiceCenterServiceComponent implements OnInit {
   // tab of new vehicle requests
   async loadVehiclesRequests() {
     const requestsRef = collection(this.firestore, 'vehicle_attribute_requests');
-    const snap = await getDocs(requestsRef);
+    const q = query(
+      requestsRef,
+      where('serviceCenterId', '==', this.serviceCenterId),
+      orderBy('requestedAt', 'desc')
+    );
+    const snap = await getDocs(q);
     this.pendingRequests = snap.docs
       .map(docSnap => {
         const data = docSnap.data() as VehicleRequest;
