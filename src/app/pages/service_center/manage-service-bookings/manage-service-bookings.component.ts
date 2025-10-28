@@ -551,7 +551,8 @@ export class ManageServiceBookingsComponent implements OnInit, OnDestroy {
       // Load bays
       const ba = await getDocs(query(
         collection(this.firestore, 'bays'),
-        where('serviceCenterId', '==', scId)
+        where('serviceCenterId', '==', scId),
+        where('active', '==', true)
       ));
       this.bays = ba.docs.map(d => ({ id: d.id, ...d.data() }));
       this.bayMap = Object.fromEntries(this.bays.map(b => [b.id, b.name || b.id]));

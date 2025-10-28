@@ -207,6 +207,7 @@ export class ManageStaffTowingDriverComponent {
       const data = await firstValueFrom(
         this.http.post<any>('http://localhost:3000/sendPasswordEmail/send', {
           toEmail: this.staffForm.value.email,
+          toUserName: this.staffForm.value.name,
           requestId: staff.docs[0].id,
           type: 'staff'
         })
@@ -253,6 +254,7 @@ export class ManageStaffTowingDriverComponent {
       const data = await firstValueFrom(
         this.http.post<any>('http://localhost:3000/sendPasswordEmail/send', {
           toEmail: this.driverForm.value.email,
+          toUserName: this.driverForm.value.name,
           requestId: driver.docs[0].id,
           type: 'driver'
         })
